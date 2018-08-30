@@ -34,7 +34,7 @@ public struct AuthoritySystem
 
         ushort localOwnershipSequence = networkInfo.GetOwnershipSequence();
         ushort localAuthoritySequence = networkInfo.GetAuthoritySequence();
-        int localAuthorityIndex = networkInfo.GetAuthorityIndex();
+        int localAuthorityIndex = networkInfo.GetAuthorityId();
 
         // *** OWNERSHIP SEQUENCE ***
 

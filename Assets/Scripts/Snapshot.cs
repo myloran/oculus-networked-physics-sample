@@ -332,7 +332,7 @@ public class Snapshot
     {
         cubeState.active = !rigidBody.IsSleeping();
 
-        cubeState.authorityIndex = networkInfo.GetAuthorityIndex();
+        cubeState.authorityIndex = networkInfo.GetAuthorityId();
         cubeState.authoritySequence = networkInfo.GetAuthoritySequence();
         cubeState.ownershipSequence = networkInfo.GetOwnershipSequence();
 
@@ -366,7 +366,7 @@ public class Snapshot
     public static void ApplyCubeState( Rigidbody rigidBody, NetworkInfo networkInfo, ref CubeState cubeState, ref Vector3 origin, bool smoothing = false )
     {
         if ( networkInfo.IsHeldByPlayer() )
-            networkInfo.DetachCubeFromPlayer();
+            networkInfo.DetachCube();
 
         if ( cubeState.active )
         {
@@ -380,7 +380,7 @@ public class Snapshot
                 rigidBody.Sleep();
         }
 
-        networkInfo.SetAuthorityIndex( cubeState.authorityIndex );
+        networkInfo.SetAuthorityId( cubeState.authorityIndex );
         networkInfo.SetAuthoritySequence( cubeState.authoritySequence );
         networkInfo.SetOwnershipSequence( cubeState.ownershipSequence );
 

@@ -186,31 +186,31 @@ public class Common: MonoBehaviour
 
     protected void UpdateJitterBuffer( Context context, Context.ConnectionData connectionData )
     {
-        if ( !connectionData.firstRemotePacket )
-            connectionData.remoteFrameNumber++;
+        if ( !connectionData.isFirstPacket )
+            connectionData.frame++;
     }
 
     protected void AddStateUpdatePacketToJitterBuffer( Context context, Context.ConnectionData connectionData, byte[] packetData )
     {
         long packetFrameNumber;
 
-        if ( connectionData.jitterBuffer.AddStateUpdatePacket( packetData, connectionData.receiveDeltaBuffer, context.GetResetSequence(), out packetFrameNumber ) )
+        if ( connectionData.jitterBuffer.AddStateUpdatePacket( packetData, connectionData.receiveBuffer, context.GetResetSequence(), out packetFrameNumber ) )
         {
-            if ( connectionData.firstRemotePacket )
+            if ( connectionData.isFirstPacket )
             {
-                connectionData.firstRemotePacket = false;
-                connectionData.remoteFrameNumber = packetFrameNumber - Constants.NumJitterBufferFrames;
-                connectionData.jitterBuffer.Start( connectionData.remoteFrameNumber );
+                connectionData.isFirstPacket = false;
+                connectionData.frame = packetFrameNumber - Constants.NumJitterBufferFrames;
+                connectionData.jitterBuffer.Start( connectionData.frame );
             }
         }
     }
 
     protected void ProcessStateUpdateFromJitterBuffer( Context context, Context.ConnectionData connectionData, int fromClientIndex, int toClientIndex, bool applySmoothing = true )
     {
-        if ( connectionData.remoteFrameNumber < 0 )
+        if ( connectionData.frame < 0 )
             return;
 
-        JitterBufferEntry entry = connectionData.jitterBuffer.GetEntry( (uint) connectionData.remoteFrameNumber );
+        JitterBufferEntry entry = connectionData.jitterBuffer.GetEntry( (uint) connectionData.frame );
         if ( entry == null )
             return;
 
@@ -240,7 +240,7 @@ public class Common: MonoBehaviour
 
         // add the cube states to the receive delta buffer
 
-        AddPacketToDeltaBuffer( ref connectionData.receiveDeltaBuffer, entry.packetHeader.sequence, context.GetResetSequence(), entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState );
+        AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, entry.packetHeader.sequence, context.GetResetSequence(), entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState );
 
         // apply the state updates to cubes
 
@@ -397,7 +397,7 @@ public class Common: MonoBehaviour
             cubeDelta[i].absolute_position_z = cubeState[i].position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-            if ( context.GetMostRecentAckedState( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
+            if ( context.GetAck( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
             {
                 if ( Network.Util.BaselineDifference( currentSequence, baselineSequence[i] ) > Constants.MaxBaselineDifference )
                 {
@@ -526,7 +526,7 @@ public class Common: MonoBehaviour
             if ( !cubeState[i].active )
                 continue;
 
-            if ( context.GetMostRecentAckedState( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
+            if ( context.GetAck( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
             {
                 if ( Network.Util.BaselineDifference( currentSequence, baselineSequence[i] ) <= Constants.MaxBaselineDifference )
                 {
@@ -823,13 +823,13 @@ public class Common: MonoBehaviour
         return result;
     }
 
-    protected void ProcessAcksForConnection( Context context, Context.ConnectionData connectionData )
+    protected void ProcessAcksForConnection( Context context, Context.ConnectionData data )
     {
         Profiler.BeginSample( "ProcessAcksForConnection" );
 
         int numAcks = 0;
 
-        connectionData.connection.GetAcks( ref acks, ref numAcks );
+        data.connection.GetAcks( ref acks, ref numAcks );
 
         for ( int i = 0; i < numAcks; ++i )
         {
@@ -837,11 +837,11 @@ public class Common: MonoBehaviour
             int[] packetCubeIds;
             CubeState[] packetCubeState;
 
-            if ( connectionData.sendDeltaBuffer.GetPacketData( acks[i], context.GetResetSequence(), out packetNumCubeStates, out packetCubeIds, out packetCubeState ) )
+            if ( data.sendBuffer.GetPacketData( acks[i], context.GetResetSequence(), out packetNumCubeStates, out packetCubeIds, out packetCubeState ) )
             {
                 for ( int j = 0; j < packetNumCubeStates; ++j )
                 {
-                    context.UpdateMostRecentAckedState( connectionData, packetCubeIds[j], acks[i], context.GetResetSequence(), ref packetCubeState[j] );
+                    context.UpdateAck( data, packetCubeIds[j], acks[i], context.GetResetSequence(), ref packetCubeState[j] );
                 }
             }
         }

@@ -144,7 +144,7 @@ public class RemoteAvatar : OvrAvatarDriver
         {
             // while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
             NetworkInfo networkInfo = hand.gripObject.GetComponent<NetworkInfo>();
-            networkInfo.SetLastPlayerInteractionFrame( (long) context.GetSimulationFrame() );
+            networkInfo.SetLastFrame( (long) context.GetSimulationFrame() );
         }
     }
 

@@ -286,14 +286,14 @@ public class Guest: Common
         Assert.IsTrue( clientIndex >= 1 );
         Assert.IsTrue( clientIndex < Constants.MaxClients );
 
-        localAvatar.transform.position = context.GetRemoteAvatar( clientIndex ).gameObject.transform.position;
-        localAvatar.transform.rotation = context.GetRemoteAvatar( clientIndex ).gameObject.transform.rotation;
+        localAvatar.transform.position = context.GetAvatar( clientIndex ).gameObject.transform.position;
+        localAvatar.transform.rotation = context.GetAvatar( clientIndex ).gameObject.transform.rotation;
 
         state = GuestState.Connected;
 
         this.clientIndex = clientIndex;
 
-        context.Initialize( clientIndex );
+        context.Init( clientIndex );
 
         OnConnectToServer( clientIndex );
     }
@@ -330,7 +330,7 @@ public class Guest: Common
 
         for ( int i = 0; i < Constants.MaxClients; ++i )
         {
-            context.HideRemoteAvatar( i );
+            context.HideAvatar( i );
         }
 
         successfullyConnected = true;
@@ -340,7 +340,7 @@ public class Guest: Common
     {
         Debug.Log( "Disconnected from server" );
 
-        context.GetClientConnectionData().Reset();
+        context.GetClientData().Reset();
 
         context.SetResetSequence( 0 );
 
@@ -425,7 +425,7 @@ public class Guest: Common
         {
             // apply guest avatar state at render time with interpolation
 
-            Context.ConnectionData connectionData = context.GetClientConnectionData();
+            Context.ConnectionData connectionData = context.GetClientData();
             int numInterpolatedAvatarStates;
             ushort avatarResetSequence;
             if ( connectionData.jitterBuffer.GetInterpolatedAvatarState( ref interpolatedAvatarState, out numInterpolatedAvatarStates, out avatarResetSequence ) )
@@ -438,7 +438,7 @@ public class Guest: Common
 
             // advance jitter buffer time
 
-            context.GetClientConnectionData().jitterBuffer.AdvanceTime( Time.deltaTime );
+            context.GetClientData().jitterBuffer.AdvanceTime( Time.deltaTime );
         }
 
         if ( state == GuestState.WaitingForRetry && timeRetryStarted + RetryTime < renderTime )
@@ -498,7 +498,7 @@ public class Guest: Common
         if ( !IsConnectedToServer() )
             return;
 
-        Context.ConnectionData connectionData = context.GetClientConnectionData();
+        Context.ConnectionData connectionData = context.GetClientData();
 
         byte[] packetData = GenerateStateUpdatePacket( connectionData, (float) ( physicsTime - renderTime ) );
 
@@ -532,11 +532,11 @@ public class Guest: Common
             {
                 if ( enableJitterBuffer )
                 {
-                    AddStateUpdatePacketToJitterBuffer( context, context.GetClientConnectionData(), readBuffer );
+                    AddStateUpdatePacketToJitterBuffer( context, context.GetClientData(), readBuffer );
                 }
                 else
                 {
-                    ProcessStateUpdatePacket( context.GetClientConnectionData(), readBuffer );
+                    ProcessStateUpdatePacket( context.GetClientData(), readBuffer );
                 }
             }
 
@@ -547,17 +547,17 @@ public class Guest: Common
 
         if ( enableJitterBuffer && IsConnectedToServer() )
         {
-            ProcessStateUpdateFromJitterBuffer( context, context.GetClientConnectionData(), 0, clientIndex, enableJitterBuffer && renderTime > timeConnected + 0.25 );
+            ProcessStateUpdateFromJitterBuffer( context, context.GetClientData(), 0, clientIndex, enableJitterBuffer && renderTime > timeConnected + 0.25 );
         }
 
         // advance remote frame number
 
         if ( IsConnectedToServer() )
         {
-            Context.ConnectionData connectionData = context.GetClientConnectionData();
+            Context.ConnectionData connectionData = context.GetClientData();
 
-            if ( !connectionData.firstRemotePacket )
-                connectionData.remoteFrameNumber++;
+            if ( !connectionData.isFirstPacket )
+                connectionData.frame++;
         }
     }
 
@@ -597,7 +597,7 @@ public class Guest: Common
 
         byte[] packetData = writeStream.GetData();
 
-        AddPacketToDeltaBuffer( ref connectionData.sendDeltaBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubeState );
+        AddPacketToDeltaBuffer( ref connectionData.sendBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubeState );
 
         context.ResetCubePriority( connectionData, numStateUpdates, cubeIds );
 
@@ -665,11 +665,11 @@ public class Guest: Common
     {
         Debug.Log( userName + " connected as client " + clientIndex );
 
-        context.ShowRemoteAvatar( clientIndex );
+        context.ShowAvatar( clientIndex );
 
         Voip.Start( userId );
 
-        var headGameObject = context.GetRemoteAvatarHead( clientIndex );
+        var headGameObject = context.GetAvatarHead( clientIndex );
         var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
         if ( !audioSource )
             audioSource = headGameObject.AddComponent<VoipAudioSourceHiLevel>();
@@ -680,14 +680,14 @@ public class Guest: Common
     {
         Debug.Log( userName + " disconnected" );
 
-        var headGameObject = context.GetRemoteAvatarHead( clientIndex );
+        var headGameObject = context.GetAvatarHead( clientIndex );
         var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
         if ( audioSource )
             audioSource.senderID = 0;
 
         Voip.Stop( userId );
 
-        context.HideRemoteAvatar( clientIndex );
+        context.HideAvatar( clientIndex );
     }
 
     public void ProcessStateUpdatePacket( Context.ConnectionData connectionData, byte[] packetData )
@@ -721,15 +721,15 @@ public class Guest: Common
             
             // decode the predicted cube states from baselines
 
-            DecodePrediction( connectionData.receiveDeltaBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readPredictionDelta );
+            DecodePrediction( connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readPredictionDelta );
 
             // decode the not changed and delta cube states from baselines
 
-            DecodeNotChangedAndDeltas( connectionData.receiveDeltaBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta );
+            DecodeNotChangedAndDeltas( connectionData.receiveBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta );
 
             // add the cube states to the receive delta buffer
 
-            AddPacketToDeltaBuffer( ref connectionData.receiveDeltaBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubeState );
+            AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubeState );
 
             // apply the state updates to cubes
 
@@ -754,7 +754,7 @@ public class Guest: Common
     {
         Profiler.BeginSample( "Process Acks" );
         {
-            Context.ConnectionData connectionData = context.GetClientConnectionData();
+            Context.ConnectionData connectionData = context.GetClientData();
 
             ProcessAcksForConnection( context, connectionData );
         }

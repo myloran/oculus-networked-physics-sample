@@ -71,7 +71,7 @@ public class Host : Common
         for ( int i = 0; i < Constants.MaxClients; ++i )
             client[i].Reset();
 
-        context.Initialize( 0 );
+        context.Init( 0 );
 
         context.SetResetSequence( 100 );
 
@@ -100,11 +100,11 @@ public class Host : Common
         Assert.IsNotNull( localAvatar );
 
         for ( int i = 0; i < Constants.MaxClients; ++i )
-            context.HideRemoteAvatar( i );
+            context.HideAvatar( i );
 
         localAvatar.GetComponent<Avatar>().SetContext( context.GetComponent<Context>() );
-        localAvatar.transform.position = context.GetRemoteAvatar( 0 ).gameObject.transform.position;
-        localAvatar.transform.rotation = context.GetRemoteAvatar( 0 ).gameObject.transform.rotation;
+        localAvatar.transform.position = context.GetAvatar( 0 ).gameObject.transform.position;
+        localAvatar.transform.rotation = context.GetAvatar( 0 ).gameObject.transform.rotation;
     }
 
     void GetEntitlementCallback( Message msg )
@@ -285,11 +285,11 @@ public class Host : Common
     {
         Debug.Log( client[clientIndex].oculusId + " joined the game as client " + clientIndex );
 
-        context.ShowRemoteAvatar( clientIndex );
+        context.ShowAvatar( clientIndex );
 
         Voip.Start( client[clientIndex].userId );
 
-        var headGameObject = context.GetRemoteAvatarHead( clientIndex );
+        var headGameObject = context.GetAvatarHead( clientIndex );
         var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
         if ( !audioSource )
             audioSource = headGameObject.AddComponent<VoipAudioSourceHiLevel>();
@@ -300,18 +300,18 @@ public class Host : Common
     {
         Debug.Log( client[clientIndex].oculusId + " left the game" );
 
-        var headGameObject = context.GetRemoteAvatarHead( clientIndex );
+        var headGameObject = context.GetAvatarHead( clientIndex );
         var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
         if ( audioSource )
             audioSource.senderID = 0;
 
         Voip.Stop( client[clientIndex].userId );
         
-        context.HideRemoteAvatar( clientIndex );
+        context.HideAvatar( clientIndex );
 
-        context.ResetAuthorityForClientCubes( clientIndex );
+        context.ResetAuthority( clientIndex );
 
-        context.GetServerConnectionData( clientIndex ).Reset();
+        context.GetServerData( clientIndex ).Reset();
     }
 
     void ConnectionStateChangedCallback( Message<NetworkingPeer> msg )
@@ -386,7 +386,7 @@ public class Host : Common
             if ( client[i].state != ClientState.Connected )
                 continue;
 
-            Context.ConnectionData connectionData = context.GetServerConnectionData( i );
+            Context.ConnectionData connectionData = context.GetServerData( i );
 
             int fromClientIndex = i;
             int toClientIndex = 0;
@@ -408,7 +408,7 @@ public class Host : Common
         {
             if ( client[i].state == ClientState.Connected )
             {
-                context.GetServerConnectionData( i ).jitterBuffer.AdvanceTime( Time.deltaTime );
+                context.GetServerData( i ).jitterBuffer.AdvanceTime( Time.deltaTime );
             }
         }
 
@@ -486,7 +486,7 @@ public class Host : Common
             {
                 if ( enableJitterBuffer )
                 {
-                    AddStateUpdatePacketToJitterBuffer( context, context.GetServerConnectionData( clientIndex ), readBuffer );
+                    AddStateUpdatePacketToJitterBuffer( context, context.GetServerData( clientIndex ), readBuffer );
                 }
                 else
                 {
@@ -507,7 +507,7 @@ public class Host : Common
             {
                 if ( client[i].state == ClientState.Connected )
                 {
-                    ProcessStateUpdateFromJitterBuffer( context, context.GetServerConnectionData( i ), i, 0, enableJitterBuffer );
+                    ProcessStateUpdateFromJitterBuffer( context, context.GetServerData( i ), i, 0, enableJitterBuffer );
                 }
             }
         }
@@ -518,10 +518,10 @@ public class Host : Common
         {
             if ( client[i].state == ClientState.Connected )
             {
-                Context.ConnectionData connectionData = context.GetServerConnectionData( i );
+                Context.ConnectionData connectionData = context.GetServerData( i );
 
-                if ( !connectionData.firstRemotePacket )
-                    connectionData.remoteFrameNumber++;
+                if ( !connectionData.isFirstPacket )
+                    connectionData.frame++;
             }
         }
     }
@@ -533,7 +533,7 @@ public class Host : Common
             if ( !IsClientConnected( clientIndex ) )
                 continue;
 
-            Context.ConnectionData connectionData = context.GetServerConnectionData( clientIndex );
+            Context.ConnectionData connectionData = context.GetServerData( clientIndex );
 
             byte[] packetData = GenerateStateUpdatePacket( connectionData, clientIndex, (float) ( physicsTime - renderTime ) );
 
@@ -628,7 +628,7 @@ public class Host : Common
             {
                 // grab state from a remote avatar.
 
-                var remoteAvatar = context.GetRemoteAvatar( i );
+                var remoteAvatar = context.GetAvatar( i );
 
                 if ( remoteAvatar )
                 {
@@ -645,7 +645,7 @@ public class Host : Common
 
         // add the sent cube states to the send delta buffer
 
-        AddPacketToDeltaBuffer( ref connectionData.sendDeltaBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubeState );
+        AddPacketToDeltaBuffer( ref connectionData.sendBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubeState );
 
         // reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
 
@@ -659,7 +659,7 @@ public class Host : Common
         int readNumAvatarStates = 0;
         int readNumStateUpdates = 0;
 
-        Context.ConnectionData connectionData = context.GetServerConnectionData( fromClientIndex );
+        Context.ConnectionData connectionData = context.GetServerData( fromClientIndex );
 
         Network.PacketHeader readPacketHeader;
 
@@ -677,15 +677,15 @@ public class Host : Common
 
             // decode the predicted cube states from baselines
 
-            DecodePrediction( connectionData.receiveDeltaBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readPredictionDelta );
+            DecodePrediction( connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readPredictionDelta );
 
             // decode the not changed and delta cube states from baselines
 
-            DecodeNotChangedAndDeltas( connectionData.receiveDeltaBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta );
+            DecodeNotChangedAndDeltas( connectionData.receiveBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta );
 
             // add the cube states to the receive delta buffer
 
-            AddPacketToDeltaBuffer( ref connectionData.receiveDeltaBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubeState );
+            AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubeState );
 
             // apply the state updates to cubes
 
@@ -709,7 +709,7 @@ public class Host : Common
             {
                 for ( int i = 1; i < Constants.MaxClients; ++i )
                 {
-                    Context.ConnectionData connectionData = context.GetServerConnectionData( i );
+                    Context.ConnectionData connectionData = context.GetServerData( i );
 
                     ProcessAcksForConnection( context, connectionData );
                 }
