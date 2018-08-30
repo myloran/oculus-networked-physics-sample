@@ -175,7 +175,6 @@ public class Avatar : OvrAvatarLocalDriver {
 
     Vector3 start, direction;
     GetIndexFingerStartPointAndDirection(ref h, out start, out direction);
-
     var position = h.gripObject.transform.position;
 
     if (h.input.stick.y <= -StickThreshold) {

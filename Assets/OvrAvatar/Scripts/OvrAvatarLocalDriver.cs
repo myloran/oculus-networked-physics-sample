@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using System;
+using UnityEngine.XR;
+using static OVRInput;
 
 public class OvrAvatarLocalDriver : OvrAvatarDriver {
   const int VoiceFrequency = 48000;
@@ -7,51 +9,51 @@ public class OvrAvatarLocalDriver : OvrAvatarDriver {
   float emaAlpha = VoiceEmaAlpha;
   float voiceAmplitude = 0.0f;
 
-  ControllerPose GetControllerPose(OVRInput.Controller c) {
-    return new ControllerPose {
-      button1IsDown = OVRInput.Get(OVRInput.Button.One, c),
-      button2IsDown = OVRInput.Get(OVRInput.Button.Two, c),
-      joystickPosition = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, c),
-      indexTrigger = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, c),
-      gripTrigger = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, c),
+  ControllerPose GetControllerPose(Controller c)
+    => new ControllerPose {
+      button1IsDown = Get(Button.One, c),
+      button2IsDown = Get(Button.Two, c),
+      joystickPosition = Get(Axis2D.PrimaryThumbstick, c),
+      indexTrigger = Get(Axis1D.PrimaryIndexTrigger, c),
+      gripTrigger = Get(Axis1D.PrimaryHandTrigger, c),
     };
-  }
 
-  HandPose GetHandPose(OVRInput.Controller c) {
-    return new HandPose {
-      indexFlex = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, c),
-      gripFlex = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, c),
-      isPointing = !OVRInput.Get(OVRInput.NearTouch.PrimaryIndexTrigger, c),
-      isThumbUp = !OVRInput.Get(OVRInput.NearTouch.PrimaryThumbButtons, c),
+  HandPose GetHandPose(Controller c)
+    => new HandPose {
+      indexFlex = Get(Axis1D.PrimaryIndexTrigger, c),
+      gripFlex = Get(Axis1D.PrimaryHandTrigger, c),
+      isPointing = !Get(NearTouch.PrimaryIndexTrigger, c),
+      isThumbUp = !Get(NearTouch.PrimaryThumbButtons, c),
     };
-  }
 
   void Start() {
     var audio = GetComponent<AudioSource>();
     if (audio == null) return;
 
-    string selectedDevice = null;
+    string device = null;
     int frequency = VoiceFrequency;
 
-    foreach (string device in Microphone.devices) {
-      if (device == "Microphone (Rift Audio)") {
-        selectedDevice = device;
+    foreach (var d in Microphone.devices) {
+      if (d == "Microphone (Rift Audio)") {
+        device = d;
         int min;
         int max;
-        Microphone.GetDeviceCaps(device, out min, out max);
+        Microphone.GetDeviceCaps(d, out min, out max);
         frequency = max != 0 ? max : VoiceFrequency;
         emaAlpha *= VoiceFrequency / (float)frequency;
         break;
       }
     }
-    audio.clip = Microphone.Start(selectedDevice, true, 1, frequency);
+    audio.clip = Microphone.Start(device, true, 1, frequency);
     audio.loop = true;
     audio.Play();
   }
 
   void OnAudioFilterRead(float[] data, int channels) {
     for (int i = 0; i < data.Length; i += channels) {
-      voiceAmplitude = Math.Abs(data[i]) * emaAlpha + voiceAmplitude * (1 - emaAlpha);
+      voiceAmplitude = Math.Abs(data[i]) * emaAlpha
+        + voiceAmplitude * (1 - emaAlpha);
+
       data[i] = 0;
       data[i + 1] = 0;
     }
@@ -60,16 +62,16 @@ public class OvrAvatarLocalDriver : OvrAvatarDriver {
   public override bool GetCurrentPose(out PoseFrame p) {
     p = new PoseFrame {
       voiceAmplitude = voiceAmplitude,
-      headPosition = UnityEngine.XR.InputTracking.GetLocalPosition(UnityEngine.XR.XRNode.CenterEye),
-      headRotation = UnityEngine.XR.InputTracking.GetLocalRotation(UnityEngine.XR.XRNode.CenterEye),
-      handLeftPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.LTouch),
-      handLeftRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.LTouch),
-      handRightPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch),
-      handRightRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch),
-      controllerLeftPose = GetControllerPose(OVRInput.Controller.LTouch),
-      handLeftPose = GetHandPose(OVRInput.Controller.LTouch),
-      controllerRightPose = GetControllerPose(OVRInput.Controller.RTouch),
-      handRightPose = GetHandPose(OVRInput.Controller.RTouch),
+      headPosition = InputTracking.GetLocalPosition(XRNode.CenterEye),
+      headRotation = InputTracking.GetLocalRotation(XRNode.CenterEye),
+      handLeftPosition = GetLocalControllerPosition(Controller.LTouch),
+      handLeftRotation = GetLocalControllerRotation(Controller.LTouch),
+      handRightPosition = GetLocalControllerPosition(Controller.RTouch),
+      handRightRotation = GetLocalControllerRotation(Controller.RTouch),
+      controllerLeftPose = GetControllerPose(Controller.LTouch),
+      handLeftPose = GetHandPose(Controller.LTouch),
+      controllerRightPose = GetControllerPose(Controller.RTouch),
+      handRightPose = GetHandPose(Controller.RTouch),
     };
     return true;
   }
