@@ -7,22 +7,22 @@ public class OvrAvatarLocalDriver : OvrAvatarDriver {
   float emaAlpha = VoiceEmaAlpha;
   float voiceAmplitude = 0.0f;
 
-  ControllerPose GetControllerPose(OVRInput.Controller controller) {
+  ControllerPose GetControllerPose(OVRInput.Controller c) {
     return new ControllerPose {
-      button1IsDown = OVRInput.Get(OVRInput.Button.One, controller),
-      button2IsDown = OVRInput.Get(OVRInput.Button.Two, controller),
-      joystickPosition = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, controller),
-      indexTrigger = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, controller),
-      gripTrigger = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, controller),
+      button1IsDown = OVRInput.Get(OVRInput.Button.One, c),
+      button2IsDown = OVRInput.Get(OVRInput.Button.Two, c),
+      joystickPosition = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick, c),
+      indexTrigger = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, c),
+      gripTrigger = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, c),
     };
   }
 
-  HandPose GetHandPose(OVRInput.Controller controller) {
+  HandPose GetHandPose(OVRInput.Controller c) {
     return new HandPose {
-      indexFlex = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, controller),
-      gripFlex = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, controller),
-      isPointing = !OVRInput.Get(OVRInput.NearTouch.PrimaryIndexTrigger, controller),
-      isThumbUp = !OVRInput.Get(OVRInput.NearTouch.PrimaryThumbButtons, controller),
+      indexFlex = OVRInput.Get(OVRInput.Axis1D.PrimaryIndexTrigger, c),
+      gripFlex = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, c),
+      isPointing = !OVRInput.Get(OVRInput.NearTouch.PrimaryIndexTrigger, c),
+      isThumbUp = !OVRInput.Get(OVRInput.NearTouch.PrimaryThumbButtons, c),
     };
   }
 
@@ -57,8 +57,8 @@ public class OvrAvatarLocalDriver : OvrAvatarDriver {
     }
   }
 
-  public override bool GetCurrentPose(out PoseFrame pose) {
-    pose = new PoseFrame {
+  public override bool GetCurrentPose(out PoseFrame p) {
+    p = new PoseFrame {
       voiceAmplitude = voiceAmplitude,
       headPosition = UnityEngine.XR.InputTracking.GetLocalPosition(UnityEngine.XR.XRNode.CenterEye),
       headRotation = UnityEngine.XR.InputTracking.GetLocalRotation(UnityEngine.XR.XRNode.CenterEye),
