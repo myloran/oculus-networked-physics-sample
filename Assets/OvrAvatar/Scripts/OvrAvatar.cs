@@ -98,7 +98,7 @@ public class OvrAvatar : MonoBehaviour {
     var recorded = 0f;
     while (recorded < delta) {
       var left = delta - recorded;
-      var inPacket = PacketDurationSec - packet.LastTime;
+      var inPacket = PacketDurationSec - packet.LastTime; //what if it's negative?
       
       if (left < inPacket) { //If we're not going to fill the packet, just add the frame
         packet.AddFrame(frame, left);
