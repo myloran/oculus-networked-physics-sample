@@ -536,77 +536,78 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public void GetMostImportantCubeStateUpdates(ConnectionData data, ref int numStateUpdates, ref int[] cubeIds, ref CubeState[] states) {
-    Assert.IsTrue(numStateUpdates >= 0);
-    Assert.IsTrue(numStateUpdates <= NumCubes);
-    if (numStateUpdates == 0) return;
+  public void GetCubeUpdates(ConnectionData data, ref int count, ref int[] cubeIds, ref CubeState[] states) {
+    Assert.IsTrue(count >= 0);
+    Assert.IsTrue(count <= NumCubes);
+    if (count == 0) return;
 
-    var prioritySorted = new Priority[NumCubes];
+    var priorities = new Priority[NumCubes];
 
     for (int i = 0; i < NumCubes; ++i)
-      prioritySorted[i] = data.priorities[i];
+      priorities[i] = data.priorities[i];
 
-    Array.Sort(prioritySorted, (x, y) => y.accumulator.CompareTo(x.accumulator));
-    int maxStateUpdates = numStateUpdates;
-    numStateUpdates = 0;
+    Array.Sort(priorities, (x, y) => y.accumulator.CompareTo(x.accumulator));
+    int max = count;
+    count = 0;
 
     for (int i = 0; i < NumCubes; ++i) {
-      if (numStateUpdates == maxStateUpdates) break;
-      if (prioritySorted[i].accumulator < 0.0f) continue; //IMPORTANT: Negative priority means don't send this cube!
+      if (count == max) break;
+      if (priorities[i].accumulator < 0.0f) continue; //IMPORTANT: Negative priority means don't send this cube!
 
-      cubeIds[numStateUpdates] = prioritySorted[i].cubeId;
-      states[numStateUpdates] = snapshot.cubeState[cubeIds[numStateUpdates]];
-      ++numStateUpdates;
+      cubeIds[count] = priorities[i].cubeId;
+      states[count] = snapshot.states[cubeIds[count]];
+      ++count;
     }
   }
 
-  void UpdatePendingCommit(NetworkInfo n, int authorityIndex, int fromClientIndex, int toClientIndex) {
-    if (n.IsPendingCommit() && authorityIndex != toClientIndex + 1) {
+  void UpdatePendingCommit(NetworkInfo n, int authorityId, int fromClientId, int toClientId) {
+    if (n.IsPendingCommit() && authorityId != toClientId + 1) {
 #if DEBUG_AUTHORITY
-      Debug.Log( "client " + toClientIndex + " sees update for cube " + n.GetCubeId() + " from client " + fromClientIndex + " with authority index (" + authorityIndex + ") and clears pending commit flag" );
+      Debug.Log( "client " + toClientId + " sees update for cube " + n.GetCubeId() + " from client " + fromClientId + " with authority index (" + authorityId + ") and clears pending commit flag" );
 #endif // #if DEBUG_AUTHORITY
       n.ClearPendingCommit();
     }
   }
 
-  public void ApplyCubeStateUpdates(int numStateUpdates, ref int[] cubeIds, ref CubeState[] cubeState, int fromClientIndex, int toClientIndex, bool applySmoothing = true) {
-    var origin = this.gameObject.transform.position;
+  public void ApplyCubeStateUpdates(int count, ref int[] cubeIds, ref CubeState[] states, int fromClientId, int toClientId, bool applySmoothing = true) {
+    var origin = gameObject.transform.position;
 
-    for (int i = 0; i < numStateUpdates; ++i) {
-      if (AuthoritySystem.ShouldApplyCubeUpdate(this, cubeIds[i], cubeState[i].ownershipSequence, cubeState[i].authoritySequence, cubeState[i].authorityIndex, false, fromClientIndex, toClientIndex)) {
-        var cube = cubes[cubeIds[i]];
-        var network = cube.GetComponent<NetworkInfo>();
-        var rigidBody = cube.GetComponent<Rigidbody>();
+    for (int i = 0; i < count; ++i) {
+      if (!AuthoritySystem.ShouldApplyCubeUpdate(this, cubeIds[i], states[i].ownershipSequence, states[i].authoritySequence, states[i].authorityId, false, fromClientId, toClientId)
+      ) continue;
 
-        UpdatePendingCommit(network, cubeState[i].authorityIndex, fromClientIndex, toClientIndex);
-        Snapshot.ApplyCubeState(rigidBody, network, ref cubeState[i], ref origin, applySmoothing);
-      }
+      var cube = cubes[cubeIds[i]];
+      var network = cube.GetComponent<NetworkInfo>();
+      var rigidBody = cube.GetComponent<Rigidbody>();
+
+      UpdatePendingCommit(network, states[i].authorityId, fromClientId, toClientId);
+      Snapshot.ApplyState(rigidBody, network, ref states[i], ref origin, applySmoothing);
     }
   }
 
-  public void ApplyAvatarStateUpdates(int numAvatarStates, ref AvatarState[] avatarState, int fromClientIndex, int toClientIndex) {
-    for (int i = 0; i < numAvatarStates; ++i) {
-      if (toClientIndex == 0 && avatarState[i].client_index != fromClientIndex) continue;
+  public void ApplyAvatarStateUpdates(int count, ref AvatarState[] state, int fromClientId, int toClientId) {
+    for (int i = 0; i < count; ++i) {
+      if (toClientId == 0 && state[i].clientId != fromClientId) continue;
 
-      var avatar = GetAvatar(avatarState[i].client_index);
+      var avatar = GetAvatar(state[i].clientId);
 
-      if (avatarState[i].left_hand_holding_cube && AuthoritySystem.ShouldApplyCubeUpdate(this, avatarState[i].left_hand_cube_id, avatarState[i].left_hand_ownership_sequence, avatarState[i].left_hand_authority_sequence, avatarState[i].client_index + 1, true, fromClientIndex, toClientIndex)) {
-        var cube = cubes[avatarState[i].left_hand_cube_id];
+      if (state[i].isLeftHandHoldingCube && AuthoritySystem.ShouldApplyCubeUpdate(this, state[i].leftHandCubeId, state[i].leftHandOwnershipSequence, state[i].leftHandAuthoritySequence, state[i].clientId + 1, true, fromClientId, toClientId)) {
+        var cube = cubes[state[i].leftHandCubeId];
         var network = cube.GetComponent<NetworkInfo>();
 
-        UpdatePendingCommit(network, avatarState[i].client_index + 1, fromClientIndex, toClientIndex);
-        avatar.ApplyLeftHandUpdate(ref avatarState[i]);
+        UpdatePendingCommit(network, state[i].clientId + 1, fromClientId, toClientId);
+        avatar.ApplyLeftHandUpdate(ref state[i]);
       }
 
-      if (avatarState[i].right_hand_holding_cube && AuthoritySystem.ShouldApplyCubeUpdate(this, avatarState[i].right_hand_cube_id, avatarState[i].right_hand_ownership_sequence, avatarState[i].right_hand_authority_sequence, avatarState[i].client_index + 1, true, fromClientIndex, toClientIndex)) {
-        var cube = cubes[avatarState[i].right_hand_cube_id];
+      if (state[i].isRightHandHoldingCube && AuthoritySystem.ShouldApplyCubeUpdate(this, state[i].rightHandCubeId, state[i].rightHandOwnershipSequence, state[i].rightHandAuthoritySequence, state[i].clientId + 1, true, fromClientId, toClientId)) {
+        var cube = cubes[state[i].rightHandCubeId];
         var network = cube.GetComponent<NetworkInfo>();
 
-        UpdatePendingCommit(network, avatarState[i].client_index + 1, fromClientIndex, toClientIndex);
-        avatar.ApplyRightHandUpdate(ref avatarState[i]);
+        UpdatePendingCommit(network, state[i].clientId + 1, fromClientId, toClientId);
+        avatar.ApplyRightHandUpdate(ref state[i]);
       }
 
-      avatar.ApplyAvatarPose(ref avatarState[i]);
+      avatar.ApplyAvatarPose(ref state[i]);
     }
   }
 
@@ -689,7 +690,7 @@ public class Context : MonoBehaviour {
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
       var network = cubes[i].GetComponent<NetworkInfo>();
 
-      Snapshot.GetCubeState(rigidBody, network, ref s.cubeState[i], ref origin);
+      Snapshot.GetState(rigidBody, network, ref s.states[i], ref origin);
     }
     Profiler.EndSample();
   }
@@ -703,9 +704,9 @@ public class Context : MonoBehaviour {
       if (skipHeldObjects && network.IsHeldByPlayer()) continue;
 
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
-      if (skipAlreadyAtRest && !s.cubeState[i].active && rigidBody.IsSleeping()) continue;
+      if (skipAlreadyAtRest && !s.states[i].isActive && rigidBody.IsSleeping()) continue;
 
-      Snapshot.ApplyCubeState(rigidBody, network, ref s.cubeState[i], ref origin);
+      Snapshot.ApplyState(rigidBody, network, ref s.states[i], ref origin);
     }
     Profiler.EndSample();
   }

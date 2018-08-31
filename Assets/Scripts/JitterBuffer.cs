@@ -237,7 +237,7 @@ public class JitterBuffer
         {
             for ( int j = 0; j < b.numAvatarStates; ++j )
             {
-                if ( a.avatarState[i].client_index == b.avatarState[j].client_index )
+                if ( a.avatarState[i].clientId == b.avatarState[j].clientId )
                 {
                     AvatarState.Interpolate( ref a.avatarState[i], ref b.avatarState[j], out output[numOutputAvatarStates], t );  
                     numOutputAvatarStates++;
@@ -345,17 +345,17 @@ public class JitterBuffer
                     if ( current_sequence < baseline_sequence )
                         current_sequence += 65536;
 
-                    int baseline_position_x = baselineCubeState.position_x;
-                    int baseline_position_y = baselineCubeState.position_y;
-                    int baseline_position_z = baselineCubeState.position_z;
+                    int baseline_position_x = baselineCubeState.positionX;
+                    int baseline_position_y = baselineCubeState.positionY;
+                    int baseline_position_z = baselineCubeState.positionZ;
 
-                    int baseline_linear_velocity_x = baselineCubeState.linear_velocity_x;
-                    int baseline_linear_velocity_y = baselineCubeState.linear_velocity_y;
-                    int baseline_linear_velocity_z = baselineCubeState.linear_velocity_z;
+                    int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
+                    int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
+                    int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
 
-                    int baseline_angular_velocity_x = baselineCubeState.angular_velocity_x;
-                    int baseline_angular_velocity_y = baselineCubeState.angular_velocity_y;
-                    int baseline_angular_velocity_z = baselineCubeState.angular_velocity_z;
+                    int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
+                    int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
+                    int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
 
                     if ( current_sequence < baseline_sequence )
                         current_sequence += 65536;
@@ -390,23 +390,23 @@ public class JitterBuffer
                         Assert.IsTrue( predicted_position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                        cubeState[i].position_x = predicted_position_x;
-                        cubeState[i].position_y = predicted_position_y;
-                        cubeState[i].position_z = predicted_position_z;
+                        cubeState[i].positionX = predicted_position_x;
+                        cubeState[i].positionY = predicted_position_y;
+                        cubeState[i].positionZ = predicted_position_z;
 
-                        cubeState[i].linear_velocity_x = predicted_linear_velocity_x;
-                        cubeState[i].linear_velocity_y = predicted_linear_velocity_y;
-                        cubeState[i].linear_velocity_z = predicted_linear_velocity_z;
+                        cubeState[i].linearVelocityX = predicted_linear_velocity_x;
+                        cubeState[i].linearVelocityY = predicted_linear_velocity_y;
+                        cubeState[i].linearVelocityZ = predicted_linear_velocity_z;
 
-                        cubeState[i].angular_velocity_x = predicted_angular_velocity_x;
-                        cubeState[i].angular_velocity_y = predicted_angular_velocity_y;
-                        cubeState[i].angular_velocity_z = predicted_angular_velocity_z;
+                        cubeState[i].angularVelocityX = predicted_angular_velocity_x;
+                        cubeState[i].angularVelocityY = predicted_angular_velocity_y;
+                        cubeState[i].angularVelocityZ = predicted_angular_velocity_z;
                     }
                     else
                     {
-                        cubeState[i].position_x = predicted_position_x + predictionDelta[i].position_delta_x;
-                        cubeState[i].position_y = predicted_position_y + predictionDelta[i].position_delta_y;
-                        cubeState[i].position_z = predicted_position_z + predictionDelta[i].position_delta_z;
+                        cubeState[i].positionX = predicted_position_x + predictionDelta[i].positionX;
+                        cubeState[i].positionY = predicted_position_y + predictionDelta[i].positionY;
+                        cubeState[i].positionZ = predicted_position_z + predictionDelta[i].positionZ;
 
 #if DEBUG_DELTA_COMPRESSION
                         Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
@@ -414,13 +414,13 @@ public class JitterBuffer
                         Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                        cubeState[i].linear_velocity_x = predicted_linear_velocity_x + predictionDelta[i].linear_velocity_delta_x;
-                        cubeState[i].linear_velocity_y = predicted_linear_velocity_y + predictionDelta[i].linear_velocity_delta_y;
-                        cubeState[i].linear_velocity_z = predicted_linear_velocity_z + predictionDelta[i].linear_velocity_delta_z;
+                        cubeState[i].linearVelocityX = predicted_linear_velocity_x + predictionDelta[i].linearVelocityX;
+                        cubeState[i].linearVelocityY = predicted_linear_velocity_y + predictionDelta[i].linearVelocityY;
+                        cubeState[i].linearVelocityZ = predicted_linear_velocity_z + predictionDelta[i].linearVelocityZ;
 
-                        cubeState[i].angular_velocity_x = predicted_angular_velocity_x + predictionDelta[i].angular_velocity_delta_x;
-                        cubeState[i].angular_velocity_y = predicted_angular_velocity_y + predictionDelta[i].angular_velocity_delta_y;
-                        cubeState[i].angular_velocity_z = predicted_angular_velocity_z + predictionDelta[i].angular_velocity_delta_z;
+                        cubeState[i].angularVelocityX = predicted_angular_velocity_x + predictionDelta[i].angularVelocityX;
+                        cubeState[i].angularVelocityY = predicted_angular_velocity_y + predictionDelta[i].angularVelocityY;
+                        cubeState[i].angularVelocityZ = predicted_angular_velocity_z + predictionDelta[i].angularVelocityZ;
                     }
                 }
                 else
@@ -478,9 +478,9 @@ public class JitterBuffer
             {
                 if ( deltaBuffer.GetCubeState( baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState ) )
                 {
-                    cubeState[i].position_x = baselineCubeState.position_x + cubeDelta[i].position_delta_x;
-                    cubeState[i].position_y = baselineCubeState.position_y + cubeDelta[i].position_delta_y;
-                    cubeState[i].position_z = baselineCubeState.position_z + cubeDelta[i].position_delta_z;
+                    cubeState[i].positionX = baselineCubeState.positionX + cubeDelta[i].positionX;
+                    cubeState[i].positionY = baselineCubeState.positionY + cubeDelta[i].positionY;
+                    cubeState[i].positionZ = baselineCubeState.positionZ + cubeDelta[i].positionZ;
 
 #if DEBUG_DELTA_COMPRESSION
                     Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
@@ -488,13 +488,13 @@ public class JitterBuffer
                     Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                    cubeState[i].linear_velocity_x = baselineCubeState.linear_velocity_x + cubeDelta[i].linear_velocity_delta_x;
-                    cubeState[i].linear_velocity_y = baselineCubeState.linear_velocity_y + cubeDelta[i].linear_velocity_delta_y;
-                    cubeState[i].linear_velocity_z = baselineCubeState.linear_velocity_z + cubeDelta[i].linear_velocity_delta_z;
+                    cubeState[i].linearVelocityX = baselineCubeState.linearVelocityX + cubeDelta[i].linearVelocityX;
+                    cubeState[i].linearVelocityY = baselineCubeState.linearVelocityY + cubeDelta[i].linearVelocityY;
+                    cubeState[i].linearVelocityZ = baselineCubeState.linearVelocityZ + cubeDelta[i].linearVelocityZ;
 
-                    cubeState[i].angular_velocity_x = baselineCubeState.angular_velocity_x + cubeDelta[i].angular_velocity_delta_x;
-                    cubeState[i].angular_velocity_y = baselineCubeState.angular_velocity_y + cubeDelta[i].angular_velocity_delta_y;
-                    cubeState[i].angular_velocity_z = baselineCubeState.angular_velocity_z + cubeDelta[i].angular_velocity_delta_z;
+                    cubeState[i].angularVelocityX = baselineCubeState.angularVelocityX + cubeDelta[i].angularVelocityX;
+                    cubeState[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDelta[i].angularVelocityY;
+                    cubeState[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDelta[i].angularVelocityZ;
                 }
                 else
                 {

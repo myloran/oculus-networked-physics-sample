@@ -413,17 +413,17 @@ public class Common: MonoBehaviour
                 {
                     hasDelta[i] = true;
 
-                    cubeDelta[i].position_delta_x = cubeState[i].position_x - baselineCubeState.position_x;
-                    cubeDelta[i].position_delta_y = cubeState[i].position_y - baselineCubeState.position_y;
-                    cubeDelta[i].position_delta_z = cubeState[i].position_z - baselineCubeState.position_z;
+                    cubeDelta[i].positionX = cubeState[i].positionX - baselineCubeState.positionX;
+                    cubeDelta[i].positionY = cubeState[i].positionY - baselineCubeState.positionY;
+                    cubeDelta[i].positionZ = cubeState[i].positionZ - baselineCubeState.positionZ;
 
-                    cubeDelta[i].linear_velocity_delta_x = cubeState[i].linear_velocity_x - baselineCubeState.linear_velocity_x;
-                    cubeDelta[i].linear_velocity_delta_y = cubeState[i].linear_velocity_y - baselineCubeState.linear_velocity_y;
-                    cubeDelta[i].linear_velocity_delta_z = cubeState[i].linear_velocity_z - baselineCubeState.linear_velocity_z;
+                    cubeDelta[i].linearVelocityX = cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX;
+                    cubeDelta[i].linearVelocityY = cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY;
+                    cubeDelta[i].linearVelocityZ = cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ;
 
-                    cubeDelta[i].angular_velocity_delta_x = cubeState[i].angular_velocity_x - baselineCubeState.angular_velocity_x;
-                    cubeDelta[i].angular_velocity_delta_y = cubeState[i].angular_velocity_y - baselineCubeState.angular_velocity_y;
-                    cubeDelta[i].angular_velocity_delta_z = cubeState[i].angular_velocity_z - baselineCubeState.angular_velocity_z;
+                    cubeDelta[i].angularVelocityX = cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX;
+                    cubeDelta[i].angularVelocityY = cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY;
+                    cubeDelta[i].angularVelocityZ = cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ;
                 }
             }
 
@@ -472,9 +472,9 @@ public class Common: MonoBehaviour
             {
                 if ( deltaBuffer.GetCubeState( baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState ) )
                 {
-                    cubeState[i].position_x = baselineCubeState.position_x + cubeDelta[i].position_delta_x;
-                    cubeState[i].position_y = baselineCubeState.position_y + cubeDelta[i].position_delta_y;
-                    cubeState[i].position_z = baselineCubeState.position_z + cubeDelta[i].position_delta_z;
+                    cubeState[i].positionX = baselineCubeState.positionX + cubeDelta[i].positionX;
+                    cubeState[i].positionY = baselineCubeState.positionY + cubeDelta[i].positionY;
+                    cubeState[i].positionZ = baselineCubeState.positionZ + cubeDelta[i].positionZ;
 
 #if DEBUG_DELTA_COMPRESSION
                     Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
@@ -482,13 +482,13 @@ public class Common: MonoBehaviour
                     Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                    cubeState[i].linear_velocity_x = baselineCubeState.linear_velocity_x + cubeDelta[i].linear_velocity_delta_x;
-                    cubeState[i].linear_velocity_y = baselineCubeState.linear_velocity_y + cubeDelta[i].linear_velocity_delta_y;
-                    cubeState[i].linear_velocity_z = baselineCubeState.linear_velocity_z + cubeDelta[i].linear_velocity_delta_z;
+                    cubeState[i].linearVelocityX = baselineCubeState.linearVelocityX + cubeDelta[i].linearVelocityX;
+                    cubeState[i].linearVelocityY = baselineCubeState.linearVelocityY + cubeDelta[i].linearVelocityY;
+                    cubeState[i].linearVelocityZ = baselineCubeState.linearVelocityZ + cubeDelta[i].linearVelocityZ;
 
-                    cubeState[i].angular_velocity_x = baselineCubeState.angular_velocity_x + cubeDelta[i].angular_velocity_delta_x;
-                    cubeState[i].angular_velocity_y = baselineCubeState.angular_velocity_y + cubeDelta[i].angular_velocity_delta_y;
-                    cubeState[i].angular_velocity_z = baselineCubeState.angular_velocity_z + cubeDelta[i].angular_velocity_delta_z;
+                    cubeState[i].angularVelocityX = baselineCubeState.angularVelocityX + cubeDelta[i].angularVelocityX;
+                    cubeState[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDelta[i].angularVelocityY;
+                    cubeState[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDelta[i].angularVelocityZ;
                 }
                 else
                 {
@@ -523,7 +523,7 @@ public class Common: MonoBehaviour
             if ( !hasDelta[i] )
                 continue;
 
-            if ( !cubeState[i].active )
+            if ( !cubeState[i].isActive )
                 continue;
 
             if ( context.GetAck( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
@@ -534,7 +534,7 @@ public class Common: MonoBehaviour
                     continue;
                 }
 
-                if ( !baselineCubeState.active )
+                if ( !baselineCubeState.isActive )
                 {
                     // no point predicting if the cube is at rest.
                     continue;
@@ -546,17 +546,17 @@ public class Common: MonoBehaviour
                 if ( current_sequence < baseline_sequence )
                     current_sequence += 65536;
 
-                int baseline_position_x = baselineCubeState.position_x;
-                int baseline_position_y = baselineCubeState.position_y;
-                int baseline_position_z = baselineCubeState.position_z;
+                int baseline_position_x = baselineCubeState.positionX;
+                int baseline_position_y = baselineCubeState.positionY;
+                int baseline_position_z = baselineCubeState.positionZ;
 
-                int baseline_linear_velocity_x = baselineCubeState.linear_velocity_x;
-                int baseline_linear_velocity_y = baselineCubeState.linear_velocity_y;
-                int baseline_linear_velocity_z = baselineCubeState.linear_velocity_z;
+                int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
+                int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
+                int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
 
-                int baseline_angular_velocity_x = baselineCubeState.angular_velocity_x;
-                int baseline_angular_velocity_y = baselineCubeState.angular_velocity_y;
-                int baseline_angular_velocity_z = baselineCubeState.angular_velocity_z;
+                int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
+                int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
+                int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
 
                 if ( current_sequence < baseline_sequence )
                     current_sequence += 65536;
@@ -583,17 +583,17 @@ public class Common: MonoBehaviour
                                              out predicted_linear_velocity_x, out predicted_linear_velocity_y, out predicted_linear_velocity_z,
                                              out predicted_angular_velocity_x, out predicted_angular_velocity_y, out predicted_angular_velocity_z );
 
-                int current_position_x = cubeState[i].position_x;
-                int current_position_y = cubeState[i].position_y;
-                int current_position_z = cubeState[i].position_z;
+                int current_position_x = cubeState[i].positionX;
+                int current_position_y = cubeState[i].positionY;
+                int current_position_z = cubeState[i].positionZ;
 
-                int current_linear_velocity_x = cubeState[i].linear_velocity_x;
-                int current_linear_velocity_y = cubeState[i].linear_velocity_y;
-                int current_linear_velocity_z = cubeState[i].linear_velocity_z;
+                int current_linear_velocity_x = cubeState[i].linearVelocityX;
+                int current_linear_velocity_y = cubeState[i].linearVelocityY;
+                int current_linear_velocity_z = cubeState[i].linearVelocityZ;
 
-                int current_angular_velocity_x = cubeState[i].angular_velocity_x;
-                int current_angular_velocity_y = cubeState[i].angular_velocity_y;
-                int current_angular_velocity_z = cubeState[i].angular_velocity_z;
+                int current_angular_velocity_x = cubeState[i].angularVelocityX;
+                int current_angular_velocity_y = cubeState[i].angularVelocityY;
+                int current_angular_velocity_z = cubeState[i].angularVelocityZ;
 
                 int position_error_x = current_position_x - predicted_position_x;
                 int position_error_y = current_position_y - predicted_position_y;
@@ -643,15 +643,15 @@ public class Common: MonoBehaviour
                                                  angular_velocity_error_y +
                                                  angular_velocity_error_z;
 
-                    int total_absolute_error = Math.Abs( cubeState[i].position_x - baselineCubeState.position_x ) +
-                                               Math.Abs( cubeState[i].position_y - baselineCubeState.position_y ) +
-                                               Math.Abs( cubeState[i].position_z - baselineCubeState.position_z ) +
-                                               Math.Abs( cubeState[i].linear_velocity_x - baselineCubeState.linear_velocity_x ) +
-                                               Math.Abs( cubeState[i].linear_velocity_y - baselineCubeState.linear_velocity_y ) +
-                                               Math.Abs( cubeState[i].linear_velocity_z - baselineCubeState.linear_velocity_z ) +
-                                               Math.Abs( cubeState[i].angular_velocity_x - baselineCubeState.angular_velocity_x ) +
-                                               Math.Abs( cubeState[i].angular_velocity_y - baselineCubeState.angular_velocity_y ) +
-                                               Math.Abs( cubeState[i].angular_velocity_z - baselineCubeState.angular_velocity_z );
+                    int total_absolute_error = Math.Abs( cubeState[i].positionX - baselineCubeState.positionX ) +
+                                               Math.Abs( cubeState[i].positionY - baselineCubeState.positionY ) +
+                                               Math.Abs( cubeState[i].positionZ - baselineCubeState.positionZ ) +
+                                               Math.Abs( cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX ) +
+                                               Math.Abs( cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY ) +
+                                               Math.Abs( cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ ) +
+                                               Math.Abs( cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX ) +
+                                               Math.Abs( cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY ) +
+                                               Math.Abs( cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ );
 
                     if ( total_prediction_error < total_absolute_error )
                     {
@@ -685,17 +685,17 @@ public class Common: MonoBehaviour
                         {
                             hasPredictionDelta[i] = true;
 
-                            predictionDelta[i].position_delta_x = position_error_x;
-                            predictionDelta[i].position_delta_y = position_error_y;
-                            predictionDelta[i].position_delta_z = position_error_z;
+                            predictionDelta[i].positionX = position_error_x;
+                            predictionDelta[i].positionY = position_error_y;
+                            predictionDelta[i].positionZ = position_error_z;
 
-                            predictionDelta[i].linear_velocity_delta_x = linear_velocity_error_x;
-                            predictionDelta[i].linear_velocity_delta_y = linear_velocity_error_y;
-                            predictionDelta[i].linear_velocity_delta_z = linear_velocity_error_z;
+                            predictionDelta[i].linearVelocityX = linear_velocity_error_x;
+                            predictionDelta[i].linearVelocityY = linear_velocity_error_y;
+                            predictionDelta[i].linearVelocityZ = linear_velocity_error_z;
 
-                            predictionDelta[i].angular_velocity_delta_x = angular_velocity_error_x;
-                            predictionDelta[i].angular_velocity_delta_y = angular_velocity_error_y;
-                            predictionDelta[i].angular_velocity_delta_z = angular_velocity_error_z;
+                            predictionDelta[i].angularVelocityX = angular_velocity_error_x;
+                            predictionDelta[i].angularVelocityY = angular_velocity_error_y;
+                            predictionDelta[i].angularVelocityZ = angular_velocity_error_z;
                         }
                     }
                 }
@@ -729,17 +729,17 @@ public class Common: MonoBehaviour
                     if ( current_sequence < baseline_sequence )
                         current_sequence += 65536;
 
-                    int baseline_position_x = baselineCubeState.position_x;
-                    int baseline_position_y = baselineCubeState.position_y;
-                    int baseline_position_z = baselineCubeState.position_z;
+                    int baseline_position_x = baselineCubeState.positionX;
+                    int baseline_position_y = baselineCubeState.positionY;
+                    int baseline_position_z = baselineCubeState.positionZ;
 
-                    int baseline_linear_velocity_x = baselineCubeState.linear_velocity_x;
-                    int baseline_linear_velocity_y = baselineCubeState.linear_velocity_y;
-                    int baseline_linear_velocity_z = baselineCubeState.linear_velocity_z;
+                    int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
+                    int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
+                    int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
 
-                    int baseline_angular_velocity_x = baselineCubeState.angular_velocity_x;
-                    int baseline_angular_velocity_y = baselineCubeState.angular_velocity_y;
-                    int baseline_angular_velocity_z = baselineCubeState.angular_velocity_z;
+                    int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
+                    int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
+                    int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
 
                     if ( current_sequence < baseline_sequence )
                         current_sequence += 65536;
@@ -774,23 +774,23 @@ public class Common: MonoBehaviour
                         Assert.IsTrue( predicted_position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                        cubeState[i].position_x = predicted_position_x;
-                        cubeState[i].position_y = predicted_position_y;
-                        cubeState[i].position_z = predicted_position_z;
+                        cubeState[i].positionX = predicted_position_x;
+                        cubeState[i].positionY = predicted_position_y;
+                        cubeState[i].positionZ = predicted_position_z;
 
-                        cubeState[i].linear_velocity_x = predicted_linear_velocity_x;
-                        cubeState[i].linear_velocity_y = predicted_linear_velocity_y;
-                        cubeState[i].linear_velocity_z = predicted_linear_velocity_z;
+                        cubeState[i].linearVelocityX = predicted_linear_velocity_x;
+                        cubeState[i].linearVelocityY = predicted_linear_velocity_y;
+                        cubeState[i].linearVelocityZ = predicted_linear_velocity_z;
 
-                        cubeState[i].angular_velocity_x = predicted_angular_velocity_x;
-                        cubeState[i].angular_velocity_y = predicted_angular_velocity_y;
-                        cubeState[i].angular_velocity_z = predicted_angular_velocity_z;
+                        cubeState[i].angularVelocityX = predicted_angular_velocity_x;
+                        cubeState[i].angularVelocityY = predicted_angular_velocity_y;
+                        cubeState[i].angularVelocityZ = predicted_angular_velocity_z;
                     }
                     else
                     {
-                        cubeState[i].position_x = predicted_position_x + predictionDelta[i].position_delta_x;
-                        cubeState[i].position_y = predicted_position_y + predictionDelta[i].position_delta_y;
-                        cubeState[i].position_z = predicted_position_z + predictionDelta[i].position_delta_z;
+                        cubeState[i].positionX = predicted_position_x + predictionDelta[i].positionX;
+                        cubeState[i].positionY = predicted_position_y + predictionDelta[i].positionY;
+                        cubeState[i].positionZ = predicted_position_z + predictionDelta[i].positionZ;
 
 #if DEBUG_DELTA_COMPRESSION
                         Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
@@ -798,13 +798,13 @@ public class Common: MonoBehaviour
                         Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                        cubeState[i].linear_velocity_x = predicted_linear_velocity_x + predictionDelta[i].linear_velocity_delta_x;
-                        cubeState[i].linear_velocity_y = predicted_linear_velocity_y + predictionDelta[i].linear_velocity_delta_y;
-                        cubeState[i].linear_velocity_z = predicted_linear_velocity_z + predictionDelta[i].linear_velocity_delta_z;
+                        cubeState[i].linearVelocityX = predicted_linear_velocity_x + predictionDelta[i].linearVelocityX;
+                        cubeState[i].linearVelocityY = predicted_linear_velocity_y + predictionDelta[i].linearVelocityY;
+                        cubeState[i].linearVelocityZ = predicted_linear_velocity_z + predictionDelta[i].linearVelocityZ;
 
-                        cubeState[i].angular_velocity_x = predicted_angular_velocity_x + predictionDelta[i].angular_velocity_delta_x;
-                        cubeState[i].angular_velocity_y = predicted_angular_velocity_y + predictionDelta[i].angular_velocity_delta_y;
-                        cubeState[i].angular_velocity_z = predicted_angular_velocity_z + predictionDelta[i].angular_velocity_delta_z;
+                        cubeState[i].angularVelocityX = predicted_angular_velocity_x + predictionDelta[i].angularVelocityX;
+                        cubeState[i].angularVelocityY = predicted_angular_velocity_y + predictionDelta[i].angularVelocityY;
+                        cubeState[i].angularVelocityZ = predicted_angular_velocity_z + predictionDelta[i].angularVelocityZ;
                     }
                 }
                 else
@@ -868,43 +868,43 @@ public class Common: MonoBehaviour
                 {
                     file.WriteLine( sequence + "," +
                                     baselineSequence[i] + "," +
-                                    cubeDelta[i].position_delta_x + "," +
-                                    cubeDelta[i].position_delta_y + "," +
-                                    cubeDelta[i].position_delta_z + "," + ",,," +   // <--- for backwards compatibility.
-                                    cubeDelta[i].linear_velocity_delta_x + "," +    //todo: remove this and fix up the indices in "TestPrediction".
-                                    cubeDelta[i].linear_velocity_delta_y + "," +
-                                    cubeDelta[i].linear_velocity_delta_z + "," +
-                                    cubeDelta[i].angular_velocity_delta_x + "," +
-                                    cubeDelta[i].angular_velocity_delta_y + "," +
-                                    cubeDelta[i].angular_velocity_delta_z + "," +
-                                    ( baselineCubeState.active ? 1 : 0 ) + "," +
-                                    baselineCubeState.position_x + "," +
-                                    baselineCubeState.position_y + "," +
-                                    baselineCubeState.position_z + "," +
-                                    baselineCubeState.rotation_largest + "," +
-                                    baselineCubeState.rotation_a + "," +
-                                    baselineCubeState.rotation_b + "," +
-                                    baselineCubeState.rotation_c + "," +
-                                    baselineCubeState.linear_velocity_x + "," +
-                                    baselineCubeState.linear_velocity_y + "," +
-                                    baselineCubeState.linear_velocity_z + "," +
-                                    baselineCubeState.angular_velocity_x + "," +
-                                    baselineCubeState.angular_velocity_y + "," +
-                                    baselineCubeState.angular_velocity_z + "," +
-                                    ( cubeState[i].active ? 1 : 0 ) + "," +
-                                    cubeState[i].position_x + "," +
-                                    cubeState[i].position_y + "," +
-                                    cubeState[i].position_z + "," +
-                                    cubeState[i].rotation_largest + "," +
-                                    cubeState[i].rotation_a + "," +
-                                    cubeState[i].rotation_b + "," +
-                                    cubeState[i].rotation_c + "," +
-                                    cubeState[i].linear_velocity_x + "," +
-                                    cubeState[i].linear_velocity_y + "," +
-                                    cubeState[i].linear_velocity_z + "," +
-                                    cubeState[i].angular_velocity_x + "," +
-                                    cubeState[i].angular_velocity_y + "," +
-                                    cubeState[i].angular_velocity_z );
+                                    cubeDelta[i].positionX + "," +
+                                    cubeDelta[i].positionY + "," +
+                                    cubeDelta[i].positionZ + "," + ",,," +   // <--- for backwards compatibility.
+                                    cubeDelta[i].linearVelocityX + "," +    //todo: remove this and fix up the indices in "TestPrediction".
+                                    cubeDelta[i].linearVelocityY + "," +
+                                    cubeDelta[i].linearVelocityZ + "," +
+                                    cubeDelta[i].angularVelocityX + "," +
+                                    cubeDelta[i].angularVelocityY + "," +
+                                    cubeDelta[i].angularVelocityZ + "," +
+                                    ( baselineCubeState.isActive ? 1 : 0 ) + "," +
+                                    baselineCubeState.positionX + "," +
+                                    baselineCubeState.positionY + "," +
+                                    baselineCubeState.positionZ + "," +
+                                    baselineCubeState.rotationLargest + "," +
+                                    baselineCubeState.rotationX + "," +
+                                    baselineCubeState.rotationY + "," +
+                                    baselineCubeState.rotationZ + "," +
+                                    baselineCubeState.linearVelocityX + "," +
+                                    baselineCubeState.linearVelocityY + "," +
+                                    baselineCubeState.linearVelocityZ + "," +
+                                    baselineCubeState.angularVelocityX + "," +
+                                    baselineCubeState.angularVelocityY + "," +
+                                    baselineCubeState.angularVelocityZ + "," +
+                                    ( cubeState[i].isActive ? 1 : 0 ) + "," +
+                                    cubeState[i].positionX + "," +
+                                    cubeState[i].positionY + "," +
+                                    cubeState[i].positionZ + "," +
+                                    cubeState[i].rotationLargest + "," +
+                                    cubeState[i].rotationX + "," +
+                                    cubeState[i].rotationY + "," +
+                                    cubeState[i].rotationZ + "," +
+                                    cubeState[i].linearVelocityX + "," +
+                                    cubeState[i].linearVelocityY + "," +
+                                    cubeState[i].linearVelocityZ + "," +
+                                    cubeState[i].angularVelocityX + "," +
+                                    cubeState[i].angularVelocityY + "," +
+                                    cubeState[i].angularVelocityZ );
                 }
             }
         }

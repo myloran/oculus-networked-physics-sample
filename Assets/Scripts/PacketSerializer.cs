@@ -91,7 +91,7 @@ public class PacketSerializer: Network.Serializer
             write_int( stream, cubeDelta[i].absolute_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-            write_int( stream, cubeState[i].authorityIndex, 0, Constants.MaxAuthority - 1 );
+            write_int( stream, cubeState[i].authorityId, 0, Constants.MaxAuthority - 1 );
             write_bits( stream, cubeState[i].authoritySequence, 16 );
             write_bits( stream, cubeState[i].ownershipSequence, 16 );
 
@@ -109,10 +109,10 @@ public class PacketSerializer: Network.Serializer
                 {
                     write_bits( stream, baselineSequence[i], 16 );
 
-                    write_bits( stream, cubeState[i].rotation_largest, 2 );
-                    write_bits( stream, cubeState[i].rotation_a, Constants.RotationBits );
-                    write_bits( stream, cubeState[i].rotation_b, Constants.RotationBits );
-                    write_bits( stream, cubeState[i].rotation_c, Constants.RotationBits );
+                    write_bits( stream, cubeState[i].rotationLargest, 2 );
+                    write_bits( stream, cubeState[i].rotationX, Constants.RotationBits );
+                    write_bits( stream, cubeState[i].rotationY, Constants.RotationBits );
+                    write_bits( stream, cubeState[i].rotationZ, Constants.RotationBits );
                 }
                 else
                 {
@@ -122,18 +122,18 @@ public class PacketSerializer: Network.Serializer
                     {
                         write_bits( stream, baselineSequence[i], 16 );
 
-                        write_bool( stream, cubeState[i].active );
+                        write_bool( stream, cubeState[i].isActive );
 
-                        write_linear_velocity_delta( stream, predictionDelta[i].linear_velocity_delta_x, predictionDelta[i].linear_velocity_delta_y, predictionDelta[i].linear_velocity_delta_z );
+                        write_linear_velocity_delta( stream, predictionDelta[i].linearVelocityX, predictionDelta[i].linearVelocityY, predictionDelta[i].linearVelocityZ );
 
-                        write_angular_velocity_delta( stream, predictionDelta[i].angular_velocity_delta_x, predictionDelta[i].angular_velocity_delta_y, predictionDelta[i].angular_velocity_delta_z );
+                        write_angular_velocity_delta( stream, predictionDelta[i].angularVelocityX, predictionDelta[i].angularVelocityY, predictionDelta[i].angularVelocityZ );
 
-                        write_position_delta( stream, predictionDelta[i].position_delta_x, predictionDelta[i].position_delta_y, predictionDelta[i].position_delta_z );
+                        write_position_delta( stream, predictionDelta[i].positionX, predictionDelta[i].positionY, predictionDelta[i].positionZ );
 
-                        write_bits( stream, cubeState[i].rotation_largest, 2 );
-                        write_bits( stream, cubeState[i].rotation_a, Constants.RotationBits );
-                        write_bits( stream, cubeState[i].rotation_b, Constants.RotationBits );
-                        write_bits( stream, cubeState[i].rotation_c, Constants.RotationBits );
+                        write_bits( stream, cubeState[i].rotationLargest, 2 );
+                        write_bits( stream, cubeState[i].rotationX, Constants.RotationBits );
+                        write_bits( stream, cubeState[i].rotationY, Constants.RotationBits );
+                        write_bits( stream, cubeState[i].rotationZ, Constants.RotationBits );
                     }
                     else
                     {
@@ -143,41 +143,41 @@ public class PacketSerializer: Network.Serializer
                         {
                             write_bits( stream, baselineSequence[i], 16 );
 
-                            write_bool( stream, cubeState[i].active );
+                            write_bool( stream, cubeState[i].isActive );
 
-                            write_linear_velocity_delta( stream, cubeDelta[i].linear_velocity_delta_x, cubeDelta[i].linear_velocity_delta_y, cubeDelta[i].linear_velocity_delta_z );
+                            write_linear_velocity_delta( stream, cubeDelta[i].linearVelocityX, cubeDelta[i].linearVelocityY, cubeDelta[i].linearVelocityZ );
 
-                            write_angular_velocity_delta( stream, cubeDelta[i].angular_velocity_delta_x, cubeDelta[i].angular_velocity_delta_y, cubeDelta[i].angular_velocity_delta_z );
+                            write_angular_velocity_delta( stream, cubeDelta[i].angularVelocityX, cubeDelta[i].angularVelocityY, cubeDelta[i].angularVelocityZ );
 
-                            write_position_delta( stream, cubeDelta[i].position_delta_x, cubeDelta[i].position_delta_y, cubeDelta[i].position_delta_z );
+                            write_position_delta( stream, cubeDelta[i].positionX, cubeDelta[i].positionY, cubeDelta[i].positionZ );
 
-                            write_bits( stream, cubeState[i].rotation_largest, 2 );
-                            write_bits( stream, cubeState[i].rotation_a, Constants.RotationBits );
-                            write_bits( stream, cubeState[i].rotation_b, Constants.RotationBits );
-                            write_bits( stream, cubeState[i].rotation_c, Constants.RotationBits );
+                            write_bits( stream, cubeState[i].rotationLargest, 2 );
+                            write_bits( stream, cubeState[i].rotationX, Constants.RotationBits );
+                            write_bits( stream, cubeState[i].rotationY, Constants.RotationBits );
+                            write_bits( stream, cubeState[i].rotationZ, Constants.RotationBits );
                         }
                         else
                         {
-                            write_bool( stream, cubeState[i].active );
+                            write_bool( stream, cubeState[i].isActive );
 
-                            write_int( stream, cubeState[i].position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-                            write_int( stream, cubeState[i].position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-                            write_int( stream, cubeState[i].position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+                            write_int( stream, cubeState[i].positionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+                            write_int( stream, cubeState[i].positionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+                            write_int( stream, cubeState[i].positionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-                            write_bits( stream, cubeState[i].rotation_largest, 2 );
-                            write_bits( stream, cubeState[i].rotation_a, Constants.RotationBits );
-                            write_bits( stream, cubeState[i].rotation_b, Constants.RotationBits );
-                            write_bits( stream, cubeState[i].rotation_c, Constants.RotationBits );
+                            write_bits( stream, cubeState[i].rotationLargest, 2 );
+                            write_bits( stream, cubeState[i].rotationX, Constants.RotationBits );
+                            write_bits( stream, cubeState[i].rotationY, Constants.RotationBits );
+                            write_bits( stream, cubeState[i].rotationZ, Constants.RotationBits );
 
-                            if ( cubeState[i].active )
+                            if ( cubeState[i].isActive )
                             {
-                                write_int( stream, cubeState[i].linear_velocity_x, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
-                                write_int( stream, cubeState[i].linear_velocity_y, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
-                                write_int( stream, cubeState[i].linear_velocity_z, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
+                                write_int( stream, cubeState[i].linearVelocityX, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
+                                write_int( stream, cubeState[i].linearVelocityY, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
+                                write_int( stream, cubeState[i].linearVelocityZ, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
 
-                                write_int( stream, cubeState[i].angular_velocity_x, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
-                                write_int( stream, cubeState[i].angular_velocity_y, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
-                                write_int( stream, cubeState[i].angular_velocity_z, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
+                                write_int( stream, cubeState[i].angularVelocityX, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
+                                write_int( stream, cubeState[i].angularVelocityY, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
+                                write_int( stream, cubeState[i].angularVelocityZ, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
                             }
                         }
                     }
@@ -239,7 +239,7 @@ public class PacketSerializer: Network.Serializer
             read_int( stream, out cubeDelta[i].absolute_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-            read_int( stream, out cubeState[i].authorityIndex, 0, Constants.MaxAuthority - 1 );
+            read_int( stream, out cubeState[i].authorityId, 0, Constants.MaxAuthority - 1 );
             read_bits( stream, out cubeState[i].authoritySequence, 16 );
             read_bits( stream, out cubeState[i].ownershipSequence, 16 );
 
@@ -257,12 +257,12 @@ public class PacketSerializer: Network.Serializer
                 {
                     read_bits( stream, out baselineSequence[i], 16 );
 
-                    read_bits( stream, out cubeState[i].rotation_largest, 2 );
-                    read_bits( stream, out cubeState[i].rotation_a, Constants.RotationBits );
-                    read_bits( stream, out cubeState[i].rotation_b, Constants.RotationBits );
-                    read_bits( stream, out cubeState[i].rotation_c, Constants.RotationBits );
+                    read_bits( stream, out cubeState[i].rotationLargest, 2 );
+                    read_bits( stream, out cubeState[i].rotationX, Constants.RotationBits );
+                    read_bits( stream, out cubeState[i].rotationY, Constants.RotationBits );
+                    read_bits( stream, out cubeState[i].rotationZ, Constants.RotationBits );
 
-                    cubeState[i].active = true;
+                    cubeState[i].isActive = true;
                 }
                 else
                 {
@@ -272,18 +272,18 @@ public class PacketSerializer: Network.Serializer
                     {
                         read_bits( stream, out baselineSequence[i], 16 );
 
-                        read_bool( stream, out cubeState[i].active );
+                        read_bool( stream, out cubeState[i].isActive );
 
-                        read_linear_velocity_delta( stream, out predictionDelta[i].linear_velocity_delta_x, out predictionDelta[i].linear_velocity_delta_y, out predictionDelta[i].linear_velocity_delta_z );
+                        read_linear_velocity_delta( stream, out predictionDelta[i].linearVelocityX, out predictionDelta[i].linearVelocityY, out predictionDelta[i].linearVelocityZ );
 
-                        read_angular_velocity_delta( stream, out predictionDelta[i].angular_velocity_delta_x, out predictionDelta[i].angular_velocity_delta_y, out predictionDelta[i].angular_velocity_delta_z );
+                        read_angular_velocity_delta( stream, out predictionDelta[i].angularVelocityX, out predictionDelta[i].angularVelocityY, out predictionDelta[i].angularVelocityZ );
 
-                        read_position_delta( stream, out predictionDelta[i].position_delta_x, out predictionDelta[i].position_delta_y, out predictionDelta[i].position_delta_z );
+                        read_position_delta( stream, out predictionDelta[i].positionX, out predictionDelta[i].positionY, out predictionDelta[i].positionZ );
 
-                        read_bits( stream, out cubeState[i].rotation_largest, 2 );
-                        read_bits( stream, out cubeState[i].rotation_a, Constants.RotationBits );
-                        read_bits( stream, out cubeState[i].rotation_b, Constants.RotationBits );
-                        read_bits( stream, out cubeState[i].rotation_c, Constants.RotationBits );
+                        read_bits( stream, out cubeState[i].rotationLargest, 2 );
+                        read_bits( stream, out cubeState[i].rotationX, Constants.RotationBits );
+                        read_bits( stream, out cubeState[i].rotationY, Constants.RotationBits );
+                        read_bits( stream, out cubeState[i].rotationZ, Constants.RotationBits );
                     }
                     else
                     {
@@ -293,51 +293,51 @@ public class PacketSerializer: Network.Serializer
                         {
                             read_bits( stream, out baselineSequence[i], 16 );
 
-                            read_bool( stream, out cubeState[i].active );
+                            read_bool( stream, out cubeState[i].isActive );
 
-                            read_linear_velocity_delta( stream, out cubeDelta[i].linear_velocity_delta_x, out cubeDelta[i].linear_velocity_delta_y, out cubeDelta[i].linear_velocity_delta_z );
+                            read_linear_velocity_delta( stream, out cubeDelta[i].linearVelocityX, out cubeDelta[i].linearVelocityY, out cubeDelta[i].linearVelocityZ );
 
-                            read_angular_velocity_delta( stream, out cubeDelta[i].angular_velocity_delta_x, out cubeDelta[i].angular_velocity_delta_y, out cubeDelta[i].angular_velocity_delta_z );
+                            read_angular_velocity_delta( stream, out cubeDelta[i].angularVelocityX, out cubeDelta[i].angularVelocityY, out cubeDelta[i].angularVelocityZ );
 
-                            read_position_delta( stream, out cubeDelta[i].position_delta_x, out cubeDelta[i].position_delta_y, out cubeDelta[i].position_delta_z );
+                            read_position_delta( stream, out cubeDelta[i].positionX, out cubeDelta[i].positionY, out cubeDelta[i].positionZ );
 
-                            read_bits( stream, out cubeState[i].rotation_largest, 2 );
-                            read_bits( stream, out cubeState[i].rotation_a, Constants.RotationBits );
-                            read_bits( stream, out cubeState[i].rotation_b, Constants.RotationBits );
-                            read_bits( stream, out cubeState[i].rotation_c, Constants.RotationBits );
+                            read_bits( stream, out cubeState[i].rotationLargest, 2 );
+                            read_bits( stream, out cubeState[i].rotationX, Constants.RotationBits );
+                            read_bits( stream, out cubeState[i].rotationY, Constants.RotationBits );
+                            read_bits( stream, out cubeState[i].rotationZ, Constants.RotationBits );
                         }
                         else
                         {
-                            read_bool( stream, out cubeState[i].active );
+                            read_bool( stream, out cubeState[i].isActive );
 
-                            read_int( stream, out cubeState[i].position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-                            read_int( stream, out cubeState[i].position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-                            read_int( stream, out cubeState[i].position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+                            read_int( stream, out cubeState[i].positionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+                            read_int( stream, out cubeState[i].positionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+                            read_int( stream, out cubeState[i].positionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-                            read_bits( stream, out cubeState[i].rotation_largest, 2 );
-                            read_bits( stream, out cubeState[i].rotation_a, Constants.RotationBits );
-                            read_bits( stream, out cubeState[i].rotation_b, Constants.RotationBits );
-                            read_bits( stream, out cubeState[i].rotation_c, Constants.RotationBits );
+                            read_bits( stream, out cubeState[i].rotationLargest, 2 );
+                            read_bits( stream, out cubeState[i].rotationX, Constants.RotationBits );
+                            read_bits( stream, out cubeState[i].rotationY, Constants.RotationBits );
+                            read_bits( stream, out cubeState[i].rotationZ, Constants.RotationBits );
 
-                            if ( cubeState[i].active )
+                            if ( cubeState[i].isActive )
                             {
-                                read_int( stream, out cubeState[i].linear_velocity_x, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
-                                read_int( stream, out cubeState[i].linear_velocity_y, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
-                                read_int( stream, out cubeState[i].linear_velocity_z, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
+                                read_int( stream, out cubeState[i].linearVelocityX, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
+                                read_int( stream, out cubeState[i].linearVelocityY, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
+                                read_int( stream, out cubeState[i].linearVelocityZ, Constants.LinearVelocityMinimum, Constants.LinearVelocityMaximum );
 
-                                read_int( stream, out cubeState[i].angular_velocity_x, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
-                                read_int( stream, out cubeState[i].angular_velocity_y, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
-                                read_int( stream, out cubeState[i].angular_velocity_z, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
+                                read_int( stream, out cubeState[i].angularVelocityX, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
+                                read_int( stream, out cubeState[i].angularVelocityY, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
+                                read_int( stream, out cubeState[i].angularVelocityZ, Constants.AngularVelocityMinimum, Constants.AngularVelocityMaximum );
                             }
                             else
                             {
-                                cubeState[i].linear_velocity_x = 0;
-                                cubeState[i].linear_velocity_y = 0;
-                                cubeState[i].linear_velocity_z = 0;
+                                cubeState[i].linearVelocityX = 0;
+                                cubeState[i].linearVelocityY = 0;
+                                cubeState[i].linearVelocityZ = 0;
 
-                                cubeState[i].angular_velocity_x = 0;
-                                cubeState[i].angular_velocity_y = 0;
-                                cubeState[i].angular_velocity_z = 0;
+                                cubeState[i].angularVelocityX = 0;
+                                cubeState[i].angularVelocityY = 0;
+                                cubeState[i].angularVelocityZ = 0;
                             }
                         }
                     }
@@ -981,187 +981,187 @@ public class PacketSerializer: Network.Serializer
 
     void write_avatar_state( Network.WriteStream stream, ref AvatarStateQuantized avatarState )
     {
-        write_int( stream, avatarState.client_index, 0, Constants.MaxClients - 1 );
+        write_int( stream, avatarState.clientId, 0, Constants.MaxClients - 1 );
 
-        write_int( stream, avatarState.head_position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-        write_int( stream, avatarState.head_position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-        write_int( stream, avatarState.head_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        write_int( stream, avatarState.headPositionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        write_int( stream, avatarState.headPositionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+        write_int( stream, avatarState.headPositionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-        write_bits( stream, avatarState.head_rotation_largest, 2 );
-        write_bits( stream, avatarState.head_rotation_a, Constants.RotationBits );
-        write_bits( stream, avatarState.head_rotation_b, Constants.RotationBits );
-        write_bits( stream, avatarState.head_rotation_c, Constants.RotationBits );
+        write_bits( stream, avatarState.headRotationLargest, 2 );
+        write_bits( stream, avatarState.headRotationX, Constants.RotationBits );
+        write_bits( stream, avatarState.headRotationY, Constants.RotationBits );
+        write_bits( stream, avatarState.headRotationZ, Constants.RotationBits );
 
-        write_int( stream, avatarState.left_hand_position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-        write_int( stream, avatarState.left_hand_position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-        write_int( stream, avatarState.left_hand_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        write_int( stream, avatarState.leftHandPositionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        write_int( stream, avatarState.leftHandPositionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+        write_int( stream, avatarState.leftHandPositionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-        write_bits( stream, avatarState.left_hand_rotation_largest, 2 );
-        write_bits( stream, avatarState.left_hand_rotation_a, Constants.RotationBits );
-        write_bits( stream, avatarState.left_hand_rotation_b, Constants.RotationBits );
-        write_bits( stream, avatarState.left_hand_rotation_c, Constants.RotationBits );
+        write_bits( stream, avatarState.leftHandRotationLargest, 2 );
+        write_bits( stream, avatarState.leftHandRotationX, Constants.RotationBits );
+        write_bits( stream, avatarState.leftHandRotationY, Constants.RotationBits );
+        write_bits( stream, avatarState.leftHandRotationZ, Constants.RotationBits );
 
-        write_int( stream, avatarState.left_hand_grip_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        write_int( stream, avatarState.left_hand_index_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        write_bool( stream, avatarState.left_hand_pointing );
-        write_bool( stream, avatarState.left_hand_thumbs_up );
+        write_int( stream, avatarState.leftHandGripTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        write_int( stream, avatarState.leftHandIdTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        write_bool( stream, avatarState.isLeftHandPointing );
+        write_bool( stream, avatarState.areLeftHandThumbsUp );
 
-        write_bool( stream, avatarState.left_hand_holding_cube );
+        write_bool( stream, avatarState.isLeftHandHoldingCube );
 
-        if ( avatarState.left_hand_holding_cube )
+        if ( avatarState.isLeftHandHoldingCube )
         {
-            write_int( stream, avatarState.left_hand_cube_id, 0, Constants.NumCubes - 1 );
-            write_bits( stream, avatarState.left_hand_authority_sequence, 16 );
-            write_bits( stream, avatarState.left_hand_ownership_sequence, 16 );
+            write_int( stream, avatarState.leftHandCubeId, 0, Constants.NumCubes - 1 );
+            write_bits( stream, avatarState.leftHandAuthoritySequence, 16 );
+            write_bits( stream, avatarState.leftHandOwnershipSequence, 16 );
 
-            write_int( stream, avatarState.left_hand_cube_local_position_x, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            write_int( stream, avatarState.left_hand_cube_local_position_y, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            write_int( stream, avatarState.left_hand_cube_local_position_z, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            write_int( stream, avatarState.leftHandCubeLocalPositionX, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            write_int( stream, avatarState.leftHandCubeLocalPositionY, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            write_int( stream, avatarState.leftHandCubeLocalPositionZ, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
 
-            write_bits( stream, avatarState.left_hand_cube_local_rotation_largest, 2 );
-            write_bits( stream, avatarState.left_hand_cube_local_rotation_a, Constants.RotationBits );
-            write_bits( stream, avatarState.left_hand_cube_local_rotation_b, Constants.RotationBits );
-            write_bits( stream, avatarState.left_hand_cube_local_rotation_c, Constants.RotationBits );
+            write_bits( stream, avatarState.leftHandCubeLocalRotationLargest, 2 );
+            write_bits( stream, avatarState.leftHandCubeLocalRotationX, Constants.RotationBits );
+            write_bits( stream, avatarState.leftHandCubeLocalRotationY, Constants.RotationBits );
+            write_bits( stream, avatarState.leftHandCubeLocalRotationZ, Constants.RotationBits );
         }
 
-        write_int( stream, avatarState.right_hand_position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-        write_int( stream, avatarState.right_hand_position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-        write_int( stream, avatarState.right_hand_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        write_int( stream, avatarState.rightHandPositionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        write_int( stream, avatarState.rightHandPositionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+        write_int( stream, avatarState.rightHandPositionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-        write_bits( stream, avatarState.right_hand_rotation_largest, 2 );
-        write_bits( stream, avatarState.right_hand_rotation_a, Constants.RotationBits );
-        write_bits( stream, avatarState.right_hand_rotation_b, Constants.RotationBits );
-        write_bits( stream, avatarState.right_hand_rotation_c, Constants.RotationBits );
+        write_bits( stream, avatarState.rightHandRotationLargest, 2 );
+        write_bits( stream, avatarState.rightHandRotationX, Constants.RotationBits );
+        write_bits( stream, avatarState.rightHandRotationY, Constants.RotationBits );
+        write_bits( stream, avatarState.rightHandRotationZ, Constants.RotationBits );
 
-        write_int( stream, avatarState.right_hand_grip_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        write_int( stream, avatarState.right_hand_index_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        write_bool( stream, avatarState.right_hand_pointing );
-        write_bool( stream, avatarState.right_hand_thumbs_up );
+        write_int( stream, avatarState.rightHandGripTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        write_int( stream, avatarState.rightHandIndexTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        write_bool( stream, avatarState.isRightHandPointing );
+        write_bool( stream, avatarState.areRightHandThumbsUp );
 
-        write_bool( stream, avatarState.right_hand_holding_cube );
+        write_bool( stream, avatarState.isRightHandHoldingCube );
 
-        if ( avatarState.right_hand_holding_cube )
+        if ( avatarState.isRightHandHoldingCube )
         {
-            write_int( stream, avatarState.right_hand_cube_id, 0, Constants.NumCubes - 1 );
-            write_bits( stream, avatarState.right_hand_authority_sequence, 16 );
-            write_bits( stream, avatarState.right_hand_ownership_sequence, 16 );
+            write_int( stream, avatarState.rightHandCubeId, 0, Constants.NumCubes - 1 );
+            write_bits( stream, avatarState.rightHandAuthoritySequence, 16 );
+            write_bits( stream, avatarState.rightHandOwnershipSequence, 16 );
 
-            write_int( stream, avatarState.right_hand_cube_local_position_x, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            write_int( stream, avatarState.right_hand_cube_local_position_y, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            write_int( stream, avatarState.right_hand_cube_local_position_z, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            write_int( stream, avatarState.rightHandCubeLocalPositionX, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            write_int( stream, avatarState.rightHandCubeLocalPositionY, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            write_int( stream, avatarState.rightHandCubeLocalPositionZ, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
 
-            write_bits( stream, avatarState.right_hand_cube_local_rotation_largest, 2 );
-            write_bits( stream, avatarState.right_hand_cube_local_rotation_a, Constants.RotationBits );
-            write_bits( stream, avatarState.right_hand_cube_local_rotation_b, Constants.RotationBits );
-            write_bits( stream, avatarState.right_hand_cube_local_rotation_c, Constants.RotationBits );
+            write_bits( stream, avatarState.rightHandCubeLocalRotationLargest, 2 );
+            write_bits( stream, avatarState.rightHandCubeLocalRotationX, Constants.RotationBits );
+            write_bits( stream, avatarState.rightHandCubeLocalRotationY, Constants.RotationBits );
+            write_bits( stream, avatarState.rightHandCubeLocalRotationZ, Constants.RotationBits );
         }
 
-        write_int( stream, avatarState.voice_amplitude, Constants.VoiceMinimum, Constants.VoiceMaximum );
+        write_int( stream, avatarState.voiceAmplitude, Constants.VoiceMinimum, Constants.VoiceMaximum );
     }
 
     void read_avatar_state( Network.ReadStream stream, out AvatarStateQuantized avatarState )
     {
-        read_int( stream, out avatarState.client_index, 0, Constants.MaxClients - 1 );
+        read_int( stream, out avatarState.clientId, 0, Constants.MaxClients - 1 );
 
-        read_int( stream, out avatarState.head_position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-        read_int( stream, out avatarState.head_position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-        read_int( stream, out avatarState.head_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        read_int( stream, out avatarState.headPositionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        read_int( stream, out avatarState.headPositionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+        read_int( stream, out avatarState.headPositionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-        read_bits( stream, out avatarState.head_rotation_largest, 2 );
-        read_bits( stream, out avatarState.head_rotation_a, Constants.RotationBits );
-        read_bits( stream, out avatarState.head_rotation_b, Constants.RotationBits );
-        read_bits( stream, out avatarState.head_rotation_c, Constants.RotationBits );
+        read_bits( stream, out avatarState.headRotationLargest, 2 );
+        read_bits( stream, out avatarState.headRotationX, Constants.RotationBits );
+        read_bits( stream, out avatarState.headRotationY, Constants.RotationBits );
+        read_bits( stream, out avatarState.headRotationZ, Constants.RotationBits );
 
-        read_int( stream, out avatarState.left_hand_position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-        read_int( stream, out avatarState.left_hand_position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-        read_int( stream, out avatarState.left_hand_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        read_int( stream, out avatarState.leftHandPositionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        read_int( stream, out avatarState.leftHandPositionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+        read_int( stream, out avatarState.leftHandPositionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-        read_bits( stream, out avatarState.left_hand_rotation_largest, 2 );
-        read_bits( stream, out avatarState.left_hand_rotation_a, Constants.RotationBits );
-        read_bits( stream, out avatarState.left_hand_rotation_b, Constants.RotationBits );
-        read_bits( stream, out avatarState.left_hand_rotation_c, Constants.RotationBits );
+        read_bits( stream, out avatarState.leftHandRotationLargest, 2 );
+        read_bits( stream, out avatarState.leftHandRotationX, Constants.RotationBits );
+        read_bits( stream, out avatarState.leftHandRotationY, Constants.RotationBits );
+        read_bits( stream, out avatarState.leftHandRotationZ, Constants.RotationBits );
 
-        read_int( stream, out avatarState.left_hand_grip_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        read_int( stream, out avatarState.left_hand_index_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        read_bool( stream, out avatarState.left_hand_pointing );
-        read_bool( stream, out avatarState.left_hand_thumbs_up );
+        read_int( stream, out avatarState.leftHandGripTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        read_int( stream, out avatarState.leftHandIdTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        read_bool( stream, out avatarState.isLeftHandPointing );
+        read_bool( stream, out avatarState.areLeftHandThumbsUp );
 
-        read_bool( stream, out avatarState.left_hand_holding_cube );
+        read_bool( stream, out avatarState.isLeftHandHoldingCube );
 
-        if ( avatarState.left_hand_holding_cube )
+        if ( avatarState.isLeftHandHoldingCube )
         {
-            read_int( stream, out avatarState.left_hand_cube_id, 0, Constants.NumCubes - 1 );
-            read_bits( stream, out avatarState.left_hand_authority_sequence, 16 );
-            read_bits( stream, out avatarState.left_hand_ownership_sequence, 16 );
+            read_int( stream, out avatarState.leftHandCubeId, 0, Constants.NumCubes - 1 );
+            read_bits( stream, out avatarState.leftHandAuthoritySequence, 16 );
+            read_bits( stream, out avatarState.leftHandOwnershipSequence, 16 );
 
-            read_int( stream, out avatarState.left_hand_cube_local_position_x, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            read_int( stream, out avatarState.left_hand_cube_local_position_y, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            read_int( stream, out avatarState.left_hand_cube_local_position_z, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            read_int( stream, out avatarState.leftHandCubeLocalPositionX, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            read_int( stream, out avatarState.leftHandCubeLocalPositionY, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            read_int( stream, out avatarState.leftHandCubeLocalPositionZ, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
 
-            read_bits( stream, out avatarState.left_hand_cube_local_rotation_largest, 2 );
-            read_bits( stream, out avatarState.left_hand_cube_local_rotation_a, Constants.RotationBits );
-            read_bits( stream, out avatarState.left_hand_cube_local_rotation_b, Constants.RotationBits );
-            read_bits( stream, out avatarState.left_hand_cube_local_rotation_c, Constants.RotationBits );
+            read_bits( stream, out avatarState.leftHandCubeLocalRotationLargest, 2 );
+            read_bits( stream, out avatarState.leftHandCubeLocalRotationX, Constants.RotationBits );
+            read_bits( stream, out avatarState.leftHandCubeLocalRotationY, Constants.RotationBits );
+            read_bits( stream, out avatarState.leftHandCubeLocalRotationZ, Constants.RotationBits );
         }
         else
         {
-            avatarState.left_hand_cube_id = 0;
-            avatarState.left_hand_authority_sequence = 0;
-            avatarState.left_hand_ownership_sequence = 0;
-            avatarState.left_hand_cube_local_position_x = 0;
-            avatarState.left_hand_cube_local_position_y = 0;
-            avatarState.left_hand_cube_local_position_z = 0;
-            avatarState.left_hand_cube_local_rotation_largest = 0;
-            avatarState.left_hand_cube_local_rotation_a = 0;
-            avatarState.left_hand_cube_local_rotation_b = 0;
-            avatarState.left_hand_cube_local_rotation_c = 0;
+            avatarState.leftHandCubeId = 0;
+            avatarState.leftHandAuthoritySequence = 0;
+            avatarState.leftHandOwnershipSequence = 0;
+            avatarState.leftHandCubeLocalPositionX = 0;
+            avatarState.leftHandCubeLocalPositionY = 0;
+            avatarState.leftHandCubeLocalPositionZ = 0;
+            avatarState.leftHandCubeLocalRotationLargest = 0;
+            avatarState.leftHandCubeLocalRotationX = 0;
+            avatarState.leftHandCubeLocalRotationY = 0;
+            avatarState.leftHandCubeLocalRotationZ = 0;
         }
 
-        read_int( stream, out avatarState.right_hand_position_x, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
-        read_int( stream, out avatarState.right_hand_position_y, Constants.PositionMinimumY, Constants.PositionMaximumY );
-        read_int( stream, out avatarState.right_hand_position_z, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        read_int( stream, out avatarState.rightHandPositionX, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
+        read_int( stream, out avatarState.rightHandPositionY, Constants.PositionMinimumY, Constants.PositionMaximumY );
+        read_int( stream, out avatarState.rightHandPositionZ, Constants.PositionMinimumXZ, Constants.PositionMaximumXZ );
 
-        read_bits( stream, out avatarState.right_hand_rotation_largest, 2 );
-        read_bits( stream, out avatarState.right_hand_rotation_a, Constants.RotationBits );
-        read_bits( stream, out avatarState.right_hand_rotation_b, Constants.RotationBits );
-        read_bits( stream, out avatarState.right_hand_rotation_c, Constants.RotationBits );
+        read_bits( stream, out avatarState.rightHandRotationLargest, 2 );
+        read_bits( stream, out avatarState.rightHandRotationX, Constants.RotationBits );
+        read_bits( stream, out avatarState.rightHandRotationY, Constants.RotationBits );
+        read_bits( stream, out avatarState.rightHandRotationZ, Constants.RotationBits );
 
-        read_int( stream, out avatarState.right_hand_grip_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        read_int( stream, out avatarState.right_hand_index_trigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
-        read_bool( stream, out avatarState.right_hand_pointing );
-        read_bool( stream, out avatarState.right_hand_thumbs_up );
+        read_int( stream, out avatarState.rightHandGripTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        read_int( stream, out avatarState.rightHandIndexTrigger, Constants.TriggerMinimum, Constants.TriggerMaximum );
+        read_bool( stream, out avatarState.isRightHandPointing );
+        read_bool( stream, out avatarState.areRightHandThumbsUp );
 
-        read_bool( stream, out avatarState.right_hand_holding_cube );
+        read_bool( stream, out avatarState.isRightHandHoldingCube );
 
-        if ( avatarState.right_hand_holding_cube )
+        if ( avatarState.isRightHandHoldingCube )
         {
-            read_int( stream, out avatarState.right_hand_cube_id, 0, Constants.NumCubes - 1 );
-            read_bits( stream, out avatarState.right_hand_authority_sequence, 16 );
-            read_bits( stream, out avatarState.right_hand_ownership_sequence, 16 );
+            read_int( stream, out avatarState.rightHandCubeId, 0, Constants.NumCubes - 1 );
+            read_bits( stream, out avatarState.rightHandAuthoritySequence, 16 );
+            read_bits( stream, out avatarState.rightHandOwnershipSequence, 16 );
 
-            read_int( stream, out avatarState.right_hand_cube_local_position_x, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            read_int( stream, out avatarState.right_hand_cube_local_position_y, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
-            read_int( stream, out avatarState.right_hand_cube_local_position_z, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            read_int( stream, out avatarState.rightHandCubeLocalPositionX, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            read_int( stream, out avatarState.rightHandCubeLocalPositionY, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
+            read_int( stream, out avatarState.rightHandCubeLocalPositionZ, Constants.LocalPositionMinimum, Constants.LocalPositionMaximum );
 
-            read_bits( stream, out avatarState.right_hand_cube_local_rotation_largest, 2 );
-            read_bits( stream, out avatarState.right_hand_cube_local_rotation_a, Constants.RotationBits );
-            read_bits( stream, out avatarState.right_hand_cube_local_rotation_b, Constants.RotationBits );
-            read_bits( stream, out avatarState.right_hand_cube_local_rotation_c, Constants.RotationBits );
+            read_bits( stream, out avatarState.rightHandCubeLocalRotationLargest, 2 );
+            read_bits( stream, out avatarState.rightHandCubeLocalRotationX, Constants.RotationBits );
+            read_bits( stream, out avatarState.rightHandCubeLocalRotationY, Constants.RotationBits );
+            read_bits( stream, out avatarState.rightHandCubeLocalRotationZ, Constants.RotationBits );
         }
         else
         {
-            avatarState.right_hand_cube_id = 0;
-            avatarState.right_hand_authority_sequence = 0;
-            avatarState.right_hand_ownership_sequence = 0;
-            avatarState.right_hand_cube_local_position_x = 0;
-            avatarState.right_hand_cube_local_position_y = 0;
-            avatarState.right_hand_cube_local_position_z = 0;
-            avatarState.right_hand_cube_local_rotation_largest = 0;
-            avatarState.right_hand_cube_local_rotation_a = 0;
-            avatarState.right_hand_cube_local_rotation_b = 0;
-            avatarState.right_hand_cube_local_rotation_c = 0;
+            avatarState.rightHandCubeId = 0;
+            avatarState.rightHandAuthoritySequence = 0;
+            avatarState.rightHandOwnershipSequence = 0;
+            avatarState.rightHandCubeLocalPositionX = 0;
+            avatarState.rightHandCubeLocalPositionY = 0;
+            avatarState.rightHandCubeLocalPositionZ = 0;
+            avatarState.rightHandCubeLocalRotationLargest = 0;
+            avatarState.rightHandCubeLocalRotationX = 0;
+            avatarState.rightHandCubeLocalRotationY = 0;
+            avatarState.rightHandCubeLocalRotationZ = 0;
         }
 
-        read_int( stream, out avatarState.voice_amplitude, Constants.VoiceMinimum, Constants.VoiceMaximum );
+        read_int( stream, out avatarState.voiceAmplitude, Constants.VoiceMinimum, Constants.VoiceMaximum );
     }
 }

@@ -591,7 +591,7 @@ public class Avatar : OvrAvatarLocalDriver {
   public bool GetAvatarState(out AvatarState s) {
     PoseFrame frame;
     if (!avatar.Driver.GetCurrentPose(out frame)) {
-      s = AvatarState.defaults;
+      s = AvatarState.Default;
       return false;
     }
     AvatarState.Initialize(out s, context.GetClientId(), frame, leftHand.grip, rightHand.grip);

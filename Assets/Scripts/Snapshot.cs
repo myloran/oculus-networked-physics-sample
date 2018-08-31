@@ -6,400 +6,271 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
 using System;
 using UnityEngine;
-using System.Collections.Generic;
+using static Constants;
+using static Mathx;
 
-public struct CubeState
-{
-    public bool active;
+public struct CubeState {
+  public static CubeState defaults;
 
-    public int authorityIndex;
-    public ushort authoritySequence;
-    public ushort ownershipSequence;
+  public bool isActive;
 
-    public int position_x;
-    public int position_y;
-    public int position_z;
+  public ushort 
+    authoritySequence,
+    ownershipSequence;
 
-    public uint rotation_largest;
-    public uint rotation_a;
-    public uint rotation_b;
-    public uint rotation_c;
+  public int
+    authorityId,
+    positionX,
+    positionY,
+    positionZ,
+    linearVelocityX,
+    linearVelocityY,
+    linearVelocityZ,
+    angularVelocityX,
+    angularVelocityY,
+    angularVelocityZ;
 
-    public int linear_velocity_x;
-    public int linear_velocity_y;
-    public int linear_velocity_z;
+  public uint 
+    rotationLargest,
+    rotationX,
+    rotationY,
+    rotationZ;
+}
 
-    public int angular_velocity_x;
-    public int angular_velocity_y;
-    public int angular_velocity_z;
-
-    public static CubeState defaults;
-};
-
-public struct CubeDelta
-{
+public struct CubeDelta {
 #if DEBUG_DELTA_COMPRESSION
     public int absolute_position_x;
     public int absolute_position_y;
     public int absolute_position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-    public int position_delta_x;
-    public int position_delta_y;
-    public int position_delta_z;
+  public int 
+    positionX,
+    positionY,
+    positionZ,
+    linearVelocityX,
+    linearVelocityY,
+    linearVelocityZ,
+    angularVelocityX,
+    angularVelocityY,
+    angularVelocityZ;
+}
 
-    public int linear_velocity_delta_x;
-    public int linear_velocity_delta_y;
-    public int linear_velocity_delta_z;
+public class Snapshot {
+  public CubeState[] states = new CubeState[Constants.NumCubes];
 
-    public int angular_velocity_delta_x;
-    public int angular_velocity_delta_y;
-    public int angular_velocity_delta_z;
-};
+  public static void QuaternionToSmallestThree(Quaternion q, out uint largest, out uint rotationX, out uint rotationY, out uint rotationZ) { //QuaternionToSmallestThree
+    const float min = -1.0f / 1.414214f;       // 1.0f / sqrt(2)
+    const float max = +1.0f / 1.414214f;
+    const float scale = (1 << RotationBits) - 1;
+    var maxAbs = Math.Abs(q.x);
+    var absY = Math.Abs(q.y);
+    var absZ = Math.Abs(q.z);
+    var absW = Math.Abs(q.w);
+    largest = 0;
 
-public class Snapshot
-{
-    public CubeState[] cubeState = new CubeState[Constants.NumCubes];
-
-    public static void QuaternionToSmallestThree( Quaternion quaternion, out uint largest, out uint integer_a, out uint integer_b, out uint integer_c )
-    {
-        const float minimum = - 1.0f / 1.414214f;       // 1.0f / sqrt(2)
-        const float maximum = + 1.0f / 1.414214f;
-
-        const float scale = (float) ( ( 1 << Constants.RotationBits ) - 1 );
-
-        float x = quaternion.x;
-        float y = quaternion.y;
-        float z = quaternion.z;
-        float w = quaternion.w;
-
-        float abs_x = Math.Abs( x );
-        float abs_y = Math.Abs( y );
-        float abs_z = Math.Abs( z );
-        float abs_w = Math.Abs( w );
-
-        float largest_value = abs_x;
-
-        largest = 0;
-
-        if ( abs_y > largest_value )
-        {
-            largest = 1;
-            largest_value = abs_y;
-        }
-
-        if ( abs_z > largest_value )
-        {
-            largest = 2;
-            largest_value = abs_z;
-        }
-
-        if ( abs_w > largest_value )
-        {
-            largest = 3;
-            largest_value = abs_w;
-        }
-
-        float a = 0;
-        float b = 0;
-        float c = 0;
-
-        switch ( largest )
-        {
-            case 0:
-                if ( x >= 0 )
-                {
-                    a = y;
-                    b = z;
-                    c = w;
-                }
-                else
-                {
-                    a = -y;
-                    b = -z;
-                    c = -w;
-                }
-                break;
-
-            case 1:
-                if ( y >= 0 )
-                {
-                    a = x;
-                    b = z;
-                    c = w;
-                }
-                else
-                {
-                    a = -x;
-                    b = -z;
-                    c = -w;
-                }
-                break;
-
-            case 2:
-                if ( z >= 0 )
-                {
-                    a = x;
-                    b = y;
-                    c = w;
-                }
-                else
-                {
-                    a = -x;
-                    b = -y;
-                    c = -w;
-                }
-                break;
-
-            case 3:
-                if ( w >= 0 )
-                {
-                    a = x;
-                    b = y;
-                    c = z;
-                }
-                else
-                {
-                    a = -x;
-                    b = -y;
-                    c = -z;
-                }
-                break;
-        }
-
-        float normal_a = ( a - minimum ) / ( maximum - minimum ); 
-        float normal_b = ( b - minimum ) / ( maximum - minimum );
-        float normal_c = ( c - minimum ) / ( maximum - minimum );
-
-        integer_a = (uint) Math.Floor( normal_a * scale + 0.5f );
-        integer_b = (uint) Math.Floor( normal_b * scale + 0.5f );
-        integer_c = (uint) Math.Floor( normal_c * scale + 0.5f );
+    if (absY > maxAbs) {
+      largest = 1;
+      maxAbs = absY;
     }
 
-    public static Quaternion SmallestThreeToQuaternion( uint largest, uint integer_a, uint integer_b, uint integer_c )
-    {
-        const float minimum = - 1.0f / 1.414214f;       // 1.0f / sqrt(2)
-        const float maximum = + 1.0f / 1.414214f;
-
-        const float scale = (float) ( ( 1 << Constants.RotationBits ) - 1 );
-
-        const float inverse_scale = 1.0f / scale;
-
-        float a = integer_a * inverse_scale * ( maximum - minimum ) + minimum;
-        float b = integer_b * inverse_scale * ( maximum - minimum ) + minimum;
-        float c = integer_c * inverse_scale * ( maximum - minimum ) + minimum;
-
-        float x = 0.0f;
-        float y = 0.0f;
-        float z = 0.0f;
-        float w = 0.0f;
-
-        switch ( largest )
-        {
-            case 0:
-            {
-                x = (float) Math.Sqrt( 1 - a*a - b*b - c*c );
-                y = a;
-                z = b;
-                w = c;
-            }
-            break;
-
-            case 1:
-            {
-                x = a;
-                y = (float) Math.Sqrt( 1 - a*a - b*b - c*c );
-                z = b;
-                w = c;
-            }
-            break;
-
-            case 2:
-            {
-                x = a;
-                y = b;
-                z = (float) Math.Sqrt( 1 - a*a - b*b - c*c );
-                w = c;
-            }
-            break;
-
-            case 3:
-            {
-                x = a;
-                y = b;
-                z = c;
-                w = (float) Math.Sqrt( 1 - a*a - b*b - c*c );
-            }
-            break;
-        }
-
-        // IMPORTANT: We must normalize the quaternion here because it will have slight drift otherwise due to being quantized
-
-        float norm = x*x + y*y + z*z + w*w;
-
-        if ( norm > 0.000001f )
-        {
-            var quaternion = new Quaternion( x, y, z, w );
-            float length = (float) Math.Sqrt( norm );
-            quaternion.x /= length;
-            quaternion.y /= length;
-            quaternion.z /= length;
-            quaternion.w /= length;
-            return quaternion;
-        }
-        else
-        {
-            return new Quaternion( 0, 0, 0, 1 );
-        }
+    if (absZ > maxAbs) {
+      largest = 2;
+      maxAbs = absZ;
     }
 
-    public static void ClampPosition( ref int position_x, ref int position_y, ref int position_z )
-    {
-        if ( position_x < Constants.PositionMinimumXZ )
-            position_x = Constants.PositionMinimumXZ;
-        else if ( position_x > Constants.PositionMaximumXZ )
-            position_x = Constants.PositionMaximumXZ;
-
-        if ( position_y < Constants.PositionMinimumY )
-            position_y = Constants.PositionMinimumY;
-        else if ( position_y > Constants.PositionMaximumY )
-            position_y = Constants.PositionMaximumY;
-
-        if ( position_z < Constants.PositionMinimumXZ )
-            position_z = Constants.PositionMinimumXZ;
-        else if ( position_z > Constants.PositionMaximumXZ )
-            position_z = Constants.PositionMaximumXZ;
+    if (absW > maxAbs) {
+      largest = 3;
+      maxAbs = absW;
     }
 
-    public static void ClampLinearVelocity( ref int linear_velocity_x, ref int linear_velocity_y, ref int linear_velocity_z )
-    {
-        if ( linear_velocity_x < Constants.LinearVelocityMinimum )
-            linear_velocity_x = Constants.LinearVelocityMinimum;
-        else if ( linear_velocity_x > Constants.LinearVelocityMaximum )
-            linear_velocity_x = Constants.LinearVelocityMaximum;
+    var first = 0f;
+    var second = 0f;
+    var third = 0f;
 
-        if ( linear_velocity_y < Constants.LinearVelocityMinimum )
-            linear_velocity_y = Constants.LinearVelocityMinimum;
-        else if ( linear_velocity_y > Constants.LinearVelocityMaximum )
-            linear_velocity_y = Constants.LinearVelocityMaximum;
+    if (largest == 0) {
+      if (q.x >= 0) {
+        first = q.y;
+        second = q.z;
+        third = q.w;
 
-        if ( linear_velocity_z < Constants.LinearVelocityMinimum )
-            linear_velocity_z = Constants.LinearVelocityMinimum;
-        else if ( linear_velocity_z > Constants.LinearVelocityMaximum )
-            linear_velocity_z = Constants.LinearVelocityMaximum;
+      } else {
+        first = -q.y;
+        second = -q.z;
+        third = -q.w;
+      }
+
+    } else if (largest == 1) {
+      if (q.y >= 0) {
+        first = q.x;
+        second = q.z;
+        third = q.w;
+
+      } else {
+        first = -q.x;
+        second = -q.z;
+        third = -q.w;
+      }
+
+    } else if (largest == 2) {
+      if (q.z >= 0) {
+        first = q.x;
+        second = q.y;
+        third = q.w;
+
+      } else {
+        first = -q.x;
+        second = -q.y;
+        third = -q.w;
+      }
+
+    } else if (largest == 3) {
+      if (q.w >= 0) {
+        first = q.x;
+        second = q.y;
+        third = q.z;
+
+      } else {
+        first = -q.x;
+        second = -q.y;
+        third = -q.z;
+      }
     }
 
-    public static void ClampAngularVelocity( ref int angular_velocity_x, ref int angular_velocity_y, ref int angular_velocity_z )
-    { 
-        if ( angular_velocity_x < Constants.AngularVelocityMinimum )
-            angular_velocity_x = Constants.AngularVelocityMinimum;
-        else if ( angular_velocity_x > Constants.AngularVelocityMaximum )
-            angular_velocity_x = Constants.AngularVelocityMaximum;
+    rotationX = (uint)Math.Floor((first - min) / (max - min) * scale + 0.5f);
+    rotationY = (uint)Math.Floor((second - min) / (max - min) * scale + 0.5f);
+    rotationZ = (uint)Math.Floor((third - min) / (max - min) * scale + 0.5f);
+  }
 
-        if ( angular_velocity_y < Constants.AngularVelocityMinimum )
-            angular_velocity_y = Constants.AngularVelocityMinimum;
-        else if ( angular_velocity_y > Constants.AngularVelocityMaximum )
-            angular_velocity_y = Constants.AngularVelocityMaximum;
+  public static Quaternion SmallestThreeToQuaternion(uint largest, uint rotationX, uint rotationY, uint rotationZ) {
+    const float min = -1.0f / 1.414214f;       // 1.0f / sqrt(2)
+    const float max = +1.0f / 1.414214f;
+    const float scale = (1 << RotationBits) - 1;
+    const float inverse_scale = 1.0f / scale;
+    var first = rotationX * inverse_scale * (max - min) + min;
+    var second = rotationY * inverse_scale * (max - min) + min;
+    var third = rotationZ * inverse_scale * (max - min) + min;
+    var x = 0.0f;
+    var y = 0.0f;
+    var z = 0.0f;
+    var w = 0.0f;
 
-        if ( angular_velocity_z < Constants.AngularVelocityMinimum )
-            angular_velocity_z = Constants.AngularVelocityMinimum;
-        else if ( angular_velocity_z > Constants.AngularVelocityMaximum )
-            angular_velocity_z = Constants.AngularVelocityMaximum;
+    if (largest == 0) {
+      x = (float)Math.Sqrt(1 - first * first - second * second - third * third);
+      y = first;
+      z = second;
+      w = third;
+
+    } else if (largest == 1) {
+      x = first;
+      y = (float)Math.Sqrt(1 - first * first - second * second - third * third);
+      z = second;
+      w = third;
+
+    } else if (largest == 2) {
+      x = first;
+      y = second;
+      z = (float)Math.Sqrt(1 - first * first - second * second - third * third);
+      w = third;
+
+    } else if (largest == 3) {
+      x = first;
+      y = second;
+      z = third;
+      w = (float)Math.Sqrt(1 - first * first - second * second - third * third);
+    }
+    
+    var norm = x * x + y * y + z * z + w * w; //IMPORTANT: We must normalize the quaternion here because it will have slight drift otherwise due to being quantized
+
+    if (norm > 0.000001f) {
+      var quaternion = new Quaternion(x, y, z, w);
+      var length = (float)Math.Sqrt(norm);
+      quaternion.x /= length;
+      quaternion.y /= length;
+      quaternion.z /= length;
+      quaternion.w /= length;
+
+      return quaternion;
+    } else {
+      return new Quaternion(0, 0, 0, 1);
+    }
+  }
+
+  public static void ClampPosition(ref int x, ref int y, ref int z) {
+    x = Clamp(x, PositionMinimumXZ, PositionMinimumXZ);
+    y = Clamp(y, PositionMinimumY, PositionMaximumY);
+    z = Clamp(z, PositionMinimumXZ, PositionMinimumXZ);
+  }
+
+  public static void ClampLinearVelocity(ref int x, ref int y, ref int z) {
+    x = Clamp(x, LinearVelocityMinimum, LinearVelocityMaximum);
+    y = Clamp(y, LinearVelocityMinimum, LinearVelocityMaximum);
+    z = Clamp(z, LinearVelocityMinimum, LinearVelocityMaximum);
+  }
+
+  public static void ClampAngularVelocity(ref int x, ref int y, ref int z) {
+    x = Clamp(x, AngularVelocityMinimum, AngularVelocityMaximum);
+    y = Clamp(y, AngularVelocityMinimum, AngularVelocityMaximum);
+    z = Clamp(z, AngularVelocityMinimum, AngularVelocityMaximum);
+  }
+
+  public static void ClampLocalPosition(ref int x, ref int y, ref int z) {
+    x = Clamp(x, LocalPositionMinimum, LocalPositionMaximum);
+    y = Clamp(y, LocalPositionMinimum, LocalPositionMaximum);
+    z = Clamp(z, LocalPositionMinimum, LocalPositionMaximum);
+  }
+
+  public static void GetState(Rigidbody rigidbody, NetworkInfo network, ref CubeState s, ref Vector3 origin) {
+    s.isActive = !rigidbody.IsSleeping();
+    s.authorityId = network.GetAuthorityId();
+    s.authoritySequence = network.GetAuthoritySequence();
+    s.ownershipSequence = network.GetOwnershipSequence();
+
+    var position = rigidbody.position - origin;
+    s.positionX = (int)Math.Floor(position.x * UnitsPerMeter + 0.5f);
+    s.positionY = (int)Math.Floor(position.y * UnitsPerMeter + 0.5f);
+    s.positionZ = (int)Math.Floor(position.z * UnitsPerMeter + 0.5f);
+    QuaternionToSmallestThree(rigidbody.rotation, out s.rotationLargest, out s.rotationX, out s.rotationY, out s.rotationZ);
+
+    s.linearVelocityX = (int)Math.Floor(rigidbody.velocity.x * UnitsPerMeter + 0.5f);
+    s.linearVelocityY = (int)Math.Floor(rigidbody.velocity.y * UnitsPerMeter + 0.5f);
+    s.linearVelocityZ = (int)Math.Floor(rigidbody.velocity.z * UnitsPerMeter + 0.5f);
+    s.angularVelocityX = (int)Math.Floor(rigidbody.angularVelocity.x * UnitsPerMeter + 0.5f);
+    s.angularVelocityY = (int)Math.Floor(rigidbody.angularVelocity.y * UnitsPerMeter + 0.5f);
+    s.angularVelocityZ = (int)Math.Floor(rigidbody.angularVelocity.z * UnitsPerMeter + 0.5f);
+
+    ClampPosition(ref s.positionX, ref s.positionY, ref s.positionZ);
+    ClampLinearVelocity(ref s.linearVelocityX, ref s.linearVelocityY, ref s.linearVelocityZ);
+    ClampAngularVelocity(ref s.angularVelocityX, ref s.angularVelocityY, ref s.angularVelocityZ);
+  }
+
+  public static void ApplyState(Rigidbody rigidbody, NetworkInfo network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
+    if (network.IsHeldByPlayer())
+      network.DetachCube();
+
+    if (s.isActive && rigidbody.IsSleeping())
+        rigidbody.WakeUp();
+
+    if (!s.isActive && !rigidbody.IsSleeping())
+        rigidbody.Sleep();
+
+    network.SetAuthorityId(s.authorityId);
+    network.SetAuthoritySequence(s.authoritySequence);
+    network.SetOwnershipSequence(s.ownershipSequence);
+
+    var position = new Vector3(s.positionX, s.positionY, s.positionZ) * 1.0f / UnitsPerMeter + origin;
+    var rotation = SmallestThreeToQuaternion(s.rotationLargest, s.rotationX, s.rotationY, s.rotationZ);
+
+    if (isSmooth) {
+      network.MoveWithSmoothing(position, rotation);
+    } else {
+      rigidbody.position = position;
+      rigidbody.rotation = rotation;
     }
 
-    public static void ClampLocalPosition( ref int position_x, ref int position_y, ref int position_z )
-    {
-        if ( position_x < Constants.LocalPositionMinimum )
-            position_x = Constants.LocalPositionMinimum;
-        else if ( position_x > Constants.LocalPositionMaximum )
-            position_x = Constants.LocalPositionMaximum;
-
-        if ( position_y < Constants.LocalPositionMinimum )
-            position_y = Constants.LocalPositionMinimum;
-        else if ( position_y > Constants.LocalPositionMaximum )
-            position_y = Constants.LocalPositionMaximum;
-
-        if ( position_z < Constants.LocalPositionMinimum )
-            position_z = Constants.LocalPositionMinimum;
-        else if ( position_z > Constants.LocalPositionMaximum )
-            position_z = Constants.LocalPositionMaximum;
-   }
-
-   public static void GetCubeState( Rigidbody rigidBody, NetworkInfo networkInfo, ref CubeState cubeState, ref Vector3 origin )
-    {
-        cubeState.active = !rigidBody.IsSleeping();
-
-        cubeState.authorityIndex = networkInfo.GetAuthorityId();
-        cubeState.authoritySequence = networkInfo.GetAuthoritySequence();
-        cubeState.ownershipSequence = networkInfo.GetOwnershipSequence();
-
-        Vector3 position = rigidBody.position - origin;
-
-        cubeState.position_x = (int) Math.Floor( position.x * Constants.UnitsPerMeter + 0.5f );
-        cubeState.position_y = (int) Math.Floor( position.y * Constants.UnitsPerMeter + 0.5f );
-        cubeState.position_z = (int) Math.Floor( position.z * Constants.UnitsPerMeter + 0.5f );
-
-        Snapshot.QuaternionToSmallestThree( rigidBody.rotation, 
-                                            out cubeState.rotation_largest, 
-                                            out cubeState.rotation_a, 
-                                            out cubeState.rotation_b, 
-                                            out cubeState.rotation_c );
-
-        cubeState.linear_velocity_x = (int) Math.Floor( rigidBody.velocity.x * Constants.UnitsPerMeter + 0.5f  );
-        cubeState.linear_velocity_y = (int) Math.Floor( rigidBody.velocity.y * Constants.UnitsPerMeter + 0.5f  );
-        cubeState.linear_velocity_z = (int) Math.Floor( rigidBody.velocity.z * Constants.UnitsPerMeter + 0.5f  );
-
-        cubeState.angular_velocity_x = (int) Math.Floor( rigidBody.angularVelocity.x * Constants.UnitsPerMeter + 0.5f  );
-        cubeState.angular_velocity_y = (int) Math.Floor( rigidBody.angularVelocity.y * Constants.UnitsPerMeter + 0.5f  );
-        cubeState.angular_velocity_z = (int) Math.Floor( rigidBody.angularVelocity.z * Constants.UnitsPerMeter + 0.5f  );
-
-        ClampPosition( ref cubeState.position_x, ref cubeState.position_y, ref cubeState.position_z );
-
-        ClampLinearVelocity( ref cubeState.linear_velocity_x, ref cubeState.linear_velocity_y, ref cubeState.linear_velocity_z );
-
-        ClampAngularVelocity( ref cubeState.angular_velocity_x, ref cubeState.angular_velocity_y, ref cubeState.angular_velocity_z );
-    }
-
-    public static void ApplyCubeState( Rigidbody rigidBody, NetworkInfo networkInfo, ref CubeState cubeState, ref Vector3 origin, bool smoothing = false )
-    {
-        if ( networkInfo.IsHeldByPlayer() )
-            networkInfo.DetachCube();
-
-        if ( cubeState.active )
-        {
-            if ( rigidBody.IsSleeping() )
-                rigidBody.WakeUp();
-        }
-
-        if ( !cubeState.active )
-        {
-            if ( !rigidBody.IsSleeping() )
-                rigidBody.Sleep();
-        }
-
-        networkInfo.SetAuthorityId( cubeState.authorityIndex );
-        networkInfo.SetAuthoritySequence( cubeState.authoritySequence );
-        networkInfo.SetOwnershipSequence( cubeState.ownershipSequence );
-
-        Vector3 position = new Vector3( cubeState.position_x, cubeState.position_y, cubeState.position_z ) * 1.0f / Constants.UnitsPerMeter + origin;
-
-        Quaternion rotation = SmallestThreeToQuaternion( cubeState.rotation_largest, cubeState.rotation_a, cubeState.rotation_b, cubeState.rotation_c );
-
-        if ( smoothing )
-        {
-            networkInfo.MoveWithSmoothing( position, rotation );
-        }
-        else
-        {
-            rigidBody.position = position;
-            rigidBody.rotation = rotation;
-        }
-
-        rigidBody.velocity = new Vector3( cubeState.linear_velocity_x, cubeState.linear_velocity_y, cubeState.linear_velocity_z ) * 1.0f / Constants.UnitsPerMeter;
-
-        rigidBody.angularVelocity = new Vector3( cubeState.angular_velocity_x, cubeState.angular_velocity_y, cubeState.angular_velocity_z ) * 1.0f / Constants.UnitsPerMeter;
-    }
-};
+    rigidbody.velocity = new Vector3(s.linearVelocityX, s.linearVelocityY, s.linearVelocityZ) * 1.0f / UnitsPerMeter;
+    rigidbody.angularVelocity = new Vector3(s.angularVelocityX, s.angularVelocityY, s.angularVelocityZ) * 1.0f / UnitsPerMeter;
+  }
+}

@@ -571,7 +571,7 @@ public class Guest: Common
 
         context.UpdateCubePriority();
 
-        context.GetMostImportantCubeStateUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubeState );
+        context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubeState );
 
         Network.PacketHeader writePacketHeader;
 

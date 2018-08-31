@@ -396,7 +396,7 @@ public static class Tests
         for ( int i = 0; i < NumCubeStates; ++i )
         {
             cubeStates[i] = CubeState.defaults;
-            cubeStates[i].position_x = i;
+            cubeStates[i].positionX = i;
 
             int cubeId = 10 + i * 10;
 
@@ -416,7 +416,7 @@ public static class Tests
             result = deltaBuffer.GetCubeState( Sequence, ResetSequence, cubeId, ref cubeState );
 
             Assert.IsTrue( result );
-            Assert.IsTrue( cubeState.position_x == cubeStates[i].position_x );
+            Assert.IsTrue( cubeState.positionX == cubeStates[i].positionX );
         }
 
         // verify that get cube state returns false for cube ids that weren't in this packet
@@ -455,7 +455,7 @@ public static class Tests
         for ( int i = 0; i < NumCubeStates; ++i )
         {
             Assert.IsTrue( packetCubeIds[i] == 10 + i * 10 );
-            Assert.IsTrue( packetCubeState[i].position_x == cubeStates[i].position_x );
+            Assert.IsTrue( packetCubeState[i].positionX == cubeStates[i].positionX );
         }
         
         // try to grab packet data for an invalid sequence number and make sure it returns false

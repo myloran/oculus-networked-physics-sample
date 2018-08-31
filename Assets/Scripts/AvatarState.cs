@@ -7,524 +7,415 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
+using Network;
 using System;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Frame = OvrAvatarDriver.PoseFrame;
+using static UnityEngine.Quaternion;
+using static UnityEngine.Vector3;
+using static System.Math;
+using static Snapshot;
+using static Constants;
+using static Mathx;
 
-public struct AvatarStateQuantized
-{
-    public int client_index;
+public struct AvatarStateQuantized {
+  public static AvatarStateQuantized Default;
 
-    public int head_position_x;
-    public int head_position_y;
-    public int head_position_z;
+  public int 
+    clientId,
+    headPositionX,
+    headPositionY,
+    headPositionZ,
+    leftHandPositionX,
+    leftHandPositionY,
+    leftHandPositionZ,
+    leftHandGripTrigger,
+    leftHandIdTrigger,
+    leftHandCubeId,
+    leftHandCubeLocalPositionX,
+    leftHandCubeLocalPositionY,
+    leftHandCubeLocalPositionZ,
+    rightHandPositionX,
+    rightHandPositionY,
+    rightHandPositionZ,
+    rightHandGripTrigger,
+    rightHandIndexTrigger,
+    rightHandCubeId,
+    rightHandCubeLocalPositionX,
+    rightHandCubeLocalPositionY,
+    rightHandCubeLocalPositionZ,
+    voiceAmplitude;
 
-    public uint head_rotation_largest;
-    public uint head_rotation_a;
-    public uint head_rotation_b;
-    public uint head_rotation_c;
+  public uint 
+    headRotationLargest,
+    headRotationX,
+    headRotationY,
+    headRotationZ,
+    leftHandRotationLargest,
+    leftHandRotationX,
+    leftHandRotationY,
+    leftHandRotationZ,
+    leftHandCubeLocalRotationLargest,
+    leftHandCubeLocalRotationX,
+    leftHandCubeLocalRotationY,
+    leftHandCubeLocalRotationZ,
+    rightHandRotationLargest,
+    rightHandRotationX,
+    rightHandRotationY,
+    rightHandRotationZ,
+    rightHandCubeLocalRotationLargest,
+    rightHandCubeLocalRotationX,
+    rightHandCubeLocalRotationY,
+    rightHandCubeLocalRotationZ;
 
-    public int left_hand_position_x;
-    public int left_hand_position_y;
-    public int left_hand_position_z;
+  public ushort 
+    leftHandAuthoritySequence,
+    leftHandOwnershipSequence,
+    rightHandAuthoritySequence,
+    rightHandOwnershipSequence;
 
-    public uint left_hand_rotation_largest;
-    public uint left_hand_rotation_a;
-    public uint left_hand_rotation_b;
-    public uint left_hand_rotation_c;
-
-    public int left_hand_grip_trigger;
-    public int left_hand_index_trigger;
-    public bool left_hand_pointing;
-    public bool left_hand_thumbs_up;
-
-    public bool left_hand_holding_cube;
-    public int left_hand_cube_id;
-    public ushort left_hand_authority_sequence;
-    public ushort left_hand_ownership_sequence;
-    public int left_hand_cube_local_position_x;
-    public int left_hand_cube_local_position_y;
-    public int left_hand_cube_local_position_z;
-    public uint left_hand_cube_local_rotation_largest;
-    public uint left_hand_cube_local_rotation_a;
-    public uint left_hand_cube_local_rotation_b;
-    public uint left_hand_cube_local_rotation_c;
-
-    public int right_hand_position_x;
-    public int right_hand_position_y;
-    public int right_hand_position_z;
-
-    public uint right_hand_rotation_largest;
-    public uint right_hand_rotation_a;
-    public uint right_hand_rotation_b;
-    public uint right_hand_rotation_c;
-
-    public int right_hand_grip_trigger;
-    public int right_hand_index_trigger;
-    public bool right_hand_pointing;
-    public bool right_hand_thumbs_up;
-
-    public bool right_hand_holding_cube;
-    public int right_hand_cube_id;
-    public ushort right_hand_authority_sequence;
-    public ushort right_hand_ownership_sequence;
-    public int right_hand_cube_local_position_x;
-    public int right_hand_cube_local_position_y;
-    public int right_hand_cube_local_position_z;
-    public uint right_hand_cube_local_rotation_largest;
-    public uint right_hand_cube_local_rotation_a;
-    public uint right_hand_cube_local_rotation_b;
-    public uint right_hand_cube_local_rotation_c;
-
-    public int voice_amplitude;
-
-    public static AvatarStateQuantized defaults;
+  public bool 
+    isLeftHandPointing,
+    areLeftHandThumbsUp,
+    isLeftHandHoldingCube,
+    isRightHandPointing,
+    areRightHandThumbsUp,
+    isRightHandHoldingCube;
 }
 
-public struct AvatarState
-{
-    public int client_index;
+public struct AvatarState {
+  public static AvatarState Default;
 
-    public Vector3 head_position;
-    public Quaternion head_rotation;
-    
-    public Vector3 left_hand_position;
-    public Quaternion left_hand_rotation;
-    public float left_hand_grip_trigger;
-    public float left_hand_index_trigger;
-    public bool left_hand_pointing;
-    public bool left_hand_thumbs_up;
-    public bool left_hand_holding_cube;
-    public int left_hand_cube_id;
-    public ushort left_hand_authority_sequence;
-    public ushort left_hand_ownership_sequence;
-    public Vector3 left_hand_cube_local_position;
-    public Quaternion left_hand_cube_local_rotation;
+  public Vector3 
+    headPosition,
+    leftHandPosition,
+    leftHandCubeLocalPosition,
+    rightHandPosition,
+    rightHandCubeLocalPosition;
 
-    public Vector3 right_hand_position;
-    public Quaternion right_hand_rotation;
-    public float right_hand_grip_trigger;
-    public float right_hand_index_trigger;
-    public bool right_hand_pointing;
-    public bool right_hand_thumbs_up;
-    public bool right_hand_holding_cube;
-    public int right_hand_cube_id;
-    public ushort right_hand_authority_sequence;
-    public ushort right_hand_ownership_sequence;
-    public Vector3 right_hand_cube_local_position;
-    public Quaternion right_hand_cube_local_rotation;
+  public Quaternion 
+    headRotation,
+    leftHandRotation,
+    leftHandCubeLocalRotation,
+    rightHandRotation,
+    rightHandCubeLocalRotation;
 
-    public float voice_amplitude;
+  public int 
+    clientId,
+    leftHandCubeId,
+    rightHandCubeId;
 
-    public static AvatarState defaults;
+  public float 
+    leftHandGripTrigger,
+    leftHandIdTrigger,
+    rightHandGripTrigger,
+    rightHandIdTrigger,
+    voiceAmplitude;
 
-    public static void Initialize( out AvatarState state, int clientIndex, OvrAvatarDriver.PoseFrame frame, GameObject leftHandHeldObject, GameObject rightHandHeldObject )
-    {
-        state.client_index = clientIndex;
+  public ushort 
+    leftHandAuthoritySequence,
+    leftHandOwnershipSequence,
+    rightHandAuthoritySequence,
+    rightHandOwnershipSequence;
 
-        state.head_position = frame.headPosition;
-        state.head_rotation = frame.headRotation;
+  public bool 
+    isLeftHandPointing,
+    areLeftHandThumbsUp,
+    isLeftHandHoldingCube,
+    isRightHandPointing,
+    areRightHandThumbsUp,
+    isRightHandHoldingCube;
 
-        state.left_hand_position = frame.handLeftPosition;
-        state.left_hand_rotation = frame.handLeftRotation;
-        state.left_hand_grip_trigger = frame.handLeftPose.gripFlex;
-        state.left_hand_index_trigger = frame.handLeftPose.indexFlex;
-        state.left_hand_pointing = frame.handLeftPose.isPointing;
-        state.left_hand_thumbs_up = frame.handLeftPose.isThumbUp;
+  public static void Initialize(out AvatarState s, int clientId, Frame frame, GameObject leftHandHeldObject, GameObject rightHandHeldObject) {
+    s.clientId = clientId;
+    s.headPosition = frame.headPosition;
+    s.headRotation = frame.headRotation;
+    s.leftHandPosition = frame.handLeftPosition;
+    s.leftHandRotation = frame.handLeftRotation;
+    s.leftHandGripTrigger = frame.handLeftPose.gripFlex;
+    s.leftHandIdTrigger = frame.handLeftPose.indexFlex;
+    s.isLeftHandPointing = frame.handLeftPose.isPointing;
+    s.areLeftHandThumbsUp = frame.handLeftPose.isThumbUp;
 
-        if ( leftHandHeldObject )
-        {
-            state.left_hand_holding_cube = true;
-
-            NetworkInfo networkInfo = leftHandHeldObject.GetComponent<NetworkInfo>();
-
-            state.left_hand_cube_id = networkInfo.GetCubeId();
-            state.left_hand_authority_sequence = networkInfo.GetAuthoritySequence();
-            state.left_hand_ownership_sequence = networkInfo.GetOwnershipSequence();
-            state.left_hand_cube_local_position = leftHandHeldObject.transform.localPosition;
-            state.left_hand_cube_local_rotation = leftHandHeldObject.transform.localRotation;
-        }
-        else
-        {
-            state.left_hand_holding_cube = false;
-            state.left_hand_cube_id = -1;
-            state.left_hand_authority_sequence = 0;
-            state.left_hand_ownership_sequence = 0;
-            state.left_hand_cube_local_position = Vector3.zero;
-            state.left_hand_cube_local_rotation = Quaternion.identity;
-        }
-
-        state.right_hand_position = frame.handRightPosition;
-        state.right_hand_rotation = frame.handRightRotation;
-        state.right_hand_grip_trigger = frame.handRightPose.gripFlex;
-        state.right_hand_index_trigger = frame.handRightPose.indexFlex;
-        state.right_hand_pointing = frame.handRightPose.isPointing;
-        state.right_hand_thumbs_up = frame.handRightPose.isThumbUp;
-
-        if ( rightHandHeldObject )
-        {
-            state.right_hand_holding_cube = true;
-
-            NetworkInfo networkInfo = rightHandHeldObject.GetComponent<NetworkInfo>();
-
-            state.right_hand_cube_id = networkInfo.GetCubeId();
-            state.right_hand_authority_sequence = networkInfo.GetAuthoritySequence();
-            state.right_hand_ownership_sequence = networkInfo.GetOwnershipSequence();
-            state.right_hand_cube_local_position = rightHandHeldObject.transform.localPosition;
-            state.right_hand_cube_local_rotation = rightHandHeldObject.transform.localRotation;
-        }
-        else
-        {
-            state.right_hand_holding_cube = false;
-            state.right_hand_cube_id = -1;
-            state.right_hand_authority_sequence = 0;
-            state.right_hand_ownership_sequence = 0;
-            state.right_hand_cube_local_position = Vector3.zero;
-            state.right_hand_cube_local_rotation = Quaternion.identity;
-        }
-
-        state.voice_amplitude = frame.voiceAmplitude;
+    if (leftHandHeldObject) {
+      s.isLeftHandHoldingCube = true;
+      var network = leftHandHeldObject.GetComponent<NetworkInfo>();
+      s.leftHandCubeId = network.GetCubeId();
+      s.leftHandAuthoritySequence = network.GetAuthoritySequence();
+      s.leftHandOwnershipSequence = network.GetOwnershipSequence();
+      s.leftHandCubeLocalPosition = leftHandHeldObject.transform.localPosition;
+      s.leftHandCubeLocalRotation = leftHandHeldObject.transform.localRotation;
+    } else {
+      s.isLeftHandHoldingCube = false;
+      s.leftHandCubeId = -1;
+      s.leftHandAuthoritySequence = 0;
+      s.leftHandOwnershipSequence = 0;
+      s.leftHandCubeLocalPosition = zero;
+      s.leftHandCubeLocalRotation = identity;
     }
 
-    public static void ApplyPose( ref AvatarState state, int clientIndex, OvrAvatarDriver.PoseFrame frame, Context context )
-    {
-        frame.headPosition = state.head_position;
-        frame.headRotation = state.head_rotation;
+    s.rightHandPosition = frame.handRightPosition;
+    s.rightHandRotation = frame.handRightRotation;
+    s.rightHandGripTrigger = frame.handRightPose.gripFlex;
+    s.rightHandIdTrigger = frame.handRightPose.indexFlex;
+    s.isRightHandPointing = frame.handRightPose.isPointing;
+    s.areRightHandThumbsUp = frame.handRightPose.isThumbUp;
 
-        frame.handLeftPosition = state.left_hand_position;
-        frame.handLeftRotation = state.left_hand_rotation;
-        frame.handLeftPose.gripFlex = state.left_hand_grip_trigger;
-        frame.handLeftPose.indexFlex = state.left_hand_index_trigger;
-        frame.handLeftPose.isPointing = state.left_hand_pointing;
-        frame.handLeftPose.isThumbUp = state.left_hand_thumbs_up;
-
-        frame.handRightPosition = state.right_hand_position;
-        frame.handRightRotation = state.right_hand_rotation;
-        frame.handRightPose.gripFlex = state.right_hand_grip_trigger;
-        frame.handRightPose.indexFlex = state.right_hand_index_trigger;
-        frame.handRightPose.isPointing = state.right_hand_pointing;
-        frame.handRightPose.isThumbUp = state.right_hand_thumbs_up;
-
-        frame.voiceAmplitude = state.voice_amplitude;
+    if (rightHandHeldObject) {
+      s.isRightHandHoldingCube = true;
+      var network = rightHandHeldObject.GetComponent<NetworkInfo>();
+      s.rightHandCubeId = network.GetCubeId();
+      s.rightHandAuthoritySequence = network.GetAuthoritySequence();
+      s.rightHandOwnershipSequence = network.GetOwnershipSequence();
+      s.rightHandCubeLocalPosition = rightHandHeldObject.transform.localPosition;
+      s.rightHandCubeLocalRotation = rightHandHeldObject.transform.localRotation;
+    } else {
+      s.isRightHandHoldingCube = false;
+      s.rightHandCubeId = -1;
+      s.rightHandAuthoritySequence = 0;
+      s.rightHandOwnershipSequence = 0;
+      s.rightHandCubeLocalPosition = zero;
+      s.rightHandCubeLocalRotation = identity;
     }
+    s.voiceAmplitude = frame.voiceAmplitude;
+  }
 
-    public static void UpdateLeftHandSequenceNumbers( ref AvatarState state, Context context )
-    {
-        if ( state.left_hand_holding_cube )
-        {
-            var cube = context.GetCube( state.left_hand_cube_id );
-            var networkInfo = cube.GetComponent<NetworkInfo>();
-            if ( Network.Util.SequenceGreaterThan( state.left_hand_ownership_sequence, networkInfo.GetOwnershipSequence() ) )
-            {
+  public static void ApplyPose(ref AvatarState s, int clientId, Frame frame, Context context) {
+    frame.headPosition = s.headPosition;
+    frame.headRotation = s.headRotation;
+    frame.handLeftPosition = s.leftHandPosition;
+    frame.handLeftRotation = s.leftHandRotation;
+    frame.handLeftPose.gripFlex = s.leftHandGripTrigger;
+    frame.handLeftPose.indexFlex = s.leftHandIdTrigger;
+    frame.handLeftPose.isPointing = s.isLeftHandPointing;
+    frame.handLeftPose.isThumbUp = s.areLeftHandThumbsUp;
+    frame.handRightPosition = s.rightHandPosition;
+    frame.handRightRotation = s.rightHandRotation;
+    frame.handRightPose.gripFlex = s.rightHandGripTrigger;
+    frame.handRightPose.indexFlex = s.rightHandIdTrigger;
+    frame.handRightPose.isPointing = s.isRightHandPointing;
+    frame.handRightPose.isThumbUp = s.areRightHandThumbsUp;
+    frame.voiceAmplitude = s.voiceAmplitude;
+  }
+
+  public static void UpdateLeftHandSequenceNumbers(ref AvatarState s, Context context) {
+    if (!s.isLeftHandHoldingCube) return;
+
+    var cube = context.GetCube(s.leftHandCubeId);
+    var network = cube.GetComponent<NetworkInfo>();
+    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, network.GetOwnershipSequence())) return;
 #if DEBUG_AUTHORITY
-                Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + networkInfo.GetOwnershipSequence() + "->" + state.left_hand_ownership_sequence + ", authority sequence " + networkInfo.GetOwnershipSequence() + "->" + state.left_hand_authority_sequence );
+    Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-                networkInfo.SetOwnershipSequence( state.left_hand_ownership_sequence );
-                networkInfo.SetAuthoritySequence( state.left_hand_authority_sequence );
-            }
-        }
-    }
+    network.SetOwnershipSequence(s.leftHandOwnershipSequence);
+    network.SetAuthoritySequence(s.leftHandAuthoritySequence);
+  }
 
-    public static void UpdateRightHandSequenceNumbers( ref AvatarState state, Context context )
-    {
-        if ( state.right_hand_holding_cube )
-        {
-            var cube = context.GetCube( state.right_hand_cube_id );
-            var networkInfo = cube.GetComponent<NetworkInfo>();
-            if ( Network.Util.SequenceGreaterThan( state.right_hand_ownership_sequence, networkInfo.GetOwnershipSequence() ) )
-            {
+  public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
+    if (!s.isRightHandHoldingCube) return;
+
+    var cube = context.GetCube(s.rightHandCubeId);
+    var network = cube.GetComponent<NetworkInfo>();
+    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, network.GetOwnershipSequence())) return;
 #if DEBUG_AUTHORITY
-                Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + networkInfo.GetOwnershipSequence() + "->" + state.right_hand_ownership_sequence + ", authority sequence " + networkInfo.GetOwnershipSequence() + "->" + state.right_hand_authority_sequence );
+    Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-                networkInfo.SetOwnershipSequence( state.right_hand_ownership_sequence );
-                networkInfo.SetAuthoritySequence( state.right_hand_authority_sequence );
-            }
-        }
+    network.SetOwnershipSequence(s.rightHandOwnershipSequence);
+    network.SetAuthoritySequence(s.rightHandAuthoritySequence);
+  }
+
+  public static void ApplyLeftHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
+    Assert.IsTrue(clientId == s.clientId);
+
+    if (!s.isLeftHandHoldingCube) return;
+
+    var cube = context.GetCube(s.leftHandCubeId);
+    var network = cube.GetComponent<NetworkInfo>();
+
+    if (!network.IsHeldByRemotePlayer(avatar, avatar.GetLeftHand()))
+      network.AttachCubeToRemotePlayer(avatar, avatar.GetLeftHand(), s.clientId);
+
+    network.SetAuthoritySequence(s.leftHandAuthoritySequence);
+    network.SetOwnershipSequence(s.leftHandOwnershipSequence);
+    network.MoveWithSmoothingLocal(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
+  }
+
+  public static void ApplyRightHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
+    Assert.IsTrue(clientId == s.clientId);
+
+    if (s.isRightHandHoldingCube) {
+      var cube = context.GetCube(s.rightHandCubeId);
+      var network = cube.GetComponent<NetworkInfo>();
+
+      if (!network.IsHeldByRemotePlayer(avatar, avatar.GetRightHand())) {
+        network.AttachCubeToRemotePlayer(avatar, avatar.GetRightHand(), s.clientId);
+      }
+
+      network.SetAuthoritySequence(s.rightHandAuthoritySequence);
+      network.SetOwnershipSequence(s.rightHandOwnershipSequence);
+
+      network.MoveWithSmoothingLocal(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
+    }
+  }
+
+  public static void Quantize(ref AvatarState s, out AvatarStateQuantized q) {
+    q.clientId = s.clientId;
+    q.headPositionX = (int)Floor(s.headPosition.x * UnitsPerMeter + 0.5f);
+    q.headPositionY = (int)Floor(s.headPosition.y * UnitsPerMeter + 0.5f);
+    q.headPositionZ = (int)Floor(s.headPosition.z * UnitsPerMeter + 0.5f);
+    SetSmallestThree(s.headRotation, out q.headRotationLargest, out q.headRotationX, out q.headRotationY, out q.headRotationZ);
+
+    q.leftHandPositionX = (int)Floor(s.leftHandPosition.x * UnitsPerMeter + 0.5f);
+    q.leftHandPositionY = (int)Floor(s.leftHandPosition.y * UnitsPerMeter + 0.5f);
+    q.leftHandPositionZ = (int)Floor(s.leftHandPosition.z * UnitsPerMeter + 0.5f);
+    SetSmallestThree(s.leftHandRotation, out q.leftHandRotationLargest, out q.leftHandRotationX, out q.leftHandRotationY, out q.leftHandRotationZ);
+
+    q.leftHandGripTrigger = (int)Floor(s.leftHandGripTrigger * TriggerMaximum + 0.5f);
+    q.leftHandIdTrigger = (int)Floor(s.leftHandIdTrigger * TriggerMaximum + 0.5f);
+    q.isLeftHandPointing = s.isLeftHandPointing;
+    q.areLeftHandThumbsUp = s.areLeftHandThumbsUp;
+
+    if (s.isLeftHandHoldingCube) {
+      q.isLeftHandHoldingCube = true;
+      q.leftHandCubeId = s.leftHandCubeId;
+      q.leftHandAuthoritySequence = s.leftHandAuthoritySequence;
+      q.leftHandOwnershipSequence = s.leftHandOwnershipSequence;
+      q.leftHandCubeLocalPositionX = (int)Floor(s.leftHandCubeLocalPosition.x * UnitsPerMeter + 0.5f);
+      q.leftHandCubeLocalPositionY = (int)Floor(s.leftHandCubeLocalPosition.y * UnitsPerMeter + 0.5f);
+      q.leftHandCubeLocalPositionZ = (int)Floor(s.leftHandCubeLocalPosition.z * UnitsPerMeter + 0.5f);
+      SetSmallestThree(s.leftHandCubeLocalRotation, out q.leftHandCubeLocalRotationLargest, out q.leftHandCubeLocalRotationX, out q.leftHandCubeLocalRotationY, out q.leftHandCubeLocalRotationZ);
+    } else {
+      q.isLeftHandHoldingCube = false;
+      q.leftHandCubeId = -1;
+      q.leftHandAuthoritySequence = 0;
+      q.leftHandOwnershipSequence = 0;
+      q.leftHandCubeLocalPositionX = 0;
+      q.leftHandCubeLocalPositionY = 0;
+      q.leftHandCubeLocalPositionZ = 0;
+      q.leftHandCubeLocalRotationLargest = 0;
+      q.leftHandCubeLocalRotationX = 0;
+      q.leftHandCubeLocalRotationY = 0;
+      q.leftHandCubeLocalRotationZ = 0;
     }
 
-    public static void ApplyLeftHandUpdate( ref AvatarState state, int clientIndex, Context context, RemoteAvatar remoteAvatar )
-    {
-        Assert.IsTrue( clientIndex == state.client_index );
+    q.rightHandPositionX = (int)Floor(s.rightHandPosition.x * UnitsPerMeter + 0.5f);
+    q.rightHandPositionY = (int)Floor(s.rightHandPosition.y * UnitsPerMeter + 0.5f);
+    q.rightHandPositionZ = (int)Floor(s.rightHandPosition.z * UnitsPerMeter + 0.5f);
+    SetSmallestThree(s.rightHandRotation, out q.rightHandRotationLargest, out q.rightHandRotationX, out q.rightHandRotationY, out q.rightHandRotationZ);
 
-        if ( state.left_hand_holding_cube )
-        {
-            var cube = context.GetCube( state.left_hand_cube_id );
+    q.rightHandGripTrigger = (int)Floor(s.rightHandGripTrigger * TriggerMaximum + 0.5f);
+    q.rightHandIndexTrigger = (int)Floor(s.rightHandIdTrigger * TriggerMaximum + 0.5f);
+    q.isRightHandPointing = s.isRightHandPointing;
+    q.areRightHandThumbsUp = s.areRightHandThumbsUp;
 
-            var networkInfo = cube.GetComponent<NetworkInfo>();
-
-            if ( !networkInfo.IsHeldByRemotePlayer( remoteAvatar, remoteAvatar.GetLeftHand() ) )
-            {
-                networkInfo.AttachCubeToRemotePlayer( remoteAvatar, remoteAvatar.GetLeftHand(), state.client_index );
-            }
-
-            networkInfo.SetAuthoritySequence( state.left_hand_authority_sequence );
-
-            networkInfo.SetOwnershipSequence( state.left_hand_ownership_sequence );
-
-            networkInfo.MoveWithSmoothingLocal( state.left_hand_cube_local_position, state.left_hand_cube_local_rotation );
-        }
+    if (s.isRightHandHoldingCube) {
+      q.isRightHandHoldingCube = true;
+      q.rightHandCubeId = s.rightHandCubeId;
+      q.rightHandAuthoritySequence = s.rightHandAuthoritySequence;
+      q.rightHandOwnershipSequence = s.rightHandOwnershipSequence;
+      q.rightHandCubeLocalPositionX = (int)Floor(s.rightHandCubeLocalPosition.x * UnitsPerMeter + 0.5f);
+      q.rightHandCubeLocalPositionY = (int)Floor(s.rightHandCubeLocalPosition.y * UnitsPerMeter + 0.5f);
+      q.rightHandCubeLocalPositionZ = (int)Floor(s.rightHandCubeLocalPosition.z * UnitsPerMeter + 0.5f);
+      SetSmallestThree(s.rightHandCubeLocalRotation, out q.rightHandCubeLocalRotationLargest, out q.rightHandCubeLocalRotationX, out q.rightHandCubeLocalRotationY, out q.rightHandCubeLocalRotationZ);
+    } else {
+      q.isRightHandHoldingCube = false;
+      q.rightHandCubeId = -1;
+      q.rightHandAuthoritySequence = 0;
+      q.rightHandOwnershipSequence = 0;
+      q.rightHandCubeLocalPositionX = 0;
+      q.rightHandCubeLocalPositionY = 0;
+      q.rightHandCubeLocalPositionZ = 0;
+      q.rightHandCubeLocalRotationLargest = 0;
+      q.rightHandCubeLocalRotationX = 0;
+      q.rightHandCubeLocalRotationY = 0;
+      q.rightHandCubeLocalRotationZ = 0;
     }
 
-    public static void ApplyRightHandUpdate( ref AvatarState state, int clientIndex, Context context, RemoteAvatar remoteAvatar )
-    {
-        Assert.IsTrue( clientIndex == state.client_index );
+    q.voiceAmplitude = (int)Floor(s.voiceAmplitude * VoiceMaximum + 0.5f);    
+    ClampPosition(ref q.headPositionX, ref q.headPositionY, ref q.headPositionZ); //clamp everything
+    ClampPosition(ref q.leftHandPositionX, ref q.leftHandPositionY, ref q.leftHandPositionZ);
+    ClampPosition(ref q.rightHandPositionX, ref q.rightHandPositionY, ref q.rightHandPositionZ);
 
-        if ( state.right_hand_holding_cube )
-        {
-            GameObject cube = context.GetCube( state.right_hand_cube_id );
+    if (q.isLeftHandHoldingCube)
+      ClampLocalPosition(ref q.leftHandCubeLocalPositionX, ref q.leftHandCubeLocalPositionY, ref q.leftHandCubeLocalPositionZ);
 
-            var networkInfo = cube.GetComponent<NetworkInfo>();
+    if (q.isRightHandHoldingCube)
+      ClampLocalPosition(ref q.rightHandCubeLocalPositionX, ref q.rightHandCubeLocalPositionY, ref q.rightHandCubeLocalPositionZ);
+  }
 
-            if ( !networkInfo.IsHeldByRemotePlayer( remoteAvatar, remoteAvatar.GetRightHand() ) )
-            {
-                networkInfo.AttachCubeToRemotePlayer( remoteAvatar, remoteAvatar.GetRightHand(), state.client_index );
-            }
+  public static void Unquantize(ref AvatarStateQuantized q, out AvatarState s) {
+    s.clientId = q.clientId;
+    s.headPosition = new Vector3(q.headPositionX, q.headPositionY, q.headPositionZ) * 1.0f / UnitsPerMeter;
+    SetQuaternion(out s.headRotation, q.headRotationLargest, q.headRotationX, q.headRotationY, q.headRotationZ);
+    s.leftHandPosition = new Vector3(q.leftHandPositionX, q.leftHandPositionY, q.leftHandPositionZ) * 1.0f / UnitsPerMeter;
+    s.leftHandRotation = SmallestThreeToQuaternion(q.leftHandRotationLargest, q.leftHandRotationX, q.leftHandRotationY, q.leftHandRotationZ);
+    s.leftHandGripTrigger = q.leftHandGripTrigger * 1.0f / TriggerMaximum;
+    s.leftHandIdTrigger = q.leftHandIdTrigger * 1.0f / TriggerMaximum;
+    s.isLeftHandPointing = q.isLeftHandPointing;
+    s.areLeftHandThumbsUp = q.areLeftHandThumbsUp;
+    s.isLeftHandHoldingCube = q.isLeftHandHoldingCube;
+    s.leftHandCubeId = q.leftHandCubeId;
+    s.leftHandOwnershipSequence = q.leftHandOwnershipSequence;
+    s.leftHandAuthoritySequence = q.leftHandAuthoritySequence;
+    s.leftHandCubeLocalPosition = new Vector3(q.leftHandCubeLocalPositionX, q.leftHandCubeLocalPositionY, q.leftHandCubeLocalPositionZ) * 1.0f / UnitsPerMeter;
+    s.leftHandCubeLocalRotation = SmallestThreeToQuaternion(q.leftHandCubeLocalRotationLargest, q.leftHandCubeLocalRotationX, q.leftHandCubeLocalRotationY, q.leftHandCubeLocalRotationZ);
+    s.rightHandPosition = new Vector3(q.rightHandPositionX, q.rightHandPositionY, q.rightHandPositionZ) * 1.0f / UnitsPerMeter;
+    s.rightHandRotation = SmallestThreeToQuaternion(q.rightHandRotationLargest, q.rightHandRotationX, q.rightHandRotationY, q.rightHandRotationZ);
+    s.rightHandGripTrigger = q.rightHandGripTrigger * 1.0f / TriggerMaximum;
+    s.rightHandIdTrigger = q.rightHandIndexTrigger * 1.0f / TriggerMaximum;
+    s.isRightHandPointing = q.isRightHandPointing;
+    s.areRightHandThumbsUp = q.areRightHandThumbsUp;
+    s.isRightHandHoldingCube = q.isRightHandHoldingCube;
+    s.rightHandCubeId = q.rightHandCubeId;
+    s.rightHandOwnershipSequence = q.rightHandOwnershipSequence;
+    s.rightHandAuthoritySequence = q.rightHandAuthoritySequence;
+    s.rightHandCubeLocalPosition = new Vector3(q.rightHandCubeLocalPositionX, q.rightHandCubeLocalPositionY, q.rightHandCubeLocalPositionZ) * 1.0f / UnitsPerMeter;
+    s.rightHandCubeLocalRotation = SmallestThreeToQuaternion(q.rightHandCubeLocalRotationLargest, q.rightHandCubeLocalRotationX, q.rightHandCubeLocalRotationY, q.rightHandCubeLocalRotationZ);
+    s.voiceAmplitude = q.voiceAmplitude * 1.0f / VoiceMaximum;
+  }
 
-            networkInfo.SetAuthoritySequence( state.right_hand_authority_sequence );
-            networkInfo.SetOwnershipSequence( state.right_hand_ownership_sequence );
+  public static void Interpolate(ref AvatarState from, ref AvatarState to, out AvatarState s, float time) {
+    s.clientId = from.clientId; //convention: logically everything stays at the oldest sample, but positions and rotations and other continuous quantities are interpolated forward where it makes sense.
+    s.headPosition = from.headPosition * (1-time) + to.headPosition * time;
+    s.headRotation = Slerp(from.headRotation, to.headRotation, time);
+    s.leftHandPosition = from.leftHandPosition * (1-time) + to.leftHandPosition * time;
+    s.leftHandRotation = Slerp(from.leftHandRotation, to.leftHandRotation, time);
+    s.leftHandGripTrigger = from.leftHandGripTrigger * (1-time) + to.leftHandGripTrigger * time;
+    s.leftHandIdTrigger = from.leftHandIdTrigger * (1-time) + to.leftHandIdTrigger * time;
+    s.isLeftHandPointing = from.isLeftHandPointing;
+    s.areLeftHandThumbsUp = from.areLeftHandThumbsUp;
+    s.isLeftHandHoldingCube = from.isLeftHandHoldingCube;
+    s.leftHandCubeId = from.leftHandCubeId;
+    s.leftHandAuthoritySequence = from.leftHandAuthoritySequence;
+    s.leftHandOwnershipSequence = from.leftHandOwnershipSequence;
 
-            networkInfo.MoveWithSmoothingLocal( state.right_hand_cube_local_position, state.right_hand_cube_local_rotation );
-        }
+    if (from.isLeftHandHoldingCube == to.isLeftHandHoldingCube && from.leftHandCubeId == to.leftHandCubeId) {
+      s.leftHandCubeLocalPosition = from.leftHandCubeLocalPosition * (1-time) + to.leftHandCubeLocalPosition * time;
+      s.leftHandCubeLocalRotation = Slerp(from.leftHandCubeLocalRotation, to.leftHandCubeLocalRotation, time);
+    } else {
+      s.leftHandCubeLocalPosition = from.leftHandCubeLocalPosition;
+      s.leftHandCubeLocalRotation = from.leftHandCubeLocalRotation;
     }
 
-    public static void Quantize( ref AvatarState state, out AvatarStateQuantized quantized )
-    {
-        quantized.client_index = state.client_index;
+    s.rightHandPosition = from.rightHandPosition * (1-time) + to.rightHandPosition * time;
+    s.rightHandRotation = Slerp(from.rightHandRotation, to.rightHandRotation, time);
+    s.rightHandGripTrigger = from.rightHandGripTrigger * (1-time) + to.rightHandGripTrigger * time;
+    s.rightHandIdTrigger = from.rightHandIdTrigger * (1-time) + to.rightHandIdTrigger * time;
+    s.isRightHandPointing = from.isRightHandPointing;
+    s.areRightHandThumbsUp = from.areRightHandThumbsUp;
+    s.isRightHandHoldingCube = from.isRightHandHoldingCube;
+    s.rightHandCubeId = from.rightHandCubeId;
+    s.rightHandAuthoritySequence = from.rightHandAuthoritySequence;
+    s.rightHandOwnershipSequence = from.rightHandOwnershipSequence;
 
-        quantized.head_position_x = (int) Math.Floor( state.head_position.x * Constants.UnitsPerMeter + 0.5f );
-        quantized.head_position_y = (int) Math.Floor( state.head_position.y * Constants.UnitsPerMeter + 0.5f );
-        quantized.head_position_z = (int) Math.Floor( state.head_position.z * Constants.UnitsPerMeter + 0.5f );
-
-        Snapshot.QuaternionToSmallestThree( state.head_rotation,
-                                            out quantized.head_rotation_largest,
-                                            out quantized.head_rotation_a,
-                                            out quantized.head_rotation_b,
-                                            out quantized.head_rotation_c );
-
-        quantized.left_hand_position_x = (int) Math.Floor( state.left_hand_position.x * Constants.UnitsPerMeter + 0.5f );
-        quantized.left_hand_position_y = (int) Math.Floor( state.left_hand_position.y * Constants.UnitsPerMeter + 0.5f );
-        quantized.left_hand_position_z = (int) Math.Floor( state.left_hand_position.z * Constants.UnitsPerMeter + 0.5f );
-
-        Snapshot.QuaternionToSmallestThree( state.left_hand_rotation,
-                                            out quantized.left_hand_rotation_largest,
-                                            out quantized.left_hand_rotation_a,
-                                            out quantized.left_hand_rotation_b,
-                                            out quantized.left_hand_rotation_c );
-
-        quantized.left_hand_grip_trigger = (int) Math.Floor( state.left_hand_grip_trigger * Constants.TriggerMaximum + 0.5f );
-        quantized.left_hand_index_trigger = (int) Math.Floor( state.left_hand_index_trigger * Constants.TriggerMaximum + 0.5f );
-        quantized.left_hand_pointing = state.left_hand_pointing;
-        quantized.left_hand_thumbs_up = state.left_hand_thumbs_up;
-
-        if ( state.left_hand_holding_cube )
-        {
-            quantized.left_hand_holding_cube = true;
-
-            quantized.left_hand_cube_id = state.left_hand_cube_id;
-            quantized.left_hand_authority_sequence = state.left_hand_authority_sequence;
-            quantized.left_hand_ownership_sequence = state.left_hand_ownership_sequence;
-
-            quantized.left_hand_cube_local_position_x = (int) Math.Floor( state.left_hand_cube_local_position.x * Constants.UnitsPerMeter + 0.5f );
-            quantized.left_hand_cube_local_position_y = (int) Math.Floor( state.left_hand_cube_local_position.y * Constants.UnitsPerMeter + 0.5f );
-            quantized.left_hand_cube_local_position_z = (int) Math.Floor( state.left_hand_cube_local_position.z * Constants.UnitsPerMeter + 0.5f );
-
-            Snapshot.QuaternionToSmallestThree( state.left_hand_cube_local_rotation,
-                                                out quantized.left_hand_cube_local_rotation_largest,
-                                                out quantized.left_hand_cube_local_rotation_a,
-                                                out quantized.left_hand_cube_local_rotation_b,
-                                                out quantized.left_hand_cube_local_rotation_c );
-        }
-        else
-        {
-            quantized.left_hand_holding_cube = false;
-            quantized.left_hand_cube_id = -1;
-            quantized.left_hand_authority_sequence = 0;
-            quantized.left_hand_ownership_sequence = 0;
-            quantized.left_hand_cube_local_position_x = 0;
-            quantized.left_hand_cube_local_position_y = 0;
-            quantized.left_hand_cube_local_position_z = 0;
-            quantized.left_hand_cube_local_rotation_largest = 0;
-            quantized.left_hand_cube_local_rotation_a = 0;
-            quantized.left_hand_cube_local_rotation_b = 0;
-            quantized.left_hand_cube_local_rotation_c = 0;
-        }
-
-        quantized.right_hand_position_x = (int) Math.Floor( state.right_hand_position.x * Constants.UnitsPerMeter + 0.5f );
-        quantized.right_hand_position_y = (int) Math.Floor( state.right_hand_position.y * Constants.UnitsPerMeter + 0.5f );
-        quantized.right_hand_position_z = (int) Math.Floor( state.right_hand_position.z * Constants.UnitsPerMeter + 0.5f );
-
-        Snapshot.QuaternionToSmallestThree( state.right_hand_rotation,
-                                            out quantized.right_hand_rotation_largest,
-                                            out quantized.right_hand_rotation_a,
-                                            out quantized.right_hand_rotation_b,
-                                            out quantized.right_hand_rotation_c );
-
-        quantized.right_hand_grip_trigger = (int) Math.Floor( state.right_hand_grip_trigger * Constants.TriggerMaximum + 0.5f );
-        quantized.right_hand_index_trigger = (int) Math.Floor( state.right_hand_index_trigger * Constants.TriggerMaximum + 0.5f );
-        quantized.right_hand_pointing = state.right_hand_pointing;
-        quantized.right_hand_thumbs_up = state.right_hand_thumbs_up;
-
-        if ( state.right_hand_holding_cube )
-        {
-            quantized.right_hand_holding_cube = true;
-
-            quantized.right_hand_cube_id = state.right_hand_cube_id;
-            quantized.right_hand_authority_sequence = state.right_hand_authority_sequence;
-            quantized.right_hand_ownership_sequence = state.right_hand_ownership_sequence;
-
-            quantized.right_hand_cube_local_position_x = (int) Math.Floor( state.right_hand_cube_local_position.x * Constants.UnitsPerMeter + 0.5f );
-            quantized.right_hand_cube_local_position_y = (int) Math.Floor( state.right_hand_cube_local_position.y * Constants.UnitsPerMeter + 0.5f );
-            quantized.right_hand_cube_local_position_z = (int) Math.Floor( state.right_hand_cube_local_position.z * Constants.UnitsPerMeter + 0.5f );
-
-            Snapshot.QuaternionToSmallestThree( state.right_hand_cube_local_rotation,
-                                                out quantized.right_hand_cube_local_rotation_largest,
-                                                out quantized.right_hand_cube_local_rotation_a,
-                                                out quantized.right_hand_cube_local_rotation_b,
-                                                out quantized.right_hand_cube_local_rotation_c );
-        }
-        else
-        {
-            quantized.right_hand_holding_cube = false;
-            quantized.right_hand_cube_id = -1;
-            quantized.right_hand_authority_sequence = 0;
-            quantized.right_hand_ownership_sequence = 0;
-            quantized.right_hand_cube_local_position_x = 0;
-            quantized.right_hand_cube_local_position_y = 0;
-            quantized.right_hand_cube_local_position_z = 0;
-            quantized.right_hand_cube_local_rotation_largest = 0;
-            quantized.right_hand_cube_local_rotation_a = 0;
-            quantized.right_hand_cube_local_rotation_b = 0;
-            quantized.right_hand_cube_local_rotation_c = 0;
-        }
-
-        quantized.voice_amplitude = (int) Math.Floor( state.voice_amplitude * Constants.VoiceMaximum + 0.5f );
-
-        // clamp everything
-
-        Snapshot.ClampPosition( ref quantized.head_position_x, ref quantized.head_position_y, ref quantized.head_position_z );
-
-        Snapshot.ClampPosition( ref quantized.left_hand_position_x, ref quantized.left_hand_position_y, ref quantized.left_hand_position_z );
-
-        Snapshot.ClampPosition( ref quantized.right_hand_position_x, ref quantized.right_hand_position_y, ref quantized.right_hand_position_z );
-
-        if ( quantized.left_hand_holding_cube )
-        {
-            Snapshot.ClampLocalPosition( ref quantized.left_hand_cube_local_position_x, ref quantized.left_hand_cube_local_position_y, ref quantized.left_hand_cube_local_position_z );
-        }
-
-        if ( quantized.right_hand_holding_cube )
-        {
-            Snapshot.ClampLocalPosition( ref quantized.right_hand_cube_local_position_x, ref quantized.right_hand_cube_local_position_y, ref quantized.right_hand_cube_local_position_z );
-        }                  
+    if (from.isRightHandHoldingCube == to.isRightHandHoldingCube && from.rightHandCubeId == to.rightHandCubeId) {
+      s.rightHandCubeLocalPosition = from.rightHandCubeLocalPosition * (1-time) + to.rightHandCubeLocalPosition * time;
+      s.rightHandCubeLocalRotation = Slerp(from.rightHandCubeLocalRotation, to.rightHandCubeLocalRotation, time);
+    } else {
+      s.rightHandCubeLocalPosition = from.rightHandCubeLocalPosition;
+      s.rightHandCubeLocalRotation = from.rightHandCubeLocalRotation;
     }
-
-    public static void Unquantize( ref AvatarStateQuantized quantized, out AvatarState state )
-    {
-        state.client_index = quantized.client_index;
-
-        state.head_position = new Vector3( quantized.head_position_x, quantized.head_position_y, quantized.head_position_z ) * 1.0f / Constants.UnitsPerMeter;
-
-        state.head_rotation = Snapshot.SmallestThreeToQuaternion( quantized.head_rotation_largest,
-                                                                  quantized.head_rotation_a,
-                                                                  quantized.head_rotation_b,
-                                                                  quantized.head_rotation_c );
-
-        state.left_hand_position = new Vector3( quantized.left_hand_position_x, quantized.left_hand_position_y, quantized.left_hand_position_z ) * 1.0f / Constants.UnitsPerMeter;
-
-        state.left_hand_rotation = Snapshot.SmallestThreeToQuaternion( quantized.left_hand_rotation_largest,
-                                                                       quantized.left_hand_rotation_a,
-                                                                       quantized.left_hand_rotation_b,
-                                                                       quantized.left_hand_rotation_c );
-
-        state.left_hand_grip_trigger = quantized.left_hand_grip_trigger * 1.0f / Constants.TriggerMaximum;
-        state.left_hand_index_trigger = quantized.left_hand_index_trigger * 1.0f / Constants.TriggerMaximum;
-        state.left_hand_pointing = quantized.left_hand_pointing;
-        state.left_hand_thumbs_up = quantized.left_hand_thumbs_up;
-
-        state.left_hand_holding_cube = quantized.left_hand_holding_cube;
-        state.left_hand_cube_id = quantized.left_hand_cube_id;
-        state.left_hand_ownership_sequence = quantized.left_hand_ownership_sequence;
-        state.left_hand_authority_sequence = quantized.left_hand_authority_sequence;
-
-        state.left_hand_cube_local_position = new Vector3( quantized.left_hand_cube_local_position_x, quantized.left_hand_cube_local_position_y, quantized.left_hand_cube_local_position_z ) * 1.0f / Constants.UnitsPerMeter;
-        state.left_hand_cube_local_rotation = Snapshot.SmallestThreeToQuaternion( quantized.left_hand_cube_local_rotation_largest, quantized.left_hand_cube_local_rotation_a, quantized.left_hand_cube_local_rotation_b, quantized.left_hand_cube_local_rotation_c );
-
-        state.right_hand_position = new Vector3( quantized.right_hand_position_x, quantized.right_hand_position_y, quantized.right_hand_position_z ) * 1.0f / Constants.UnitsPerMeter;
-
-        state.right_hand_rotation = Snapshot.SmallestThreeToQuaternion( quantized.right_hand_rotation_largest,
-                                                                        quantized.right_hand_rotation_a,
-                                                                        quantized.right_hand_rotation_b,
-                                                                        quantized.right_hand_rotation_c );
-
-        state.right_hand_grip_trigger = quantized.right_hand_grip_trigger * 1.0f / Constants.TriggerMaximum;
-        state.right_hand_index_trigger = quantized.right_hand_index_trigger * 1.0f / Constants.TriggerMaximum;
-        state.right_hand_pointing = quantized.right_hand_pointing;
-        state.right_hand_thumbs_up = quantized.right_hand_thumbs_up;
-
-        state.right_hand_holding_cube = quantized.right_hand_holding_cube;
-        state.right_hand_cube_id = quantized.right_hand_cube_id;
-        state.right_hand_ownership_sequence = quantized.right_hand_ownership_sequence;
-        state.right_hand_authority_sequence = quantized.right_hand_authority_sequence;
-
-        state.right_hand_cube_local_position = new Vector3( quantized.right_hand_cube_local_position_x, quantized.right_hand_cube_local_position_y, quantized.right_hand_cube_local_position_z ) * 1.0f / Constants.UnitsPerMeter;
-        state.right_hand_cube_local_rotation = Snapshot.SmallestThreeToQuaternion( quantized.right_hand_cube_local_rotation_largest, quantized.right_hand_cube_local_rotation_a, quantized.right_hand_cube_local_rotation_b, quantized.right_hand_cube_local_rotation_c );
-
-        state.voice_amplitude = quantized.voice_amplitude * 1.0f / Constants.VoiceMaximum;
-    }
-
-    public static void Interpolate( ref AvatarState a, ref AvatarState b, out AvatarState output, float t )
-    {
-        // convention: logically everything stays at the oldest sample, but positions and rotations and other continuous quantities are interpolated forward where it makes sense.
-
-        output.client_index = a.client_index;
-
-        output.head_position = a.head_position * ( 1 - t ) + b.head_position * t;
-        output.head_rotation = Quaternion.Slerp( a.head_rotation, b.head_rotation, t );
-
-        output.left_hand_position = a.left_hand_position * ( 1 - t ) + b.left_hand_position * t;
-        output.left_hand_rotation = Quaternion.Slerp( a.left_hand_rotation, b.left_hand_rotation, t );
-        output.left_hand_grip_trigger = a.left_hand_grip_trigger * ( 1 - t ) + b.left_hand_grip_trigger * t;
-        output.left_hand_index_trigger = a.left_hand_index_trigger * ( 1 - t ) + b.left_hand_index_trigger * t;
-        output.left_hand_pointing = a.left_hand_pointing;
-        output.left_hand_thumbs_up = a.left_hand_thumbs_up;
-        output.left_hand_holding_cube = a.left_hand_holding_cube;
-        output.left_hand_cube_id = a.left_hand_cube_id;
-        output.left_hand_authority_sequence = a.left_hand_authority_sequence;
-        output.left_hand_ownership_sequence = a.left_hand_ownership_sequence;
-
-        if ( a.left_hand_holding_cube == b.left_hand_holding_cube && a.left_hand_cube_id == b.left_hand_cube_id )
-        {
-            output.left_hand_cube_local_position = a.left_hand_cube_local_position * ( 1 - t ) + b.left_hand_cube_local_position * t;
-            output.left_hand_cube_local_rotation = Quaternion.Slerp( a.left_hand_cube_local_rotation, b.left_hand_cube_local_rotation, t );
-        }
-        else
-        {
-            output.left_hand_cube_local_position = a.left_hand_cube_local_position;
-            output.left_hand_cube_local_rotation = a.left_hand_cube_local_rotation;
-        }
-
-        output.right_hand_position = a.right_hand_position * ( 1 - t ) + b.right_hand_position * t;
-        output.right_hand_rotation = Quaternion.Slerp( a.right_hand_rotation, b.right_hand_rotation, t );
-        output.right_hand_grip_trigger = a.right_hand_grip_trigger * ( 1 - t ) + b.right_hand_grip_trigger * t;
-        output.right_hand_index_trigger = a.right_hand_index_trigger * ( 1 - t ) + b.right_hand_index_trigger * t;
-        output.right_hand_pointing = a.right_hand_pointing;
-        output.right_hand_thumbs_up = a.right_hand_thumbs_up;
-        output.right_hand_holding_cube = a.right_hand_holding_cube;
-        output.right_hand_cube_id = a.right_hand_cube_id;
-        output.right_hand_authority_sequence = a.right_hand_authority_sequence;
-        output.right_hand_ownership_sequence = a.right_hand_ownership_sequence;
-
-        if ( a.right_hand_holding_cube == b.right_hand_holding_cube && a.right_hand_cube_id == b.right_hand_cube_id )
-        {
-            output.right_hand_cube_local_position = a.right_hand_cube_local_position * ( 1 - t ) + b.right_hand_cube_local_position * t;
-            output.right_hand_cube_local_rotation = Quaternion.Slerp( a.right_hand_cube_local_rotation, b.right_hand_cube_local_rotation, t );
-        }
-        else
-        {
-            output.right_hand_cube_local_position = a.right_hand_cube_local_position;
-            output.right_hand_cube_local_rotation = a.right_hand_cube_local_rotation;
-        }
-
-        output.voice_amplitude = a.voice_amplitude * ( t - 1 ) + b.voice_amplitude * t;
-    }
-};
+    s.voiceAmplitude = from.voiceAmplitude * (time - 1) + to.voiceAmplitude * time;
+  }
+}
