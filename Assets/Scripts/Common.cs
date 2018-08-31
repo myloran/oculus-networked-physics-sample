@@ -13,381 +13,314 @@ using UnityEngine.Profiling;
 using UnityEngine.Assertions;
 using Oculus.Platform;
 using Oculus.Platform.Models;
+using static Constants;
+using Network;
 
-public class Common: MonoBehaviour
-{
-    public const int ConnectTimeout = 15;
+public class Common : MonoBehaviour {
+  public const int ConnectTimeout = 15;
+  public const int ConnectionTimeout = 5;
+  public GameObject localAvatar;
+  protected AvatarState[] interpolatedAvatars = new AvatarState[MaxClients];
+  protected bool isJitterBufferEnabled = true;
+  protected long frame = 0;
+  protected double renderTime = 0.0;
+  protected double physicsTime = 0.0;
+  protected int[] cubeIds = new int[NumCubes];
+  protected bool[] notChanged = new bool[NumCubes];
+  protected bool[] hasDelta = new bool[NumCubes];
+  protected bool[] perfectPrediction = new bool[NumCubes];
+  protected bool[] hasPredictionDelta = new bool[NumCubes];
+  protected ushort[] baselineSequence = new ushort[NumCubes];
+  protected CubeState[] cubes = new CubeState[NumCubes];
+  protected CubeDelta[] cubeDeltas = new CubeDelta[NumCubes];
+  protected CubeDelta[] predictionDelta = new CubeDelta[NumCubes];
+  protected AvatarState[] avatars = new AvatarState[MaxClients];
+  protected AvatarStateQuantized[] avatarsQuantized = new AvatarStateQuantized[MaxClients];
+  protected int[] readCubeIds = new int[NumCubes];
+  protected bool[] readNotChanged = new bool[NumCubes];
+  protected bool[] readHasDelta = new bool[NumCubes];
+  protected bool[] readPerfectPrediction = new bool[NumCubes];
+  protected bool[] readHasPredictionDelta = new bool[NumCubes];
+  protected ushort[] readBaselineSequence = new ushort[NumCubes];
+  protected CubeState[] readCubes = new CubeState[NumCubes];
+  protected CubeDelta[] readCubeDeltas = new CubeDelta[NumCubes];
+  protected CubeDelta[] readPredictionDeltas = new CubeDelta[NumCubes];
+  protected AvatarState[] readAvatars = new AvatarState[MaxClients];
+  protected AvatarStateQuantized[] readAvatarsQuantized = new AvatarStateQuantized[MaxClients];
+  protected uint[] buffer = new uint[MaxPacketSize / 4];
+  protected ReadStream readStream = new ReadStream();
+  protected WriteStream writeStream = new WriteStream();
+  protected PacketSerializer serializer = new PacketSerializer();
+  protected ushort[] acks = new ushort[Connection.MaximumAcks];
+  protected Simulator simulator = new Simulator();
 
-    public const int ConnectionTimeout = 5;
+  protected class ClientsInfo {
+    public bool[] areConnected = new bool[MaxClients];
+    public ulong[] userIds = new ulong[MaxClients];
+    public string[] userNames = new string[MaxClients];
 
-    public GameObject localAvatar;
-
-    protected AvatarState[] interpolatedAvatarState = new AvatarState[Constants.MaxClients];
-
-    protected bool enableJitterBuffer = true;
-
-    protected long frameNumber = 0;
-
-    protected double renderTime = 0.0;
-    protected double physicsTime = 0.0;
-
-    protected int[] cubeIds = new int[Constants.NumCubes];
-    protected bool[] notChanged = new bool[Constants.NumCubes];
-    protected bool[] hasDelta = new bool[Constants.NumCubes];
-    protected bool[] perfectPrediction = new bool[Constants.NumCubes];
-    protected bool[] hasPredictionDelta = new bool[Constants.NumCubes];
-    protected ushort[] baselineSequence = new ushort[Constants.NumCubes];
-    protected CubeState[] cubeState = new CubeState[Constants.NumCubes];
-    protected CubeDelta[] cubeDelta = new CubeDelta[Constants.NumCubes];
-    protected CubeDelta[] predictionDelta = new CubeDelta[Constants.NumCubes];
-    protected AvatarState[] avatarState = new AvatarState[Constants.MaxClients];
-    protected AvatarStateQuantized[] avatarStateQuantized = new AvatarStateQuantized[Constants.MaxClients];
-
-    protected int[] readCubeIds = new int[Constants.NumCubes];
-    protected bool[] readNotChanged = new bool[Constants.NumCubes];
-    protected bool[] readHasDelta = new bool[Constants.NumCubes];
-    protected bool[] readPerfectPrediction = new bool[Constants.NumCubes];
-    protected bool[] readHasPredictionDelta = new bool[Constants.NumCubes];
-    protected ushort[] readBaselineSequence = new ushort[Constants.NumCubes];
-    protected CubeState[] readCubeState = new CubeState[Constants.NumCubes];
-    protected CubeDelta[] readCubeDelta = new CubeDelta[Constants.NumCubes];
-    protected CubeDelta[] readPredictionDelta = new CubeDelta[Constants.NumCubes];
-    protected AvatarState[] readAvatarState = new AvatarState[Constants.MaxClients];
-    protected AvatarStateQuantized[] readAvatarStateQuantized = new AvatarStateQuantized[Constants.MaxClients];
-
-    protected uint[] packetBuffer = new uint[Constants.MaxPacketSize / 4];
-
-    protected Network.ReadStream readStream = new Network.ReadStream();
-    protected Network.WriteStream writeStream = new Network.WriteStream();
-
-    protected PacketSerializer packetSerializer = new PacketSerializer();
-
-    protected ushort[] acks = new ushort[Network.Connection.MaximumAcks];
-
-    protected Network.Simulator networkSimulator = new Network.Simulator();
-
-    protected class ServerInfo
-    {
-        public bool[] clientConnected = new bool[Constants.MaxClients];
-        public ulong[] clientUserId = new ulong[Constants.MaxClients];
-        public string[] clientUserName = new string[Constants.MaxClients];
-
-        public void Clear()
-        {
-            for ( int i = 0; i < Constants.MaxClients; ++i )
-            {
-                clientConnected[i] = false;
-                clientUserId[i] = 0;
-                clientUserName[i] = "";
-            }
-        }
-
-        public void CopyFrom( ServerInfo other )
-        {
-            for ( int i = 0; i < Constants.MaxClients; ++i )
-            {
-                clientConnected[i] = other.clientConnected[i];
-                clientUserId[i] = other.clientUserId[i];
-                clientUserName[i] = other.clientUserName[i];
-            }
-        }
-
-        public int FindClientByUserId( ulong userId )
-        {
-            for ( int i = 0; i < Constants.MaxClients; ++i )
-            {
-                if ( clientConnected[i] && clientUserId[i] == userId )
-                    return i;
-            }
-
-            return -1;
-        }
-
-        public void Print()
-        {
-            for ( int i = 0; i < Constants.MaxClients; ++i )
-            {
-                if ( clientConnected[i] )
-                {
-                    Debug.Log( i + ": " + clientUserName[i] + " [" + clientUserId[i] + "]" );
-                }
-                else
-                {
-                    Debug.Log( i + ": (not connected)" );
-                }
-            }
-        }
-    };
-
-    protected ServerInfo serverInfo = new ServerInfo();
-
-    protected void Start()
-    {
-        Debug.Log( "Running Tests" );
-
-        Tests.RunTests();
+    public void Clear() {
+      for (int i = 0; i < MaxClients; ++i) {
+        areConnected[i] = false;
+        userIds[i] = 0;
+        userNames[i] = "";
+      }
     }
 
-    bool wantsToShutdown = false;
-
-    protected virtual void OnQuit()
-    {
-        // override this
+    public void CopyFrom(ClientsInfo other) {
+      for (int i = 0; i < MaxClients; ++i) {
+        areConnected[i] = other.areConnected[i];
+        userIds[i] = other.userIds[i];
+        userNames[i] = other.userNames[i];
+      }
     }
 
-    protected virtual bool ReadyToShutdown()
-    {
-        return true;
+    public int FindClientByUserId(ulong userId) {
+      for (int i = 0; i < MaxClients; ++i) {
+        if (areConnected[i] && userIds[i] == userId)
+          return i;
+      }
+
+      return -1;
     }
 
-    protected void Update()
-    {
-        if ( Input.GetKeyDown( "backspace" ) )
-        {
-            enableJitterBuffer = !enableJitterBuffer;
-
-            if ( enableJitterBuffer )
-            {
-                Debug.Log( "Enabled jitter buffer" );
-            }
-            else
-            {
-                Debug.Log( "Disabled jitter buffer" );
-            }
+    public void Print() {
+      for (int i = 0; i < MaxClients; ++i) {
+        if (areConnected[i]) {
+          Debug.Log(i + ": " + userNames[i] + " [" + userIds[i] + "]");
+        } else {
+          Debug.Log(i + ": (not connected)");
         }
+      }
+    }
+  };
 
-        if ( Input.GetKeyDown( KeyCode.Escape ) )
-        {
-            Debug.Log( "User quit the application (ESC)" );
+  protected ClientsInfo info = new ClientsInfo();
 
-            wantsToShutdown = true;
+  protected void Start() {
+    Debug.Log("Running Tests");
+    Tests.RunTests();
+  }
 
-            OnQuit();
-        }
+  bool wantsToShutdown = false;
 
-        if ( wantsToShutdown && ReadyToShutdown() )
-        {
-            Debug.Log( "Shutting down" );
+  protected virtual void OnQuit() {
+    // override this
+  }
 
-            UnityEngine.Application.Quit();
+  protected virtual bool ReadyToShutdown() {
+    return true;
+  }
 
-            wantsToShutdown = false;
-        }
+  protected void Update() {
+    if (Input.GetKeyDown("backspace")) {
+      isJitterBufferEnabled = !isJitterBufferEnabled;
 
-        renderTime += Time.deltaTime;
+      if (isJitterBufferEnabled) {
+        Debug.Log("Enabled jitter buffer");
+      } else {
+        Debug.Log("Disabled jitter buffer");
+      }
     }
 
-    protected void FixedUpdate()
-    {
-        physicsTime += 1.0 / Constants.PhysicsFrameRate;
+    if (Input.GetKeyDown(KeyCode.Escape)) {
+      Debug.Log("User quit the application (ESC)");
 
-        frameNumber++;
+      wantsToShutdown = true;
+
+      OnQuit();
     }
 
-    protected void UpdateJitterBuffer( Context context, Context.ConnectionData connectionData )
-    {
-        if ( !connectionData.isFirstPacket )
-            connectionData.frame++;
+    if (wantsToShutdown && ReadyToShutdown()) {
+      Debug.Log("Shutting down");
+
+      UnityEngine.Application.Quit();
+
+      wantsToShutdown = false;
     }
 
-    protected void AddStateUpdatePacketToJitterBuffer( Context context, Context.ConnectionData connectionData, byte[] packetData )
-    {
-        long packetFrameNumber;
+    renderTime += Time.deltaTime;
+  }
 
-        if ( connectionData.jitterBuffer.AddStateUpdatePacket( packetData, connectionData.receiveBuffer, context.GetResetSequence(), out packetFrameNumber ) )
-        {
-            if ( connectionData.isFirstPacket )
-            {
-                connectionData.isFirstPacket = false;
-                connectionData.frame = packetFrameNumber - Constants.NumJitterBufferFrames;
-                connectionData.jitterBuffer.Start( connectionData.frame );
-            }
-        }
+  protected void FixedUpdate() {
+    physicsTime += 1.0 / Constants.PhysicsFrameRate;
+
+    frame++;
+  }
+
+  protected void UpdateJitterBuffer(Context context, Context.ConnectionData connectionData) {
+    if (!connectionData.isFirstPacket)
+      connectionData.frame++;
+  }
+
+  protected void AddUpdatePacket(Context context, Context.ConnectionData d, byte[] packet) {
+    long frame;
+    if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.GetResetSequence(), out frame) || !d.isFirstPacket)
+      return;
+
+    d.isFirstPacket = false;
+    d.frame = frame - NumJitterBufferFrames;
+    d.jitterBuffer.Start(d.frame);
+  }
+
+  protected void ProcessStateUpdateFromJitterBuffer(Context context, Context.ConnectionData connectionData, int fromClientIndex, int toClientIndex, bool applySmoothing = true) {
+    if (connectionData.frame < 0)
+      return;
+
+    JitterBufferEntry entry = connectionData.jitterBuffer.GetEntry((uint)connectionData.frame);
+    if (entry == null)
+      return;
+
+    if (fromClientIndex == 0) {
+      // server -> client
+
+      // Ignore updates from before the last reset.
+      if (Network.Util.SequenceGreaterThan(context.GetResetSequence(), entry.packetHeader.resetSequence))
+        return;
+
+      // Reset if the server reset sequence is more recent than ours.
+      if (Network.Util.SequenceGreaterThan(entry.packetHeader.resetSequence, context.GetResetSequence())) {
+        context.Reset();
+        context.SetResetSequence(entry.packetHeader.resetSequence);
+      }
+    } else {
+      // client -> server
+
+      // Ignore any updates from the client with a different reset sequence #
+      if (context.GetResetSequence() != entry.packetHeader.resetSequence)
+        return;
     }
 
-    protected void ProcessStateUpdateFromJitterBuffer( Context context, Context.ConnectionData connectionData, int fromClientIndex, int toClientIndex, bool applySmoothing = true )
-    {
-        if ( connectionData.frame < 0 )
-            return;
+    // add the cube states to the receive delta buffer
 
-        JitterBufferEntry entry = connectionData.jitterBuffer.GetEntry( (uint) connectionData.frame );
-        if ( entry == null )
-            return;
+    AddPacket(ref connectionData.receiveBuffer, entry.packetHeader.sequence, context.GetResetSequence(), entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState);
 
-        if ( fromClientIndex == 0 )
-        {
-            // server -> client
+    // apply the state updates to cubes
 
-            // Ignore updates from before the last reset.
-            if ( Network.Util.SequenceGreaterThan( context.GetResetSequence(), entry.packetHeader.resetSequence ) )
-                return;
+    context.ApplyCubeUpdates(entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState, fromClientIndex, toClientIndex, applySmoothing);
 
-            // Reset if the server reset sequence is more recent than ours.
-            if ( Network.Util.SequenceGreaterThan( entry.packetHeader.resetSequence, context.GetResetSequence() ) )
-            {
-                context.Reset();
-                context.SetResetSequence( entry.packetHeader.resetSequence );
-            }
-        }
-        else
-        {
-            // client -> server
+    // process the packet header (handles acks)
 
-            // Ignore any updates from the client with a different reset sequence #
-            if ( context.GetResetSequence() != entry.packetHeader.resetSequence )
-                return;
-        }
+    connectionData.connection.ProcessPacketHeader(ref entry.packetHeader);
+  }
 
-        // add the cube states to the receive delta buffer
+  protected bool WriteServerPacket(bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+    Profiler.BeginSample("WriteServerInfoPacket");
 
-        AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, entry.packetHeader.sequence, context.GetResetSequence(), entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState );
+    writeStream.Start(buffer);
 
-        // apply the state updates to cubes
+    bool result = true;
 
-        context.ApplyCubeUpdates( entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState, fromClientIndex, toClientIndex, applySmoothing );
+    try {
+      serializer.WriteServerInfoPacket(writeStream, clientConnected, clientUserId, clientUserName);
 
-        // process the packet header (handles acks)
-
-        connectionData.connection.ProcessPacketHeader( ref entry.packetHeader );
+      writeStream.Finish();
+    } catch (SerializeException) {
+      Debug.Log("error: failed to write server info packet");
+      result = false;
     }
 
-    protected bool WriteServerInfoPacket( bool[] clientConnected, ulong[] clientUserId, string[] clientUserName )
-    {
-        Profiler.BeginSample( "WriteServerInfoPacket" );
+    Profiler.EndSample();
 
-        writeStream.Start( packetBuffer );
+    return result;
+  }
 
-        bool result = true;
+  protected bool ReadServerPacket(byte[] packetData, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+    Profiler.BeginSample("ReadServerInfoPacket");
 
-        try
-        {
-            packetSerializer.WriteServerInfoPacket( writeStream, clientConnected, clientUserId, clientUserName );
+    readStream.Start(packetData);
 
-            writeStream.Finish();
-        }
-        catch ( Network.SerializeException )
-        {
-            Debug.Log( "error: failed to write server info packet" );
-            result = false;
-        }
+    bool result = true;
 
-        Profiler.EndSample();
-
-        return result;
+    try {
+      serializer.ReadServerPacket(readStream, clientConnected, clientUserId, clientUserName);
+    } catch (SerializeException) {
+      Debug.Log("error: failed to read server info packet");
+      result = false;
     }
 
-    protected bool ReadServerInfoPacket( byte[] packetData, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName )
-    {
-        Profiler.BeginSample( "ReadServerInfoPacket" );
+    readStream.Finish();
 
-        readStream.Start( packetData );
+    Profiler.EndSample();
 
-        bool result = true;
+    return result;
+  }
 
-        try
-        {
-            packetSerializer.ReadServerInfoPacket( readStream, clientConnected, clientUserId, clientUserName );
-        }
-        catch ( Network.SerializeException )
-        {
-            Debug.Log( "error: failed to read server info packet" );
-            result = false;
-        }
+  protected bool WriteUpdatePacket(ref PacketHeader packetHeader, int numAvatarStates, ref AvatarStateQuantized[] avatarState, int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta) {
+    Profiler.BeginSample("WriteStateUpdatePacket");
 
-        readStream.Finish();
+    writeStream.Start(buffer);
 
-        Profiler.EndSample();
+    bool result = true;
 
-        return result;
+    try {
+      serializer.WriteUpdatePacket(writeStream, ref packetHeader, numAvatarStates, avatarState, numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta);
+
+      writeStream.Finish();
+    } catch (SerializeException) {
+      Debug.Log("error: failed to write state update packet packet");
+      result = false;
     }
 
-    protected bool WriteStateUpdatePacket( ref Network.PacketHeader packetHeader, int numAvatarStates, ref AvatarStateQuantized[] avatarState, int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta )
-    {
-        Profiler.BeginSample( "WriteStateUpdatePacket" );
+    Profiler.EndSample();
 
-        writeStream.Start( packetBuffer );
+    return result;
+  }
 
-        bool result = true;
+  protected bool ReadUpdatePacket(byte[] packetData, out PacketHeader packetHeader, out int numAvatarStates, ref AvatarStateQuantized[] avatarState, out int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta) {
+    Profiler.BeginSample("ReadStateUpdatePacket");
 
-        try
-        {
-            packetSerializer.WriteStateUpdatePacket( writeStream, ref packetHeader, numAvatarStates, avatarState, numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta );
+    readStream.Start(packetData);
 
-            writeStream.Finish();
-        }
-        catch ( Network.SerializeException )
-        {
-            Debug.Log( "error: failed to write state update packet packet" );
-            result = false;
-        }
+    bool result = true;
 
-        Profiler.EndSample();
+    try {
+      serializer.ReadUpdatePacket(readStream, out packetHeader, out numAvatarStates, avatarState, out numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta);
+    } catch (SerializeException) {
+      Debug.Log("error: failed to read state update packet");
 
-        return result;
+      packetHeader.sequence = 0;
+      packetHeader.ack = 0;
+      packetHeader.ack_bits = 0;
+      packetHeader.frameNumber = 0;
+      packetHeader.resetSequence = 0;
+      packetHeader.timeOffset = 0.0f;
+
+      numAvatarStates = 0;
+      numStateUpdates = 0;
+
+      result = false;
     }
 
-    protected bool ReadStateUpdatePacket( byte[] packetData, out Network.PacketHeader packetHeader, out int numAvatarStates, ref AvatarStateQuantized[] avatarState, out int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta )
-    {
-        Profiler.BeginSample( "ReadStateUpdatePacket" );
+    readStream.Finish();
 
-        readStream.Start( packetData );
+    Profiler.EndSample();
 
-        bool result = true;
+    return result;
+  }
 
-        try
-        {
-            packetSerializer.ReadStateUpdatePacket( readStream, out packetHeader, out numAvatarStates, avatarState, out numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta );
-        }
-        catch ( Network.SerializeException )
-        {
-            Debug.Log( "error: failed to read state update packet" );
+  protected void AddPacket(ref DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref CubeState[] cubeState) {
+    Profiler.BeginSample("AddPacketToDeltaBuffer");
 
-            packetHeader.sequence = 0;
-            packetHeader.ack = 0;
-            packetHeader.ack_bits = 0;
-            packetHeader.frameNumber = 0;
-            packetHeader.resetSequence = 0;
-            packetHeader.avatarSampleTimeOffset = 0.0f;
+    deltaBuffer.AddPacket(sequence, resetSequence);
 
-            numAvatarStates = 0;
-            numStateUpdates = 0;
-
-            result = false;
-        }
-
-        readStream.Finish();
-
-        Profiler.EndSample();
-
-        return result;
+    for (int i = 0; i < numCubes; ++i) {
+      deltaBuffer.AddCubeState(sequence, cubeIds[i], ref cubeState[i]);
     }
 
-    protected void AddPacketToDeltaBuffer( ref DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref CubeState[] cubeState )
-    {
-        Profiler.BeginSample( "AddPacketToDeltaBuffer" );
+    Profiler.EndSample();
+  }
 
-        deltaBuffer.AddPacket( sequence, resetSequence );
-
-        for ( int i = 0; i < numCubes; ++i )
-        {
-            deltaBuffer.AddCubeState( sequence, cubeIds[i], ref cubeState[i] );
-        }
-
-        Profiler.EndSample();
-    }
-
-    protected void DetermineNotChangedAndDeltas( Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta )
-    {
-        Profiler.BeginSample( "DeterminedNotChangedAndDeltas" );
+  protected void DetermineNotChangedAndDeltas(Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta) {
+    Profiler.BeginSample("DeterminedNotChangedAndDeltas");
 
 #if !DISABLE_DELTA_COMPRESSION
-        CubeState baselineCubeState = CubeState.defaults;
+    CubeState baselineCubeState = CubeState.defaults;
 #endif // #if !DISABLE_DELTA_COMPRESSION
 
-        for ( int i = 0; i < numCubes; ++i )
-        {
-            notChanged[i] = false;
-            hasDelta[i] = false;
+    for (int i = 0; i < numCubes; ++i) {
+      notChanged[i] = false;
+      hasDelta[i] = false;
 
 #if !DISABLE_DELTA_COMPRESSION
 
@@ -397,58 +330,49 @@ public class Common: MonoBehaviour
             cubeDelta[i].absolute_position_z = cubeState[i].position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-            if ( context.GetAck( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
-            {
-                if ( Network.Util.BaselineDifference( currentSequence, baselineSequence[i] ) > Constants.MaxBaselineDifference )
-                {
-                    // baseline is too far behind => send the cube state absolute.
-                    continue;
-                }
-
-                if ( baselineCubeState.Equals( cubeState[i] ) )
-                {
-                    notChanged[i] = true;
-                }
-                else
-                {
-                    hasDelta[i] = true;
-
-                    cubeDelta[i].positionX = cubeState[i].positionX - baselineCubeState.positionX;
-                    cubeDelta[i].positionY = cubeState[i].positionY - baselineCubeState.positionY;
-                    cubeDelta[i].positionZ = cubeState[i].positionZ - baselineCubeState.positionZ;
-
-                    cubeDelta[i].linearVelocityX = cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX;
-                    cubeDelta[i].linearVelocityY = cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY;
-                    cubeDelta[i].linearVelocityZ = cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ;
-
-                    cubeDelta[i].angularVelocityX = cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX;
-                    cubeDelta[i].angularVelocityY = cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY;
-                    cubeDelta[i].angularVelocityZ = cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ;
-                }
-            }
-
-#endif // #if !DISABLE_DELTA_COMPRESSION
+      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState)) {
+        if (Network.Util.BaselineDifference(currentSequence, baselineSequence[i]) > Constants.MaxBaselineDifference) {
+          // baseline is too far behind => send the cube state absolute.
+          continue;
         }
 
-        Profiler.EndSample();
+        if (baselineCubeState.Equals(cubeState[i])) {
+          notChanged[i] = true;
+        } else {
+          hasDelta[i] = true;
+
+          cubeDelta[i].positionX = cubeState[i].positionX - baselineCubeState.positionX;
+          cubeDelta[i].positionY = cubeState[i].positionY - baselineCubeState.positionY;
+          cubeDelta[i].positionZ = cubeState[i].positionZ - baselineCubeState.positionZ;
+
+          cubeDelta[i].linearVelocityX = cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX;
+          cubeDelta[i].linearVelocityY = cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY;
+          cubeDelta[i].linearVelocityZ = cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ;
+
+          cubeDelta[i].angularVelocityX = cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX;
+          cubeDelta[i].angularVelocityY = cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY;
+          cubeDelta[i].angularVelocityZ = cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ;
+        }
+      }
+
+#endif // #if !DISABLE_DELTA_COMPRESSION
     }
 
-    protected bool DecodeNotChangedAndDeltas( DeltaBuffer deltaBuffer, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta )
-    {
-        Profiler.BeginSample( "DecodeNotChangedAndDeltas" );
+    Profiler.EndSample();
+  }
 
-        bool result = true;
+  protected bool DecodeNotChangedAndDeltas(DeltaBuffer deltaBuffer, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta) {
+    Profiler.BeginSample("DecodeNotChangedAndDeltas");
+
+    bool result = true;
 
 #if !DISABLE_DELTA_COMPRESSION
 
-        CubeState baselineCubeState = CubeState.defaults;
+    CubeState baselineCubeState = CubeState.defaults;
 
-        for ( int i = 0; i < numCubes; ++i )
-        {
-            if ( notChanged[i] )
-            {
-                if ( deltaBuffer.GetCubeState( baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState ) )
-                {
+    for (int i = 0; i < numCubes; ++i) {
+      if (notChanged[i]) {
+        if (deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState)) {
 #if DEBUG_DELTA_COMPRESSION
                     if ( baselineCubeState.position_x != cubeDelta[i].absolute_position_x )
                     {
@@ -459,22 +383,17 @@ public class Common: MonoBehaviour
                     Assert.IsTrue( baselineCubeState.position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                    cubeState[i] = baselineCubeState;
-                }
-                else
-                {
-                    Debug.Log( "error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (not changed)" );
-                    result = false;
-                    break;
-                }
-            }
-            else if ( hasDelta[i] )
-            {
-                if ( deltaBuffer.GetCubeState( baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState ) )
-                {
-                    cubeState[i].positionX = baselineCubeState.positionX + cubeDelta[i].positionX;
-                    cubeState[i].positionY = baselineCubeState.positionY + cubeDelta[i].positionY;
-                    cubeState[i].positionZ = baselineCubeState.positionZ + cubeDelta[i].positionZ;
+          cubeState[i] = baselineCubeState;
+        } else {
+          Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (not changed)");
+          result = false;
+          break;
+        }
+      } else if (hasDelta[i]) {
+        if (deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState)) {
+          cubeState[i].positionX = baselineCubeState.positionX + cubeDelta[i].positionX;
+          cubeState[i].positionY = baselineCubeState.positionY + cubeDelta[i].positionY;
+          cubeState[i].positionZ = baselineCubeState.positionZ + cubeDelta[i].positionZ;
 
 #if DEBUG_DELTA_COMPRESSION
                     Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
@@ -482,315 +401,296 @@ public class Common: MonoBehaviour
                     Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                    cubeState[i].linearVelocityX = baselineCubeState.linearVelocityX + cubeDelta[i].linearVelocityX;
-                    cubeState[i].linearVelocityY = baselineCubeState.linearVelocityY + cubeDelta[i].linearVelocityY;
-                    cubeState[i].linearVelocityZ = baselineCubeState.linearVelocityZ + cubeDelta[i].linearVelocityZ;
+          cubeState[i].linearVelocityX = baselineCubeState.linearVelocityX + cubeDelta[i].linearVelocityX;
+          cubeState[i].linearVelocityY = baselineCubeState.linearVelocityY + cubeDelta[i].linearVelocityY;
+          cubeState[i].linearVelocityZ = baselineCubeState.linearVelocityZ + cubeDelta[i].linearVelocityZ;
 
-                    cubeState[i].angularVelocityX = baselineCubeState.angularVelocityX + cubeDelta[i].angularVelocityX;
-                    cubeState[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDelta[i].angularVelocityY;
-                    cubeState[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDelta[i].angularVelocityZ;
-                }
-                else
-                {
-                    Debug.Log( "error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (delta)" );
-                    result = false;
-                    break;
-                }
-            }
+          cubeState[i].angularVelocityX = baselineCubeState.angularVelocityX + cubeDelta[i].angularVelocityX;
+          cubeState[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDelta[i].angularVelocityY;
+          cubeState[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDelta[i].angularVelocityZ;
+        } else {
+          Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (delta)");
+          result = false;
+          break;
         }
+      }
+    }
 
 #endif // #if !DISABLE_DELTA_COMPRESSION
 
-        return result;
-    }
+    return result;
+  }
 
-    protected void DeterminePrediction( Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDeltas )
-    {
-        Profiler.BeginSample( "DeterminePrediction" );
+  protected void DeterminePrediction(Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDeltas) {
+    Profiler.BeginSample("DeterminePrediction");
 
-        CubeState baselineCubeState = CubeState.defaults;
+    CubeState baselineCubeState = CubeState.defaults;
 
-        for ( int i = 0; i < numCubes; ++i )
-        {
-            perfectPrediction[i] = false;
-            hasPredictionDelta[i] = false;
+    for (int i = 0; i < numCubes; ++i) {
+      perfectPrediction[i] = false;
+      hasPredictionDelta[i] = false;
 
 #if !DISABLE_DELTA_ENCODING
 
-            if ( notChanged[i] )
-                continue;
+      if (notChanged[i])
+        continue;
 
-            if ( !hasDelta[i] )
-                continue;
+      if (!hasDelta[i])
+        continue;
 
-            if ( !cubeState[i].isActive )
-                continue;
+      if (!cubeState[i].isActive)
+        continue;
 
-            if ( context.GetAck( connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState ) )
-            {
-                if ( Network.Util.BaselineDifference( currentSequence, baselineSequence[i] ) <= Constants.MaxBaselineDifference )
-                {
-                    // baseline is too far behind. send the cube state absolute
-                    continue;
-                }
-
-                if ( !baselineCubeState.isActive )
-                {
-                    // no point predicting if the cube is at rest.
-                    continue;
-                }
-
-                int baseline_sequence = baselineSequence[i];
-                int current_sequence = currentSequence;
-
-                if ( current_sequence < baseline_sequence )
-                    current_sequence += 65536;
-
-                int baseline_position_x = baselineCubeState.positionX;
-                int baseline_position_y = baselineCubeState.positionY;
-                int baseline_position_z = baselineCubeState.positionZ;
-
-                int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
-                int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
-                int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
-
-                int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
-                int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
-                int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
-
-                if ( current_sequence < baseline_sequence )
-                    current_sequence += 65536;
-
-                int numFrames = current_sequence - baseline_sequence;
-
-                int predicted_position_x;
-                int predicted_position_y;
-                int predicted_position_z;
-
-                int predicted_linear_velocity_x;
-                int predicted_linear_velocity_y;
-                int predicted_linear_velocity_z;
-
-                int predicted_angular_velocity_x;
-                int predicted_angular_velocity_y;
-                int predicted_angular_velocity_z;
-
-                Prediction.PredictBallistic( numFrames,
-                                             baseline_position_x, baseline_position_y, baseline_position_z,
-                                             baseline_linear_velocity_x, baseline_linear_velocity_y, baseline_linear_velocity_z,
-                                             baseline_angular_velocity_x, baseline_angular_velocity_y, baseline_angular_velocity_z,
-                                             out predicted_position_x, out predicted_position_y, out predicted_position_z,
-                                             out predicted_linear_velocity_x, out predicted_linear_velocity_y, out predicted_linear_velocity_z,
-                                             out predicted_angular_velocity_x, out predicted_angular_velocity_y, out predicted_angular_velocity_z );
-
-                int current_position_x = cubeState[i].positionX;
-                int current_position_y = cubeState[i].positionY;
-                int current_position_z = cubeState[i].positionZ;
-
-                int current_linear_velocity_x = cubeState[i].linearVelocityX;
-                int current_linear_velocity_y = cubeState[i].linearVelocityY;
-                int current_linear_velocity_z = cubeState[i].linearVelocityZ;
-
-                int current_angular_velocity_x = cubeState[i].angularVelocityX;
-                int current_angular_velocity_y = cubeState[i].angularVelocityY;
-                int current_angular_velocity_z = cubeState[i].angularVelocityZ;
-
-                int position_error_x = current_position_x - predicted_position_x;
-                int position_error_y = current_position_y - predicted_position_y;
-                int position_error_z = current_position_z - predicted_position_z;
-
-                int linear_velocity_error_x = current_linear_velocity_x - predicted_linear_velocity_x;
-                int linear_velocity_error_y = current_linear_velocity_y - predicted_linear_velocity_y;
-                int linear_velocity_error_z = current_linear_velocity_z - predicted_linear_velocity_z;
-
-                int angular_velocity_error_x = current_angular_velocity_x - predicted_angular_velocity_x;
-                int angular_velocity_error_y = current_angular_velocity_y - predicted_angular_velocity_y;
-                int angular_velocity_error_z = current_angular_velocity_z - predicted_angular_velocity_z;
-
-                if ( position_error_x == 0 &&
-                     position_error_y == 0 &&
-                     position_error_z == 0 &&
-                     linear_velocity_error_x == 0 &&
-                     linear_velocity_error_y == 0 &&
-                     linear_velocity_error_z == 0 &&
-                     angular_velocity_error_x == 0 &&
-                     angular_velocity_error_y == 0 &&
-                     angular_velocity_error_z == 0 )
-                {
-                    perfectPrediction[i] = true;
-                }
-                else
-                {
-                    int abs_position_error_x = Math.Abs( position_error_x );
-                    int abs_position_error_y = Math.Abs( position_error_y );
-                    int abs_position_error_z = Math.Abs( position_error_z );
-
-                    int abs_linear_velocity_error_x = Math.Abs( linear_velocity_error_x );
-                    int abs_linear_velocity_error_y = Math.Abs( linear_velocity_error_y );
-                    int abs_linear_velocity_error_z = Math.Abs( linear_velocity_error_z );
-
-                    int abs_angular_velocity_error_x = Math.Abs( angular_velocity_error_x );
-                    int abs_angular_velocity_error_y = Math.Abs( angular_velocity_error_y );
-                    int abs_angular_velocity_error_z = Math.Abs( angular_velocity_error_z );
-
-                    int total_prediction_error = abs_position_error_x +
-                                                 abs_position_error_y +
-                                                 abs_position_error_z +
-                                                 linear_velocity_error_x +
-                                                 linear_velocity_error_y +
-                                                 linear_velocity_error_z +
-                                                 angular_velocity_error_x +
-                                                 angular_velocity_error_y +
-                                                 angular_velocity_error_z;
-
-                    int total_absolute_error = Math.Abs( cubeState[i].positionX - baselineCubeState.positionX ) +
-                                               Math.Abs( cubeState[i].positionY - baselineCubeState.positionY ) +
-                                               Math.Abs( cubeState[i].positionZ - baselineCubeState.positionZ ) +
-                                               Math.Abs( cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX ) +
-                                               Math.Abs( cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY ) +
-                                               Math.Abs( cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ ) +
-                                               Math.Abs( cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX ) +
-                                               Math.Abs( cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY ) +
-                                               Math.Abs( cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ );
-
-                    if ( total_prediction_error < total_absolute_error )
-                    {
-                        int max_position_error = abs_position_error_x;
-
-                        if ( abs_position_error_y > max_position_error )
-                            max_position_error = abs_position_error_y;
-
-                        if ( abs_position_error_z > max_position_error )
-                            max_position_error = abs_position_error_z;
-
-                        int max_linear_velocity_error = abs_linear_velocity_error_x;
-
-                        if ( abs_linear_velocity_error_y > max_linear_velocity_error )
-                            max_linear_velocity_error = abs_linear_velocity_error_y;
-
-                        if ( abs_linear_velocity_error_z > max_linear_velocity_error )
-                            max_linear_velocity_error = abs_linear_velocity_error_z;
-
-                        int max_angular_velocity_error = abs_angular_velocity_error_x;
-
-                        if ( abs_angular_velocity_error_y > max_angular_velocity_error )
-                            max_angular_velocity_error = abs_angular_velocity_error_y;
-
-                        if ( abs_angular_velocity_error_z > max_angular_velocity_error )
-                            max_angular_velocity_error = abs_angular_velocity_error_z;
-
-                        if ( max_position_error <= Constants.PositionDeltaMax &&
-                             max_linear_velocity_error <= Constants.LinearVelocityDeltaMax &&
-                             max_angular_velocity_error <= Constants.AngularVelocityDeltaMax )
-                        {
-                            hasPredictionDelta[i] = true;
-
-                            predictionDelta[i].positionX = position_error_x;
-                            predictionDelta[i].positionY = position_error_y;
-                            predictionDelta[i].positionZ = position_error_z;
-
-                            predictionDelta[i].linearVelocityX = linear_velocity_error_x;
-                            predictionDelta[i].linearVelocityY = linear_velocity_error_y;
-                            predictionDelta[i].linearVelocityZ = linear_velocity_error_z;
-
-                            predictionDelta[i].angularVelocityX = angular_velocity_error_x;
-                            predictionDelta[i].angularVelocityY = angular_velocity_error_y;
-                            predictionDelta[i].angularVelocityZ = angular_velocity_error_z;
-                        }
-                    }
-                }
-            }
+      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState)) {
+        if (Network.Util.BaselineDifference(currentSequence, baselineSequence[i]) <= Constants.MaxBaselineDifference) {
+          // baseline is too far behind. send the cube state absolute
+          continue;
         }
+
+        if (!baselineCubeState.isActive) {
+          // no point predicting if the cube is at rest.
+          continue;
+        }
+
+        int baseline_sequence = baselineSequence[i];
+        int current_sequence = currentSequence;
+
+        if (current_sequence < baseline_sequence)
+          current_sequence += 65536;
+
+        int baseline_position_x = baselineCubeState.positionX;
+        int baseline_position_y = baselineCubeState.positionY;
+        int baseline_position_z = baselineCubeState.positionZ;
+
+        int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
+        int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
+        int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
+
+        int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
+        int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
+        int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
+
+        if (current_sequence < baseline_sequence)
+          current_sequence += 65536;
+
+        int numFrames = current_sequence - baseline_sequence;
+
+        int predicted_position_x;
+        int predicted_position_y;
+        int predicted_position_z;
+
+        int predicted_linear_velocity_x;
+        int predicted_linear_velocity_y;
+        int predicted_linear_velocity_z;
+
+        int predicted_angular_velocity_x;
+        int predicted_angular_velocity_y;
+        int predicted_angular_velocity_z;
+
+        Prediction.PredictBallistic(numFrames,
+                                     baseline_position_x, baseline_position_y, baseline_position_z,
+                                     baseline_linear_velocity_x, baseline_linear_velocity_y, baseline_linear_velocity_z,
+                                     baseline_angular_velocity_x, baseline_angular_velocity_y, baseline_angular_velocity_z,
+                                     out predicted_position_x, out predicted_position_y, out predicted_position_z,
+                                     out predicted_linear_velocity_x, out predicted_linear_velocity_y, out predicted_linear_velocity_z,
+                                     out predicted_angular_velocity_x, out predicted_angular_velocity_y, out predicted_angular_velocity_z);
+
+        int current_position_x = cubeState[i].positionX;
+        int current_position_y = cubeState[i].positionY;
+        int current_position_z = cubeState[i].positionZ;
+
+        int current_linear_velocity_x = cubeState[i].linearVelocityX;
+        int current_linear_velocity_y = cubeState[i].linearVelocityY;
+        int current_linear_velocity_z = cubeState[i].linearVelocityZ;
+
+        int current_angular_velocity_x = cubeState[i].angularVelocityX;
+        int current_angular_velocity_y = cubeState[i].angularVelocityY;
+        int current_angular_velocity_z = cubeState[i].angularVelocityZ;
+
+        int position_error_x = current_position_x - predicted_position_x;
+        int position_error_y = current_position_y - predicted_position_y;
+        int position_error_z = current_position_z - predicted_position_z;
+
+        int linear_velocity_error_x = current_linear_velocity_x - predicted_linear_velocity_x;
+        int linear_velocity_error_y = current_linear_velocity_y - predicted_linear_velocity_y;
+        int linear_velocity_error_z = current_linear_velocity_z - predicted_linear_velocity_z;
+
+        int angular_velocity_error_x = current_angular_velocity_x - predicted_angular_velocity_x;
+        int angular_velocity_error_y = current_angular_velocity_y - predicted_angular_velocity_y;
+        int angular_velocity_error_z = current_angular_velocity_z - predicted_angular_velocity_z;
+
+        if (position_error_x == 0 &&
+             position_error_y == 0 &&
+             position_error_z == 0 &&
+             linear_velocity_error_x == 0 &&
+             linear_velocity_error_y == 0 &&
+             linear_velocity_error_z == 0 &&
+             angular_velocity_error_x == 0 &&
+             angular_velocity_error_y == 0 &&
+             angular_velocity_error_z == 0) {
+          perfectPrediction[i] = true;
+        } else {
+          int abs_position_error_x = Math.Abs(position_error_x);
+          int abs_position_error_y = Math.Abs(position_error_y);
+          int abs_position_error_z = Math.Abs(position_error_z);
+
+          int abs_linear_velocity_error_x = Math.Abs(linear_velocity_error_x);
+          int abs_linear_velocity_error_y = Math.Abs(linear_velocity_error_y);
+          int abs_linear_velocity_error_z = Math.Abs(linear_velocity_error_z);
+
+          int abs_angular_velocity_error_x = Math.Abs(angular_velocity_error_x);
+          int abs_angular_velocity_error_y = Math.Abs(angular_velocity_error_y);
+          int abs_angular_velocity_error_z = Math.Abs(angular_velocity_error_z);
+
+          int total_prediction_error = abs_position_error_x +
+                                       abs_position_error_y +
+                                       abs_position_error_z +
+                                       linear_velocity_error_x +
+                                       linear_velocity_error_y +
+                                       linear_velocity_error_z +
+                                       angular_velocity_error_x +
+                                       angular_velocity_error_y +
+                                       angular_velocity_error_z;
+
+          int total_absolute_error = Math.Abs(cubeState[i].positionX - baselineCubeState.positionX) +
+                                     Math.Abs(cubeState[i].positionY - baselineCubeState.positionY) +
+                                     Math.Abs(cubeState[i].positionZ - baselineCubeState.positionZ) +
+                                     Math.Abs(cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX) +
+                                     Math.Abs(cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY) +
+                                     Math.Abs(cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ) +
+                                     Math.Abs(cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX) +
+                                     Math.Abs(cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY) +
+                                     Math.Abs(cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ);
+
+          if (total_prediction_error < total_absolute_error) {
+            int max_position_error = abs_position_error_x;
+
+            if (abs_position_error_y > max_position_error)
+              max_position_error = abs_position_error_y;
+
+            if (abs_position_error_z > max_position_error)
+              max_position_error = abs_position_error_z;
+
+            int max_linear_velocity_error = abs_linear_velocity_error_x;
+
+            if (abs_linear_velocity_error_y > max_linear_velocity_error)
+              max_linear_velocity_error = abs_linear_velocity_error_y;
+
+            if (abs_linear_velocity_error_z > max_linear_velocity_error)
+              max_linear_velocity_error = abs_linear_velocity_error_z;
+
+            int max_angular_velocity_error = abs_angular_velocity_error_x;
+
+            if (abs_angular_velocity_error_y > max_angular_velocity_error)
+              max_angular_velocity_error = abs_angular_velocity_error_y;
+
+            if (abs_angular_velocity_error_z > max_angular_velocity_error)
+              max_angular_velocity_error = abs_angular_velocity_error_z;
+
+            if (max_position_error <= Constants.PositionDeltaMax &&
+                 max_linear_velocity_error <= Constants.LinearVelocityDeltaMax &&
+                 max_angular_velocity_error <= Constants.AngularVelocityDeltaMax) {
+              hasPredictionDelta[i] = true;
+
+              predictionDelta[i].positionX = position_error_x;
+              predictionDelta[i].positionY = position_error_y;
+              predictionDelta[i].positionZ = position_error_z;
+
+              predictionDelta[i].linearVelocityX = linear_velocity_error_x;
+              predictionDelta[i].linearVelocityY = linear_velocity_error_y;
+              predictionDelta[i].linearVelocityZ = linear_velocity_error_z;
+
+              predictionDelta[i].angularVelocityX = angular_velocity_error_x;
+              predictionDelta[i].angularVelocityY = angular_velocity_error_y;
+              predictionDelta[i].angularVelocityZ = angular_velocity_error_z;
+            }
+          }
+        }
+      }
+    }
 
 #endif // #if !DISABLE_DELTA_ENCODING
 
-        Profiler.EndSample();
-    }
+    Profiler.EndSample();
+  }
 
-    protected bool DecodePrediction( DeltaBuffer deltaBuffer, ushort currentSequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDelta )
-    {
-        Profiler.BeginSample( "DecodePrediction" );
+  protected bool DecodePrediction(DeltaBuffer deltaBuffer, ushort currentSequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDelta) {
+    Profiler.BeginSample("DecodePrediction");
 
-        CubeState baselineCubeState = CubeState.defaults;
+    CubeState baselineCubeState = CubeState.defaults;
 
-        bool result = true;
+    bool result = true;
 
 #if !DISABLE_DELTA_ENCODING
 
-        for ( int i = 0; i < numCubes; ++i )
-        {
-            if ( perfectPrediction[i] || hasPredictionDelta[i] )
-            {
-                if ( deltaBuffer.GetCubeState( baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState ) )
-                {
-                    int baseline_sequence = baselineSequence[i];
-                    int current_sequence = currentSequence;
+    for (int i = 0; i < numCubes; ++i) {
+      if (perfectPrediction[i] || hasPredictionDelta[i]) {
+        if (deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState)) {
+          int baseline_sequence = baselineSequence[i];
+          int current_sequence = currentSequence;
 
-                    if ( current_sequence < baseline_sequence )
-                        current_sequence += 65536;
+          if (current_sequence < baseline_sequence)
+            current_sequence += 65536;
 
-                    int baseline_position_x = baselineCubeState.positionX;
-                    int baseline_position_y = baselineCubeState.positionY;
-                    int baseline_position_z = baselineCubeState.positionZ;
+          int baseline_position_x = baselineCubeState.positionX;
+          int baseline_position_y = baselineCubeState.positionY;
+          int baseline_position_z = baselineCubeState.positionZ;
 
-                    int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
-                    int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
-                    int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
+          int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
+          int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
+          int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
 
-                    int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
-                    int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
-                    int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
+          int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
+          int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
+          int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
 
-                    if ( current_sequence < baseline_sequence )
-                        current_sequence += 65536;
+          if (current_sequence < baseline_sequence)
+            current_sequence += 65536;
 
-                    int numFrames = current_sequence - baseline_sequence;
+          int numFrames = current_sequence - baseline_sequence;
 
-                    int predicted_position_x;
-                    int predicted_position_y;
-                    int predicted_position_z;
+          int predicted_position_x;
+          int predicted_position_y;
+          int predicted_position_z;
 
-                    int predicted_linear_velocity_x;
-                    int predicted_linear_velocity_y;
-                    int predicted_linear_velocity_z;
+          int predicted_linear_velocity_x;
+          int predicted_linear_velocity_y;
+          int predicted_linear_velocity_z;
 
-                    int predicted_angular_velocity_x;
-                    int predicted_angular_velocity_y;
-                    int predicted_angular_velocity_z;
+          int predicted_angular_velocity_x;
+          int predicted_angular_velocity_y;
+          int predicted_angular_velocity_z;
 
-                    Prediction.PredictBallistic( numFrames,
-                                                 baseline_position_x, baseline_position_y, baseline_position_z,
-                                                 baseline_linear_velocity_x, baseline_linear_velocity_y, baseline_linear_velocity_z,
-                                                 baseline_angular_velocity_x, baseline_angular_velocity_y, baseline_angular_velocity_z,
-                                                 out predicted_position_x, out predicted_position_y, out predicted_position_z,
-                                                 out predicted_linear_velocity_x, out predicted_linear_velocity_y, out predicted_linear_velocity_z,
-                                                 out predicted_angular_velocity_x, out predicted_angular_velocity_y, out predicted_angular_velocity_z );
+          Prediction.PredictBallistic(numFrames,
+                                       baseline_position_x, baseline_position_y, baseline_position_z,
+                                       baseline_linear_velocity_x, baseline_linear_velocity_y, baseline_linear_velocity_z,
+                                       baseline_angular_velocity_x, baseline_angular_velocity_y, baseline_angular_velocity_z,
+                                       out predicted_position_x, out predicted_position_y, out predicted_position_z,
+                                       out predicted_linear_velocity_x, out predicted_linear_velocity_y, out predicted_linear_velocity_z,
+                                       out predicted_angular_velocity_x, out predicted_angular_velocity_y, out predicted_angular_velocity_z);
 
-                    if ( perfectPrediction[i] )
-                    {
+          if (perfectPrediction[i]) {
 #if DEBUG_DELTA_COMPRESSION
                         Assert.IsTrue( predicted_position_x == cubeDelta[i].absolute_position_x );
                         Assert.IsTrue( predicted_position_y == cubeDelta[i].absolute_position_y );
                         Assert.IsTrue( predicted_position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                        cubeState[i].positionX = predicted_position_x;
-                        cubeState[i].positionY = predicted_position_y;
-                        cubeState[i].positionZ = predicted_position_z;
+            cubeState[i].positionX = predicted_position_x;
+            cubeState[i].positionY = predicted_position_y;
+            cubeState[i].positionZ = predicted_position_z;
 
-                        cubeState[i].linearVelocityX = predicted_linear_velocity_x;
-                        cubeState[i].linearVelocityY = predicted_linear_velocity_y;
-                        cubeState[i].linearVelocityZ = predicted_linear_velocity_z;
+            cubeState[i].linearVelocityX = predicted_linear_velocity_x;
+            cubeState[i].linearVelocityY = predicted_linear_velocity_y;
+            cubeState[i].linearVelocityZ = predicted_linear_velocity_z;
 
-                        cubeState[i].angularVelocityX = predicted_angular_velocity_x;
-                        cubeState[i].angularVelocityY = predicted_angular_velocity_y;
-                        cubeState[i].angularVelocityZ = predicted_angular_velocity_z;
-                    }
-                    else
-                    {
-                        cubeState[i].positionX = predicted_position_x + predictionDelta[i].positionX;
-                        cubeState[i].positionY = predicted_position_y + predictionDelta[i].positionY;
-                        cubeState[i].positionZ = predicted_position_z + predictionDelta[i].positionZ;
+            cubeState[i].angularVelocityX = predicted_angular_velocity_x;
+            cubeState[i].angularVelocityY = predicted_angular_velocity_y;
+            cubeState[i].angularVelocityZ = predicted_angular_velocity_z;
+          } else {
+            cubeState[i].positionX = predicted_position_x + predictionDelta[i].positionX;
+            cubeState[i].positionY = predicted_position_y + predictionDelta[i].positionY;
+            cubeState[i].positionZ = predicted_position_z + predictionDelta[i].positionZ;
 
 #if DEBUG_DELTA_COMPRESSION
                         Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
@@ -798,174 +698,156 @@ public class Common: MonoBehaviour
                         Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
 
-                        cubeState[i].linearVelocityX = predicted_linear_velocity_x + predictionDelta[i].linearVelocityX;
-                        cubeState[i].linearVelocityY = predicted_linear_velocity_y + predictionDelta[i].linearVelocityY;
-                        cubeState[i].linearVelocityZ = predicted_linear_velocity_z + predictionDelta[i].linearVelocityZ;
+            cubeState[i].linearVelocityX = predicted_linear_velocity_x + predictionDelta[i].linearVelocityX;
+            cubeState[i].linearVelocityY = predicted_linear_velocity_y + predictionDelta[i].linearVelocityY;
+            cubeState[i].linearVelocityZ = predicted_linear_velocity_z + predictionDelta[i].linearVelocityZ;
 
-                        cubeState[i].angularVelocityX = predicted_angular_velocity_x + predictionDelta[i].angularVelocityX;
-                        cubeState[i].angularVelocityY = predicted_angular_velocity_y + predictionDelta[i].angularVelocityY;
-                        cubeState[i].angularVelocityZ = predicted_angular_velocity_z + predictionDelta[i].angularVelocityZ;
-                    }
-                }
-                else
-                {
-                    Debug.Log( "error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (perfect prediction and prediction delta)" );
-                    result = false;
-                    break;
-                }
-            }
+            cubeState[i].angularVelocityX = predicted_angular_velocity_x + predictionDelta[i].angularVelocityX;
+            cubeState[i].angularVelocityY = predicted_angular_velocity_y + predictionDelta[i].angularVelocityY;
+            cubeState[i].angularVelocityZ = predicted_angular_velocity_z + predictionDelta[i].angularVelocityZ;
+          }
+        } else {
+          Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (perfect prediction and prediction delta)");
+          result = false;
+          break;
         }
+      }
+    }
 
 #endif // #if !DISABLE_DELTA_COMPRESSION
 
-        Profiler.EndSample();
+    Profiler.EndSample();
 
-        return result;
-    }
+    return result;
+  }
 
-    protected void ProcessAcksForConnection( Context context, Context.ConnectionData data )
-    {
-        Profiler.BeginSample( "ProcessAcksForConnection" );
+  protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) {
+    Profiler.BeginSample("ProcessAcksForConnection");
 
-        int numAcks = 0;
+    int numAcks = 0;
 
-        data.connection.GetAcks( ref acks, ref numAcks );
+    data.connection.GetAcks(ref acks, ref numAcks);
 
-        for ( int i = 0; i < numAcks; ++i )
-        {
-            int packetNumCubeStates;
-            int[] packetCubeIds;
-            CubeState[] packetCubeState;
+    for (int i = 0; i < numAcks; ++i) {
+      int packetNumCubeStates;
+      int[] packetCubeIds;
+      CubeState[] packetCubeState;
 
-            if ( data.sendBuffer.GetPacketData( acks[i], context.GetResetSequence(), out packetNumCubeStates, out packetCubeIds, out packetCubeState ) )
-            {
-                for ( int j = 0; j < packetNumCubeStates; ++j )
-                {
-                    context.UpdateAck( data, packetCubeIds[j], acks[i], context.GetResetSequence(), ref packetCubeState[j] );
-                }
-            }
+      if (data.sendBuffer.GetPacketData(acks[i], context.GetResetSequence(), out packetNumCubeStates, out packetCubeIds, out packetCubeState)) {
+        for (int j = 0; j < packetNumCubeStates; ++j) {
+          context.UpdateAck(data, packetCubeIds[j], acks[i], context.GetResetSequence(), ref packetCubeState[j]);
         }
-
-        Profiler.EndSample();
+      }
     }
 
-    protected void WriteDeltasToFile( System.IO.StreamWriter file, DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta )
-    {
-        if ( file == null )
-            return;
+    Profiler.EndSample();
+  }
 
-        CubeState baselineCubeState = CubeState.defaults;
+  protected void WriteDeltasToFile(System.IO.StreamWriter file, DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta) {
+    if (file == null)
+      return;
 
-        for ( int i = 0; i < numCubes; ++i )
-        {
-            if ( hasDelta[i] )
-            {
-                bool result = deltaBuffer.GetCubeState( baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState );
+    CubeState baselineCubeState = CubeState.defaults;
 
-                Assert.IsTrue( result );
+    for (int i = 0; i < numCubes; ++i) {
+      if (hasDelta[i]) {
+        bool result = deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState);
 
-                if ( result )
-                {
-                    file.WriteLine( sequence + "," +
-                                    baselineSequence[i] + "," +
-                                    cubeDelta[i].positionX + "," +
-                                    cubeDelta[i].positionY + "," +
-                                    cubeDelta[i].positionZ + "," + ",,," +   // <--- for backwards compatibility.
-                                    cubeDelta[i].linearVelocityX + "," +    //todo: remove this and fix up the indices in "TestPrediction".
-                                    cubeDelta[i].linearVelocityY + "," +
-                                    cubeDelta[i].linearVelocityZ + "," +
-                                    cubeDelta[i].angularVelocityX + "," +
-                                    cubeDelta[i].angularVelocityY + "," +
-                                    cubeDelta[i].angularVelocityZ + "," +
-                                    ( baselineCubeState.isActive ? 1 : 0 ) + "," +
-                                    baselineCubeState.positionX + "," +
-                                    baselineCubeState.positionY + "," +
-                                    baselineCubeState.positionZ + "," +
-                                    baselineCubeState.rotationLargest + "," +
-                                    baselineCubeState.rotationX + "," +
-                                    baselineCubeState.rotationY + "," +
-                                    baselineCubeState.rotationZ + "," +
-                                    baselineCubeState.linearVelocityX + "," +
-                                    baselineCubeState.linearVelocityY + "," +
-                                    baselineCubeState.linearVelocityZ + "," +
-                                    baselineCubeState.angularVelocityX + "," +
-                                    baselineCubeState.angularVelocityY + "," +
-                                    baselineCubeState.angularVelocityZ + "," +
-                                    ( cubeState[i].isActive ? 1 : 0 ) + "," +
-                                    cubeState[i].positionX + "," +
-                                    cubeState[i].positionY + "," +
-                                    cubeState[i].positionZ + "," +
-                                    cubeState[i].rotationLargest + "," +
-                                    cubeState[i].rotationX + "," +
-                                    cubeState[i].rotationY + "," +
-                                    cubeState[i].rotationZ + "," +
-                                    cubeState[i].linearVelocityX + "," +
-                                    cubeState[i].linearVelocityY + "," +
-                                    cubeState[i].linearVelocityZ + "," +
-                                    cubeState[i].angularVelocityX + "," +
-                                    cubeState[i].angularVelocityY + "," +
-                                    cubeState[i].angularVelocityZ );
-                }
-            }
+        Assert.IsTrue(result);
+
+        if (result) {
+          file.WriteLine(sequence + "," +
+                          baselineSequence[i] + "," +
+                          cubeDelta[i].positionX + "," +
+                          cubeDelta[i].positionY + "," +
+                          cubeDelta[i].positionZ + "," + ",,," +   // <--- for backwards compatibility.
+                          cubeDelta[i].linearVelocityX + "," +    //todo: remove this and fix up the indices in "TestPrediction".
+                          cubeDelta[i].linearVelocityY + "," +
+                          cubeDelta[i].linearVelocityZ + "," +
+                          cubeDelta[i].angularVelocityX + "," +
+                          cubeDelta[i].angularVelocityY + "," +
+                          cubeDelta[i].angularVelocityZ + "," +
+                          (baselineCubeState.isActive ? 1 : 0) + "," +
+                          baselineCubeState.positionX + "," +
+                          baselineCubeState.positionY + "," +
+                          baselineCubeState.positionZ + "," +
+                          baselineCubeState.rotationLargest + "," +
+                          baselineCubeState.rotationX + "," +
+                          baselineCubeState.rotationY + "," +
+                          baselineCubeState.rotationZ + "," +
+                          baselineCubeState.linearVelocityX + "," +
+                          baselineCubeState.linearVelocityY + "," +
+                          baselineCubeState.linearVelocityZ + "," +
+                          baselineCubeState.angularVelocityX + "," +
+                          baselineCubeState.angularVelocityY + "," +
+                          baselineCubeState.angularVelocityZ + "," +
+                          (cubeState[i].isActive ? 1 : 0) + "," +
+                          cubeState[i].positionX + "," +
+                          cubeState[i].positionY + "," +
+                          cubeState[i].positionZ + "," +
+                          cubeState[i].rotationLargest + "," +
+                          cubeState[i].rotationX + "," +
+                          cubeState[i].rotationY + "," +
+                          cubeState[i].rotationZ + "," +
+                          cubeState[i].linearVelocityX + "," +
+                          cubeState[i].linearVelocityY + "," +
+                          cubeState[i].linearVelocityZ + "," +
+                          cubeState[i].angularVelocityX + "," +
+                          cubeState[i].angularVelocityY + "," +
+                          cubeState[i].angularVelocityZ);
         }
-
-        file.Flush();
+      }
     }
 
-    protected void WritePacketSizeToFile( System.IO.StreamWriter file, int packetBytes )
-    {
-        if ( file == null )
-            return;
+    file.Flush();
+  }
 
-        file.WriteLine( packetBytes );
+  protected void WritePacketSizeToFile(System.IO.StreamWriter file, int packetBytes) {
+    if (file == null)
+      return;
 
-        file.Flush();
+    file.WriteLine(packetBytes);
+
+    file.Flush();
+  }
+
+  protected void InitializePlatformSDK(Oculus.Platform.Message.Callback callback) {
+    Core.Initialize();
+
+    Entitlements.IsUserEntitledToApplication().OnComplete(callback);
+  }
+
+  protected void JoinRoom(ulong roomId, Message<Room>.Callback callback) {
+    Debug.Log("Joining room " + roomId);
+
+    Rooms.Join(roomId, true).OnComplete(callback);
+  }
+
+  protected void LeaveRoom(ulong roomId, Message<Room>.Callback callback) {
+    if (roomId == 0)
+      return;
+
+    Debug.Log("Leaving room " + roomId);
+
+    Rooms.Leave(roomId).OnComplete(callback);
+  }
+
+  protected void PrintRoomDetails(Room room) {
+    Debug.Log("AppID: " + room.ApplicationID);
+    Debug.Log("Room ID: " + room.ID);
+    Debug.Log("Users in room: " + room.Users.Count + " / " + room.MaxUsers);
+    if (room.Owner != null) {
+      Debug.Log("Room owner: " + room.Owner.OculusID + " [" + room.Owner.ID + "]");
     }
+    Debug.Log("Join Policy: " + room.JoinPolicy.ToString());
+    Debug.Log("Room Type: " + room.Type.ToString());
+  }
 
-    protected void InitializePlatformSDK( Oculus.Platform.Message.Callback callback )
-    {
-        Core.Initialize();
-
-        Entitlements.IsUserEntitledToApplication().OnComplete( callback );
+  protected bool FindUserById(UserList users, ulong userId) {
+    foreach (var user in users) {
+      if (user.ID == userId)
+        return true;
     }
-
-    protected void JoinRoom( ulong roomId, Message<Room>.Callback callback )
-    {
-        Debug.Log( "Joining room " + roomId );
-
-        Rooms.Join( roomId, true ).OnComplete( callback );
-    }
-
-    protected void LeaveRoom( ulong roomId, Message<Room>.Callback callback )
-    {
-        if ( roomId == 0 )
-            return;
-
-        Debug.Log( "Leaving room " + roomId );
-
-        Rooms.Leave( roomId ).OnComplete( callback );
-    }
-
-    protected void PrintRoomDetails( Room room )
-    {
-        Debug.Log( "AppID: " + room.ApplicationID );
-        Debug.Log( "Room ID: " + room.ID );
-        Debug.Log( "Users in room: " + room.Users.Count + " / " + room.MaxUsers );
-        if ( room.Owner != null )
-        {
-            Debug.Log( "Room owner: " + room.Owner.OculusID + " [" + room.Owner.ID + "]" );
-        }
-        Debug.Log( "Join Policy: " + room.JoinPolicy.ToString() );
-        Debug.Log( "Room Type: " + room.Type.ToString() );
-    }
-
-    protected bool FindUserById( UserList users, ulong userId )
-    {
-        foreach ( var user in users )
-        {
-            if ( user.ID == userId )
-                return true;
-        }
-        return false;
-    }
+    return false;
+  }
 }

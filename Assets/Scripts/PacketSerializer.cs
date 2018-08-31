@@ -20,26 +20,20 @@ public class PacketSerializer: Network.Serializer
         StateUpdate = 0,                    // most recent state of the world, delta encoded relative to most recent state per-object acked by the client. sent 90 times per-second.
     };
 
-    public void WriteServerInfoPacket( Network.WriteStream stream, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName )
-    {
-        byte packetType = (byte) PacketType.ServerInfo;
+  public void WriteServerInfoPacket(Network.WriteStream stream, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+    var packetType = (byte)ServerInfo;
+    write_bits(stream, packetType, 8);
 
-        write_bits( stream, packetType, 8 );
+    for (int i = 0; i < MaxClients; ++i) {
+      write_bool(stream, clientConnected[i]);
+      if (!clientConnected[i]) continue;
 
-        for ( int i = 0; i < Constants.MaxClients; ++i )
-        {
-            write_bool( stream, clientConnected[i] );
-
-            if ( !clientConnected[i] )
-                continue;
-
-            write_bits( stream, clientUserId[i], 64 );
-
-            write_string( stream, clientUserName[i] );
-        }
+      write_bits(stream, clientUserId[i], 64);
+      write_string(stream, clientUserName[i]);
     }
+  }
 
-    public void ReadServerInfoPacket( Network.ReadStream stream, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName )
+    public void ReadServerPacket( Network.ReadStream stream, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName )
     {
         byte packetType = 0;
 
@@ -60,7 +54,7 @@ public class PacketSerializer: Network.Serializer
         }
     }
 
-    public void WriteStateUpdatePacket( Network.WriteStream stream, ref Network.PacketHeader header, int numAvatarStates, AvatarStateQuantized[] avatarState, int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta )
+    public void WriteUpdatePacket( Network.WriteStream stream, ref Network.PacketHeader header, int numAvatarStates, AvatarStateQuantized[] avatarState, int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta )
     {
         byte packetType = (byte) PacketType.StateUpdate;
 
@@ -71,7 +65,7 @@ public class PacketSerializer: Network.Serializer
         write_bits( stream, header.ack_bits, 32 );
         write_bits( stream, header.frameNumber, 32 );
         write_bits( stream, header.resetSequence, 16 );
-        write_float( stream, header.avatarSampleTimeOffset );
+        write_float( stream, header.timeOffset );
 
         write_int( stream, numAvatarStates, 0, Constants.MaxClients );
         for ( int i = 0; i < numAvatarStates; ++i )
@@ -199,10 +193,10 @@ public class PacketSerializer: Network.Serializer
         read_bits( stream, out header.ack_bits, 32 );
         read_bits( stream, out header.frameNumber, 32 );
         read_bits( stream, out header.resetSequence, 16 );
-        read_float( stream, out header.avatarSampleTimeOffset );
+        read_float( stream, out header.timeOffset );
     }
 
-    public void ReadStateUpdatePacket( Network.ReadStream stream, out Network.PacketHeader header, out int numAvatarStates, AvatarStateQuantized[] avatarState, out int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta )
+    public void ReadUpdatePacket( Network.ReadStream stream, out Network.PacketHeader header, out int numAvatarStates, AvatarStateQuantized[] avatarState, out int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta )
     {
         byte packetType = 0;
 
@@ -215,7 +209,7 @@ public class PacketSerializer: Network.Serializer
         read_bits( stream, out header.ack_bits, 32 );
         read_bits( stream, out header.frameNumber, 32 );
         read_bits( stream, out header.resetSequence, 16 );
-        read_float( stream, out header.avatarSampleTimeOffset );
+        read_float( stream, out header.timeOffset );
 
         read_int( stream, out numAvatarStates, 0, Constants.MaxClients );
         for ( int i = 0; i < numAvatarStates; ++i )

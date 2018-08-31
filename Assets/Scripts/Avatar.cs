@@ -588,7 +588,7 @@ public class Avatar : OvrAvatarLocalDriver {
     return velocity;
   }
 
-  public bool GetAvatarState(out AvatarState s) {
+  public bool GetAvatar(out AvatarState s) {
     PoseFrame frame;
     if (!avatar.Driver.GetCurrentPose(out frame)) {
       s = AvatarState.Default;

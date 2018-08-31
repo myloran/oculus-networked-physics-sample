@@ -1042,9 +1042,9 @@ namespace Network
         public ushort sequence;
         public ushort ack;
         public uint ack_bits;
-        public uint frameNumber;                    // physics simulation frame # for jitter buffer
-        public ushort resetSequence;                // incremented each time the simulation is reset
-        public float avatarSampleTimeOffset;        // offset between the current physics frame time of this packet and the time where the avatar state was sampled
+        public uint frameNumber;                    //physics simulation frame # for jitter buffer
+        public ushort resetSequence;                //incremented each time the simulation is reset
+        public float timeOffset;                    //offset between the current physics frame time of this packet and the time where the avatar state was sampled
     }
 
     public struct SentPacketData 
@@ -1072,7 +1072,7 @@ namespace Network
             Util.GenerateAckBits( m_receivedPackets, out header.ack, out header.ack_bits );
             header.frameNumber = 0;
             header.resetSequence = 0;
-            header.avatarSampleTimeOffset = 0.0f;
+            header.timeOffset = 0.0f;
             int index = m_sentPackets.Insert( m_sequence );
             Assert.IsTrue( index != -1 );
             m_sentPackets.Entries[index].acked = false;

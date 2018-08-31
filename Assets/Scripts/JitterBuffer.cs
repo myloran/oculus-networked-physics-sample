@@ -59,7 +59,7 @@ public class JitterBuffer
         sequenceBuffer.Reset();
     }
 
-    public bool AddStateUpdatePacket( byte[] packetData, DeltaBuffer receiveDeltaBuffer, ushort resetSequence, out long packetFrameNumber )
+    public bool AddUpdatePacket( byte[] packetData, DeltaBuffer receiveDeltaBuffer, ushort resetSequence, out long packetFrameNumber )
     {
         Network.PacketHeader packetHeader;
         ReadStateUpdatePacketHeader( packetData, out packetHeader );
@@ -133,7 +133,7 @@ public class JitterBuffer
         return value;
     }
 
-    public bool GetInterpolatedAvatarState( ref AvatarState[] output, out int numOutputAvatarStates, out ushort resetSequence )
+    public bool GetInterpolatedAvatar( ref AvatarState[] output, out int numOutputAvatarStates, out ushort resetSequence )
     {
         numOutputAvatarStates = 0;
         resetSequence = 0;
@@ -173,7 +173,7 @@ public class JitterBuffer
 
                 if ( entry != null )
                 {
-                    double avatar_sample_time = ( frame - initial_frame ) * ( 1.0 / Constants.PhysicsFrameRate ) + entry.packetHeader.avatarSampleTimeOffset;
+                    double avatar_sample_time = ( frame - initial_frame ) * ( 1.0 / Constants.PhysicsFrameRate ) + entry.packetHeader.timeOffset;
                     
                     if ( time >= avatar_sample_time && time <= avatar_sample_time + ( 1.0f / Constants.PhysicsFrameRate ) )
                     {
@@ -208,7 +208,7 @@ public class JitterBuffer
 
                 if ( entry != null )
                 {
-                    double avatar_sample_time = ( interpolation_start_frame + 1 + i - initial_frame ) * ( 1.0 / Constants.PhysicsFrameRate ) + entry.packetHeader.avatarSampleTimeOffset;
+                    double avatar_sample_time = ( interpolation_start_frame + 1 + i - initial_frame ) * ( 1.0 / Constants.PhysicsFrameRate ) + entry.packetHeader.timeOffset;
 
                     if ( avatar_sample_time >= time )
                     {
@@ -275,7 +275,7 @@ public class JitterBuffer
             packetHeader.ack_bits = 0;
             packetHeader.frameNumber = 0;
             packetHeader.resetSequence = 0;
-            packetHeader.avatarSampleTimeOffset = 0.0f;
+            packetHeader.timeOffset = 0.0f;
 
             result = false;
         }
@@ -297,7 +297,7 @@ public class JitterBuffer
 
         try
         {
-            packetSerializer.ReadStateUpdatePacket( readStream, out packetHeader, out numAvatarStates, avatarState, out numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta );
+            packetSerializer.ReadUpdatePacket( readStream, out packetHeader, out numAvatarStates, avatarState, out numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta );
         }
         catch ( Network.SerializeException )
         {
@@ -308,7 +308,7 @@ public class JitterBuffer
             packetHeader.ack_bits = 0;
             packetHeader.frameNumber = 0;
             packetHeader.resetSequence = 0;
-            packetHeader.avatarSampleTimeOffset = 0.0f;
+            packetHeader.timeOffset = 0.0f;
 
             numAvatarStates = 0;
             numStateUpdates = 0;

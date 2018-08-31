@@ -6,716 +6,478 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
 using System;
 using UnityEngine;
-using UnityEngine.Profiling;
-using UnityEngine.Assertions;
 using Oculus.Platform;
 using Oculus.Platform.Models;
+using Network;
+using static UnityEngine.Assertions.Assert;
+using static UnityEngine.Profiling.Profiler;
+using static UnityEngine.Debug;
+using static Constants;
+using static Host.ClientState;
+using static AvatarState;
 
-public class Host : Common
-{
-    public Context context;
+public class Host : Common {
+  public Context context;
+  Client[] clients = new Client[MaxClients];
+  byte[] buffer = new byte[MaxPacketSize];
+  bool isReadyToShutdown = false;
+  ulong roomId;                                     //the room id. valid once the host has created a room and enqueued it on the matchmaker.
 
-    ulong roomId;                                       // the room id. valid once the host has created a room and enqueued it on the matchmaker.
+  public enum ClientState {
+    Disconnected,                                   //client is not connected
+    Connecting,                                     //client is connecting (joined room, but NAT punched yet)
+    Connected                                       //client is fully connected and is sending and receiving packets.
+  };
 
-    enum ClientState
-    {
-        Disconnected,                                   // client is not connected
-        Connecting,                                     // client is connecting (joined room, but NAT punched yet)
-        Connected                                       // client is fully connected and is sending and receiving packets.
-    };
+  struct Client {
+    public ClientState state;
+    public ulong userId;
+    public string oculusId;
 
-    struct ClientData
-    {
-        public ClientState state;
-        public ulong userId;
-        public string oculusId;
-        public double timeConnectionStarted;
-        public double timeConnected;
-        public double timeLastPacketSent;
-        public double timeLastPacketReceived;
+    public double 
+      connectionStarted,
+      connected,
+      lastPacketSent,
+      lastPacketReceived;
 
-        public void Reset()
-        {
-            state = ClientState.Disconnected;
-            userId = 0;
-            oculusId = "";
-            timeConnectionStarted = 0.0;
-            timeConnected = 0.0f;
-            timeLastPacketSent = 0.0;
-            timeLastPacketReceived = 0.0;
-        }
-    };
+    public void Reset() {
+      state = Disconnected;
+      userId = 0;
+      oculusId = "";
+      connectionStarted = 0.0;
+      connected = 0.0f;
+      lastPacketSent = 0.0;
+      lastPacketReceived = 0.0;
+    }
+  };
 
-    ClientData [] client = new ClientData[Constants.MaxClients];
+  bool IsClientConnected(int id) {
+    IsTrue(id >= 0);
+    IsTrue(id < MaxClients);
 
-    bool IsClientConnected( int clientIndex )
-    {
-        Assert.IsTrue( clientIndex >= 0 );
-        Assert.IsTrue( clientIndex < Constants.MaxClients );
-        return client[clientIndex].state == ClientState.Connected;
+    return clients[id].state == Connected;
+  }
+
+  new void Awake() {
+    Log("*** HOST ***");
+    IsNotNull(context);    
+
+    for (int i = 0; i < MaxClients; ++i) //IMPORTANT: the host is *always* client 0
+      clients[i].Reset();
+
+    context.Init(0);
+    context.SetResetSequence(100);
+    InitializePlatformSDK(CheckEntitlement);
+    Rooms.SetUpdateNotificationCallback(ConnectClients);
+    Net.SetConnectionStateChangedCallback(CheckClientConnection);
+
+    Voip.SetVoipConnectRequestCallback((Message<NetworkingPeer> message) => {
+      Voip.Accept(message.Data.ID);
+    });
+
+    Voip.SetVoipStateChangeCallback((Message<NetworkingPeer> message) => {
+      LogFormat("Voice state changed to {1} for user {0}", message.Data.ID, message.Data.State);
+    });
+  }
+
+  new void Start() {
+    base.Start();
+    IsNotNull(context);
+    IsNotNull(localAvatar);
+
+    for (int i = 0; i < MaxClients; ++i)
+      context.HideAvatar(i);
+
+    localAvatar.GetComponent<Avatar>().SetContext(context.GetComponent<Context>());
+    localAvatar.transform.position = context.GetAvatar(0).gameObject.transform.position;
+    localAvatar.transform.rotation = context.GetAvatar(0).gameObject.transform.rotation;
+  }
+
+  void CheckEntitlement(Message message) {
+    if (message.IsError) {
+      Log("error: You are not entitled to use this app");
+      return;
     }
 
-    private byte[] readBuffer = new byte[Constants.MaxPacketSize];
+    Log("You are entitled to use this app");
+    Users.GetLoggedInUser().OnComplete(CreateRoom);
+  }
 
-    new void Awake()
-    {
-        Debug.Log( "*** HOST ***" );
-
-        Assert.IsNotNull( context );
-
-        // IMPORTANT: the host is *always* client 0
-
-        for ( int i = 0; i < Constants.MaxClients; ++i )
-            client[i].Reset();
-
-        context.Init( 0 );
-
-        context.SetResetSequence( 100 );
-
-        InitializePlatformSDK( GetEntitlementCallback );
-
-        Rooms.SetUpdateNotificationCallback( RoomUpdatedCallback );
-
-        Net.SetConnectionStateChangedCallback( ConnectionStateChangedCallback );
-
-        Voip.SetVoipConnectRequestCallback( ( Message<NetworkingPeer> msg ) =>
-        {
-            Voip.Accept( msg.Data.ID );
-        } );
-
-        Voip.SetVoipStateChangeCallback( ( Message<NetworkingPeer> msg ) => 
-        {
-            Debug.LogFormat( "Voice state changed to {1} for user {0}", msg.Data.ID, msg.Data.State );
-        } );
+  void CreateRoom(Message<User> message) {
+    if (message.IsError) {
+      Log("error: Could not get signed in user");
+      return;
     }
 
-    new void Start()
-    {
-        base.Start();
+    Log("User id is " + message.Data.ID);
+    Log("Oculus id is " + message.Data.OculusID);
+    clients[0].state = Connected;
+    clients[0].userId = message.Data.ID;
+    clients[0].oculusId = message.Data.OculusID;
 
-        Assert.IsNotNull( context );
-        Assert.IsNotNull( localAvatar );
+    var options = new MatchmakingOptions();
+    options.SetEnqueueQueryKey("quickmatch_query");
+    options.SetCreateRoomJoinPolicy(RoomJoinPolicy.Everyone);
+    options.SetCreateRoomMaxUsers(MaxClients);
+    options.SetEnqueueDataSettings("version", Constants.Version.GetHashCode());
 
-        for ( int i = 0; i < Constants.MaxClients; ++i )
-            context.HideAvatar( i );
+    Matchmaking.CreateAndEnqueueRoom2("quickmatch", options).OnComplete(PrintRoomDetails);
+  }
 
-        localAvatar.GetComponent<Avatar>().SetContext( context.GetComponent<Context>() );
-        localAvatar.transform.position = context.GetAvatar( 0 ).gameObject.transform.position;
-        localAvatar.transform.rotation = context.GetAvatar( 0 ).gameObject.transform.rotation;
+  void PrintRoomDetails(Message<MatchmakingEnqueueResultAndRoom> message) {
+    if (message.IsError) {
+      Log("error: Failed to create and enqueue room - " + message.GetError());
+      return;
     }
 
-    void GetEntitlementCallback( Message msg )
-    {
-        if ( !msg.IsError )
-        {
-            Debug.Log( "You are entitled to use this app" );
+    Log("Created and enqueued room");
+    PrintRoomDetails(message.Data.Room);
+    roomId = message.Data.Room.ID;
+  }
 
-            Users.GetLoggedInUser().OnComplete( GetLoggedInUserCallback );
-        }
+  int FindClientId(ulong userId) {
+    for (int i = 1; i < MaxClients; ++i) {
+      if (clients[i].state != Disconnected && clients[i].userId == userId)
+        return i;
+    }
+    return -1;
+  }
+
+  int FindFreeClientId() {
+    for (int i = 1; i < MaxClients; ++i) {
+      if (clients[i].state == Disconnected)
+        return i;
+    }
+    return -1;
+  }
+
+  void ConnectClients(Message<Room> message) {
+    var room = message.Data;
+    if (room.ID != roomId) return;
+
+    if (message.IsError) {
+      Log("error: Room updated error (?!) - " + message.GetError());
+      return;
+    }
+
+    Log("Room updated");
+
+    foreach (var user in room.Users)
+      Log(" + " + user.OculusID + " [" + user.ID + "]");
+
+    for (int i = 1; i < MaxClients; ++i) { //disconnect any clients that are connecting/connected in our state machine, but are no longer in the room
+      if (clients[i].state == Disconnected || FindUserById(room.Users, clients[i].userId)) continue;
+
+      Log("Client " + i + " is no longer in the room");
+      DisconnectClient(i);
+    }
+            
+    foreach (var user in room.Users) { //connect any clients who are in the room, but aren't connecting/connected in our state machine (excluding the room owner)
+      if (user.ID == room.Owner.ID) continue;
+      if (FindClientId(user.ID) != -1) continue;
+
+      int id = FindFreeClientId();
+      if (id != -1) StartClientConnection(id, user.ID, user.OculusID);
+    }
+  }
+
+  void StartClientConnection(int id, ulong userId, string oculusId) {
+    Log("Starting connection to client " + oculusId + " [" + userId + "]");
+    IsTrue(id != 0);
+
+    if (clients[id].state != Disconnected)
+      DisconnectClient(id);
+
+    clients[id].state = Connecting;
+    clients[id].oculusId = oculusId;
+    clients[id].userId = userId;
+    clients[id].connectionStarted = renderTime;
+    Net.Connect(userId);
+  }
+
+  void ConnectClient(int id, ulong userId) {
+    IsTrue(id != 0);
+    if (clients[id].state != Connecting || clients[id].userId != userId) return;
+
+    clients[id].state = Connected;
+    clients[id].connected = renderTime;
+    clients[id].lastPacketSent = renderTime;
+    clients[id].lastPacketReceived = renderTime;
+    ShowAvatar(id);
+    BroadcastServerPacket();
+  }
+
+  void DisconnectClient(int id) {
+    IsTrue(id != 0);
+    IsTrue(IsClientConnected(id));
+    HideAvatar(id);
+    Rooms.KickUser(roomId, clients[id].userId, 0);
+    Net.Close(clients[id].userId);
+    clients[id].Reset();
+    BroadcastServerPacket();
+  }
+
+  void ShowAvatar(int id) {
+    Log(clients[id].oculusId + " joined the game as client " + id);
+    context.ShowAvatar(id);
+    Voip.Start(clients[id].userId);
+
+    var head = context.GetAvatarHead(id);
+    var audio = head.GetComponent<VoipAudioSourceHiLevel>();
+
+    if (!audio)
+      audio = head.AddComponent<VoipAudioSourceHiLevel>();
+
+    audio.senderID = clients[id].userId;
+  }
+
+  void HideAvatar(int id) {
+    Log(clients[id].oculusId + " left the game");
+    var head = context.GetAvatarHead(id);
+    var audio = head.GetComponent<VoipAudioSourceHiLevel>();
+
+    if (audio)
+      audio.senderID = 0;
+
+    Voip.Stop(clients[id].userId);
+    context.HideAvatar(id);
+    context.ResetAuthority(id);
+    context.GetServerData(id).Reset();
+  }
+
+  void CheckClientConnection(Message<NetworkingPeer> message) {
+    var userId = message.Data.ID;
+    int id = FindClientId(userId);
+    if (id == -1) return;
+
+    Log("Connection state changed to " + message.Data.State + " for client " + id);
+
+    if (message.Data.State == PeerConnectionState.Connected) {
+      ConnectClient(id, userId);
+
+    } else if (clients[id].state != Disconnected) {
+      DisconnectClient(id);
+    }
+  }
+
+  protected override void OnQuit() {
+    if (roomId == 0) {
+      isReadyToShutdown = true;
+      return;
+    }
+
+    for (int i = 1; i < MaxClients; ++i) {
+      if (IsClientConnected(i)) DisconnectClient(i);
+    }
+    LeaveRoom(roomId, StartShutdown);
+  }
+
+  protected override bool ReadyToShutdown() => isReadyToShutdown;
+
+  void StartShutdown(Message<Room> msg) {
+    if (!msg.IsError) Log("Left room");
+
+    isReadyToShutdown = true;
+    roomId = 0;
+  }
+
+  new void Update() {
+    base.Update();    
+
+    for (int i = 1; i < MaxClients; ++i) { //apply host avatar per-remote client at render time with interpolation
+      if (clients[i].state != Connected) continue;
+
+      var buffer = context.GetServerData(i).jitterBuffer;
+      int count;
+      ushort resetSequence;
+      if (buffer.GetInterpolatedAvatar(ref interpolatedAvatars, out count, out resetSequence)) continue;
+
+      if (resetSequence == context.GetResetSequence())
+        context.ApplyAvatarUpdates(count, ref interpolatedAvatars, i, 0);
+    }    
+
+    for (int i = 1; i < MaxClients; ++i) { //advance jitter buffer time
+      if (clients[i].state == Connected)
+        context.GetServerData(i).jitterBuffer.AdvanceTime(Time.deltaTime);
+    }
+    CheckTimeouts(); //check for timeouts
+  }
+
+  new void FixedUpdate() {
+    var avatar = localAvatar.GetComponent<Avatar>();
+
+    if (Input.GetKey("space") || (avatar.IsPressingIndex() && avatar.IsPressingX())) {
+      context.Reset();
+      context.IncreaseResetSequence();
+    }
+
+    context.UpdateSleep();
+    ProcessPackets();
+    SendPackets();
+    context.UpdateSleep();
+    base.FixedUpdate();
+  }
+
+  void CheckTimeouts() {
+    for (int i = 1; i < MaxClients; ++i) {
+      if (clients[i].state == Connecting) {
+        if (clients[i].connectionStarted + ConnectionTimeout >= renderTime) continue;
+
+        Log("Client " + i + " timed out while connecting");
+        DisconnectClient(i);
+
+      } else if (clients[i].state == Connected) {
+        if (clients[i].lastPacketReceived + ConnectionTimeout >= renderTime) continue;
+
+        Log("Client " + i + " timed out");
+        DisconnectClient(i);
+      }
+    }
+  }
+
+  void ProcessPackets() {
+    Packet packet;
+
+    while ((packet = Net.ReadPacket()) != null) {
+      int id = FindClientId(packet.SenderID);
+      if (id == -1) continue;
+      if (!IsClientConnected(id)) continue;
+
+      packet.ReadBytes(buffer);
+
+      if (buffer[0] == (byte)PacketSerializer.PacketType.StateUpdate) {
+        if (isJitterBufferEnabled)
+          AddUpdatePacket(context, context.GetServerData(id), buffer);
         else
-        {
-            Debug.Log( "error: You are not entitled to use this app" );
-        }
+          ProcessUpdatePacket(buffer, id);
+      }
+      clients[id].lastPacketReceived = renderTime;
+    }
+    ProcessAcks();
+
+    if (isJitterBufferEnabled) { //process client state update from jitter buffer
+      for (int i = 1; i < MaxClients; ++i) {
+        if (clients[i].state == Connected)
+          ProcessStateUpdateFromJitterBuffer(context, context.GetServerData(i), i, 0, isJitterBufferEnabled);
+      }
     }
 
-    void GetLoggedInUserCallback( Message<User> msg )
-    {
-        if ( !msg.IsError )
-        {
-            Debug.Log( "User id is " + msg.Data.ID );
-            Debug.Log( "Oculus id is " + msg.Data.OculusID  );
+    for (int i = 1; i < MaxClients; ++i) { //advance remote frame number
+      if (clients[i].state != Connected) continue;
 
-            client[0].state = ClientState.Connected;
-            client[0].userId = msg.Data.ID;
-            client[0].oculusId = msg.Data.OculusID;
+      var data = context.GetServerData(i);
 
-            MatchmakingOptions matchmakingOptions = new MatchmakingOptions();
-            matchmakingOptions.SetEnqueueQueryKey( "quickmatch_query" );
-            matchmakingOptions.SetCreateRoomJoinPolicy( RoomJoinPolicy.Everyone );
-            matchmakingOptions.SetCreateRoomMaxUsers( Constants.MaxClients );
-            matchmakingOptions.SetEnqueueDataSettings( "version", Constants.Version.GetHashCode() );
-
-            Matchmaking.CreateAndEnqueueRoom2( "quickmatch", matchmakingOptions ).OnComplete( CreateAndEnqueueRoomCallback );
-        }
-        else
-        {
-            Debug.Log( "error: Could not get signed in user" );
-        }
+      if (!data.isFirstPacket)
+        data.frame++;
     }
+  }
 
-    void CreateAndEnqueueRoomCallback( Message<MatchmakingEnqueueResultAndRoom> msg )
-    {
-        if ( !msg.IsError )
-        {
-            Debug.Log( "Created and enqueued room" );
+  void SendPackets() {
+    for (int i = 1; i < MaxClients; ++i) {
+      if (!IsClientConnected(i)) continue;
 
-            PrintRoomDetails( msg.Data.Room );
-
-            roomId = msg.Data.Room.ID;
-        }
-        else
-        {
-            Debug.Log( "error: Failed to create and enqueue room - " + msg.GetError() );
-        }
+      var packet = GenerateUpdatePacket(context.GetServerData(i), i, (float)(physicsTime - renderTime));
+      Net.SendPacket(clients[i].userId, packet, SendPolicy.Unreliable);
+      clients[i].lastPacketSent = renderTime;
     }
+  }
 
-    int FindClientByUserId( ulong userId )
-    {
-        for ( int i = 1; i < Constants.MaxClients; ++i )
-        {
-            if ( client[i].state != ClientState.Disconnected && client[i].userId == userId )
-                return i;
-        }
-        return -1;
+  public void BroadcastServerPacket() {
+    for (int i = 1; i < MaxClients; ++i) {
+      if (!IsClientConnected(i)) continue;
+
+      Net.SendPacket(clients[i].userId, GenerateServerPacket(), SendPolicy.Unreliable);
+      clients[i].lastPacketSent = renderTime;
     }
+  }
 
-    int FindFreeClientIndex()
-    {
-        for ( int i = 1; i < Constants.MaxClients; ++i )
-        {
-            if ( client[i].state == ClientState.Disconnected )
-                return i;
-        }
-        return -1;
+  public byte[] GenerateServerPacket() {
+    for (int i = 0; i < MaxClients; ++i) {
+      if (IsClientConnected(i)) {
+        info.areConnected[i] = true;
+        info.userIds[i] = clients[i].userId;
+        info.userNames[i] = clients[i].oculusId;
+      } else {
+        info.areConnected[i] = false;
+        info.userIds[i] = 0;
+        info.userNames[i] = "";
+      }
     }
+    WriteServerPacket(info.areConnected, info.userIds, info.userNames);
 
-    void RoomUpdatedCallback( Message<Room> msg )
-    {
-        var room = msg.Data;
+    return writeStream.GetData();
+  }
 
-        if ( room.ID != roomId )
-            return;
+  public byte[] GenerateUpdatePacket(Context.ConnectionData d, int toClientId, float timeOffset) {
+    int count = Math.Min(NumCubes, MaxStateUpdates);
+    context.UpdateCubePriority();
+    context.GetCubeUpdates(d, ref count, ref cubeIds, ref cubes);
 
-        if ( !msg.IsError )
-        {
-            Debug.Log( "Room updated" );
+    PacketHeader header;
+    d.connection.GeneratePacketHeader(out header);
+    header.resetSequence = context.GetResetSequence();
+    header.frameNumber = (uint)frame;
+    header.timeOffset = timeOffset;
 
-            foreach ( var user in room.Users )
-            {
-                Debug.Log( " + " + user.OculusID + " [" + user.ID + "]" );
-            }
+    DetermineNotChangedAndDeltas(context, d, header.sequence, count, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubes, ref cubeDeltas);
+    DeterminePrediction(context, d, header.sequence, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubes, ref predictionDelta);
+    int id = 0;
 
-            // disconnect any clients that are connecting/connected in our state machine, but are no longer in the room
+    for (int i = 0; i < MaxClients; ++i) {
+      if (i == toClientId) continue;
 
-            for ( int i = 1; i < Constants.MaxClients; ++i )
-            {
-                if ( client[i].state != ClientState.Disconnected && !FindUserById( room.Users, client[i].userId ) )
-                {
-                    Debug.Log( "Client " + i + " is no longer in the room" );
+      if (i == 0) {        
+        localAvatar.GetComponent<Avatar>().GetAvatar(out avatars[id]); //grab state from the local avatar.
+        Quantize(ref avatars[id], out avatarsQuantized[id]);
+        id++;
+      } else {        
+        var avatar = context.GetAvatar(i); //grab state from a remote avatar.
+        if (!avatar) continue;
 
-                    DisconnectClient( i );
-                }
-            }
-
-            // connect any clients who are in the room, but aren't connecting/connected in our state machine (excluding the room owner)
-
-            foreach ( var user in room.Users )
-            {
-                if ( user.ID == room.Owner.ID )
-                    continue;
-
-                if ( FindClientByUserId( user.ID ) == -1 )
-                {
-                    int clientIndex = FindFreeClientIndex();
-                    if ( clientIndex != -1 )
-                        StartClientConnection( clientIndex, user.ID, user.OculusID );
-                }
-            }
-        }
-        else
-        {
-            Debug.Log( "error: Room updated error (?!) - " + msg.GetError() );
-        }
+        avatar.GetAvatarState(out avatars[id]);
+        Quantize(ref avatars[id], out avatarsQuantized[id]);
+        id++;
+      }
     }
+    WriteUpdatePacket(ref header, id, ref avatarsQuantized, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubes, ref cubeDeltas, ref predictionDelta);
 
-    void StartClientConnection( int clientIndex, ulong userId, string oculusId )
-    {
-        Debug.Log( "Starting connection to client " + oculusId + " [" + userId + "]" );
+    var packet = writeStream.GetData(); 
+    AddPacket(ref d.sendBuffer, header.sequence, context.GetResetSequence(), count, ref cubeIds, ref cubes); //add the sent cube states to the send delta buffer
+    context.ResetCubePriority(d, count, cubeIds); //reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
 
-        Assert.IsTrue( clientIndex != 0 );
+    return packet;
+  }
 
-        if ( client[clientIndex].state != ClientState.Disconnected )
-            DisconnectClient( clientIndex );
+  public void ProcessUpdatePacket(byte[] packet, int fromClientId) {
+    int avatarsCount = 0;
+    int updatesCount = 0;
+    var data = context.GetServerData(fromClientId);
+    PacketHeader readPacketHeader;
 
-        client[clientIndex].state = ClientState.Connecting;
-        client[clientIndex].oculusId = oculusId;
-        client[clientIndex].userId = userId;
-        client[clientIndex].timeConnectionStarted = renderTime;
+    if (!ReadUpdatePacket(packet, out readPacketHeader, out avatarsCount, ref readAvatarsQuantized, out updatesCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubes, ref readCubeDeltas, ref readPredictionDeltas)
+    ) return;      
 
-        Net.Connect( userId );
+    for (int i = 0; i < avatarsCount; ++i) //unquantize avatar states
+      Unquantize(ref readAvatarsQuantized[i], out readAvatars[i]);    
+
+    if (context.GetResetSequence() != readPacketHeader.resetSequence) return; //ignore any updates from a client with a different reset sequence #
+    
+    DecodePrediction(data.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), updatesCount, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines
+    DecodeNotChangedAndDeltas(data.receiveBuffer, context.GetResetSequence(), updatesCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
+    AddPacket(ref data.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), updatesCount, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer
+    context.ApplyCubeUpdates(updatesCount, ref readCubeIds, ref readCubes, fromClientId, 0, isJitterBufferEnabled); //apply the state updates to cubes
+    context.ApplyAvatarUpdates(avatarsCount, ref readAvatars, fromClientId, 0); //apply avatar state updates
+    data.connection.ProcessPacketHeader(ref readPacketHeader); //process the packet header
+  }
+
+  void ProcessAcks() {
+    BeginSample("Process Acks");
+    for (int _ = 1; _ < MaxClients; ++_) {
+      for (int i = 1; i < MaxClients; ++i)
+        ProcessAcksForConnection(context, context.GetServerData(i));
     }
-
-    void ConnectClient( int clientIndex, ulong userId )
-    {
-        Assert.IsTrue( clientIndex != 0 );
-
-        if ( client[clientIndex].state != ClientState.Connecting || client[clientIndex].userId != userId )
-            return;
-
-        client[clientIndex].state = ClientState.Connected;
-        client[clientIndex].timeConnected = renderTime;
-        client[clientIndex].timeLastPacketSent = renderTime;
-        client[clientIndex].timeLastPacketReceived = renderTime;
-
-        OnClientConnect( clientIndex );
-
-        BroadcastServerInfo();
-    }
-
-    void DisconnectClient( int clientIndex )
-    {
-        Assert.IsTrue( clientIndex != 0 );
-        Assert.IsTrue( IsClientConnected( clientIndex ) );
-
-        OnClientDisconnect( clientIndex );
-
-        Rooms.KickUser( roomId, client[clientIndex].userId, 0 );
-
-        Net.Close( client[clientIndex].userId );
-
-        client[clientIndex].Reset();
-
-        BroadcastServerInfo();
-    }
-
-    void OnClientConnect( int clientIndex )
-    {
-        Debug.Log( client[clientIndex].oculusId + " joined the game as client " + clientIndex );
-
-        context.ShowAvatar( clientIndex );
-
-        Voip.Start( client[clientIndex].userId );
-
-        var headGameObject = context.GetAvatarHead( clientIndex );
-        var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
-        if ( !audioSource )
-            audioSource = headGameObject.AddComponent<VoipAudioSourceHiLevel>();
-        audioSource.senderID = client[clientIndex].userId;
-    }
-
-    void OnClientDisconnect( int clientIndex )
-    {
-        Debug.Log( client[clientIndex].oculusId + " left the game" );
-
-        var headGameObject = context.GetAvatarHead( clientIndex );
-        var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
-        if ( audioSource )
-            audioSource.senderID = 0;
-
-        Voip.Stop( client[clientIndex].userId );
-        
-        context.HideAvatar( clientIndex );
-
-        context.ResetAuthority( clientIndex );
-
-        context.GetServerData( clientIndex ).Reset();
-    }
-
-    void ConnectionStateChangedCallback( Message<NetworkingPeer> msg )
-    {
-        ulong userId = msg.Data.ID;
-
-        int clientIndex = FindClientByUserId( userId );
-
-        if ( clientIndex != -1 )
-        {
-            Debug.Log( "Connection state changed to " + msg.Data.State + " for client " + clientIndex );
-
-            if ( msg.Data.State == PeerConnectionState.Connected )
-            {
-                ConnectClient( clientIndex, userId );
-            }
-            else
-            {
-                if ( client[clientIndex].state != ClientState.Disconnected )
-                {
-                    DisconnectClient( clientIndex );
-                }
-            }
-        }
-    }
-
-    bool readyToShutdown = false;
-
-    protected override void OnQuit()
-    {
-        if ( roomId != 0 )
-        {
-            for ( int i = 1; i < Constants.MaxClients; ++i )
-            {
-                if ( IsClientConnected( i ) )
-                    DisconnectClient( i );
-            }
-
-            LeaveRoom( roomId, LeaveRoomOnQuitCallback );
-        }
-        else
-        {
-            readyToShutdown = true;
-        }
-    }
-
-    protected override bool ReadyToShutdown()
-    {
-        return readyToShutdown;
-    }
-
-    void LeaveRoomOnQuitCallback( Message<Room> msg )
-    {
-        if ( !msg.IsError )
-        {
-            Debug.Log( "Left room" );
-        }
-
-        readyToShutdown = true;
-
-        roomId = 0;
-    }
-
-    new void Update()
-    {
-        base.Update();
-
-        // apply host avatar per-remote client at render time with interpolation
-
-        for ( int i = 1; i < Constants.MaxClients; ++i )
-        {
-            if ( client[i].state != ClientState.Connected )
-                continue;
-
-            Context.ConnectionData connectionData = context.GetServerData( i );
-
-            int fromClientIndex = i;
-            int toClientIndex = 0;
-
-            int numInterpolatedAvatarStates;
-            ushort avatarResetSequence;
-            if ( connectionData.jitterBuffer.GetInterpolatedAvatarState( ref interpolatedAvatarState, out numInterpolatedAvatarStates, out avatarResetSequence ) )
-            {
-                if ( avatarResetSequence == context.GetResetSequence() )
-                {
-                    context.ApplyAvatarStateUpdates( numInterpolatedAvatarStates, ref interpolatedAvatarState, fromClientIndex, toClientIndex );
-                }
-            }
-        }
-
-        // advance jitter buffer time
-
-        for ( int i = 1; i < Constants.MaxClients; ++i )
-        {
-            if ( client[i].state == ClientState.Connected )
-            {
-                context.GetServerData( i ).jitterBuffer.AdvanceTime( Time.deltaTime );
-            }
-        }
-
-        // check for timeouts
-
-        CheckForTimeouts();
-    }
-
-    new void FixedUpdate()
-    {
-        var avatar = localAvatar.GetComponent<Avatar>();
-
-        bool reset = Input.GetKey( "space" ) || ( avatar.IsPressingIndex() && avatar.IsPressingX() );
-
-        if ( reset )
-        {
-            context.Reset();
-            context.IncreaseResetSequence();
-        }
-
-        context.UpdateSleep();
-
-        ProcessPacketsFromConnectedClients();
-
-        SendPacketsToConnectedClients();
-
-        context.UpdateSleep();
-
-        base.FixedUpdate();
-    }
-
-    void CheckForTimeouts()
-    {
-        for ( int i = 1; i < Constants.MaxClients; ++i )
-        {
-            if ( client[i].state == ClientState.Connecting )
-            {
-                if ( client[i].timeConnectionStarted + ConnectionTimeout < renderTime )
-                {
-                    Debug.Log( "Client " + i + " timed out while connecting" );
-
-                    DisconnectClient( i );
-                }
-            }
-            else if ( client[i].state == ClientState.Connected )
-            {
-                if ( client[i].timeLastPacketReceived + ConnectionTimeout < renderTime )
-                {
-                    Debug.Log( "Client " + i + " timed out" );
-
-                    DisconnectClient( i );
-                }
-            }
-        }
-    }
-
-    void ProcessPacketsFromConnectedClients()
-    {
-        Packet packet;
-
-        while ( ( packet = Net.ReadPacket() ) != null )
-        {
-            int clientIndex = FindClientByUserId( packet.SenderID );
-            if ( clientIndex == -1 )
-                continue;
-
-            if ( !IsClientConnected( clientIndex ) )
-                continue;
-
-            packet.ReadBytes( readBuffer );
-
-            byte packetType = readBuffer[0];
-
-            if ( packetType == (byte) PacketSerializer.PacketType.StateUpdate )
-            {
-                if ( enableJitterBuffer )
-                {
-                    AddStateUpdatePacketToJitterBuffer( context, context.GetServerData( clientIndex ), readBuffer );
-                }
-                else
-                {
-                    ProcessStateUpdatePacket( readBuffer, clientIndex );
-                }
-            }
-
-            client[clientIndex].timeLastPacketReceived = renderTime;
-        }
-
-        ProcessAcks();
-
-        // process client state update from jitter buffer
-
-        if ( enableJitterBuffer )
-        {
-            for ( int i = 1; i < Constants.MaxClients; ++i )
-            {
-                if ( client[i].state == ClientState.Connected )
-                {
-                    ProcessStateUpdateFromJitterBuffer( context, context.GetServerData( i ), i, 0, enableJitterBuffer );
-                }
-            }
-        }
-
-        // advance remote frame number
-
-        for ( int i = 1; i < Constants.MaxClients; ++i )
-        {
-            if ( client[i].state == ClientState.Connected )
-            {
-                Context.ConnectionData connectionData = context.GetServerData( i );
-
-                if ( !connectionData.isFirstPacket )
-                    connectionData.frame++;
-            }
-        }
-    }
-
-    void SendPacketsToConnectedClients()
-    {
-        for ( int clientIndex = 1; clientIndex < Constants.MaxClients; ++clientIndex )
-        {
-            if ( !IsClientConnected( clientIndex ) )
-                continue;
-
-            Context.ConnectionData connectionData = context.GetServerData( clientIndex );
-
-            byte[] packetData = GenerateStateUpdatePacket( connectionData, clientIndex, (float) ( physicsTime - renderTime ) );
-
-            Net.SendPacket( client[clientIndex].userId, packetData, SendPolicy.Unreliable );
-
-            client[clientIndex].timeLastPacketSent = renderTime;
-        }
-    }
-
-    public void BroadcastServerInfo()
-    {
-        byte[] packetData = GenerateServerInfoPacket();
-
-        for ( int clientIndex = 1; clientIndex < Constants.MaxClients; ++clientIndex )
-        {
-            if ( !IsClientConnected( clientIndex ) )
-                continue;
-
-            Net.SendPacket( client[clientIndex].userId, packetData, SendPolicy.Unreliable );
-
-            client[clientIndex].timeLastPacketSent = renderTime;
-        }
-    }
-   
-    public byte[] GenerateServerInfoPacket()
-    {
-        for ( int i = 0; i < Constants.MaxClients; ++i )
-        {
-            if ( IsClientConnected( i ) )
-            {
-                serverInfo.clientConnected[i] = true;
-                serverInfo.clientUserId[i] = client[i].userId;
-                serverInfo.clientUserName[i] = client[i].oculusId;
-            }
-            else
-            {
-                serverInfo.clientConnected[i] = false;
-                serverInfo.clientUserId[i] = 0;
-                serverInfo.clientUserName[i] = "";
-            }
-        }
-
-        WriteServerInfoPacket( serverInfo.clientConnected, serverInfo.clientUserId, serverInfo.clientUserName );
-
-        byte[] packetData = writeStream.GetData();
-
-        return packetData;
-    }
-
-    public byte[] GenerateStateUpdatePacket( Context.ConnectionData connectionData, int toClientIndex, float avatarSampleTimeOffset )
-    {
-        int maxStateUpdates = Math.Min( Constants.NumCubes, Constants.MaxStateUpdates );
-
-        int numStateUpdates = maxStateUpdates;
-
-        context.UpdateCubePriority();
-
-        context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubeState );
-
-        Network.PacketHeader writePacketHeader;
-
-        connectionData.connection.GeneratePacketHeader( out writePacketHeader );
-
-        writePacketHeader.resetSequence = context.GetResetSequence();
-
-        writePacketHeader.frameNumber = (uint) frameNumber;
-
-        writePacketHeader.avatarSampleTimeOffset = avatarSampleTimeOffset;
-
-        DetermineNotChangedAndDeltas( context, connectionData, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubeState, ref cubeDelta );
-
-        DeterminePrediction( context, connectionData, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubeState, ref predictionDelta );
-
-        int numAvatarStates = 0;
-
-        numAvatarStates = 0;
-
-        for ( int i = 0; i < Constants.MaxClients; ++i )
-        {
-            if ( i == toClientIndex )
-                continue;
-
-            if ( i == 0 )
-            {
-                // grab state from the local avatar.
-
-                localAvatar.GetComponent<Avatar>().GetAvatarState( out avatarState[numAvatarStates] );
-                AvatarState.Quantize( ref avatarState[numAvatarStates], out avatarStateQuantized[numAvatarStates] );
-                numAvatarStates++;
-            }
-            else
-            {
-                // grab state from a remote avatar.
-
-                var remoteAvatar = context.GetAvatar( i );
-
-                if ( remoteAvatar )
-                {
-                    remoteAvatar.GetAvatarState( out avatarState[numAvatarStates] );
-                    AvatarState.Quantize( ref avatarState[numAvatarStates], out avatarStateQuantized[numAvatarStates] );
-                    numAvatarStates++;
-                }
-            }
-        }
-
-        WriteStateUpdatePacket( ref writePacketHeader, numAvatarStates, ref avatarStateQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubeState, ref cubeDelta, ref predictionDelta );
-
-        byte[] packetData = writeStream.GetData();
-
-        // add the sent cube states to the send delta buffer
-
-        AddPacketToDeltaBuffer( ref connectionData.sendBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubeState );
-
-        // reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
-
-        context.ResetCubePriority( connectionData, numStateUpdates, cubeIds );
-
-        return packetData;
-    }
-
-    public void ProcessStateUpdatePacket( byte[] packetData, int fromClientIndex )
-    {
-        int readNumAvatarStates = 0;
-        int readNumStateUpdates = 0;
-
-        Context.ConnectionData connectionData = context.GetServerData( fromClientIndex );
-
-        Network.PacketHeader readPacketHeader;
-
-        if ( ReadStateUpdatePacket( packetData, out readPacketHeader, out readNumAvatarStates, ref readAvatarStateQuantized, out readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta, ref readPredictionDelta ) )
-        {
-            // unquantize avatar states
-
-            for ( int i = 0; i < readNumAvatarStates; ++i )
-                AvatarState.Unquantize( ref readAvatarStateQuantized[i], out readAvatarState[i] );
-
-            // ignore any updates from a client with a different reset sequence #
-
-            if ( context.GetResetSequence() != readPacketHeader.resetSequence )
-                return;
-
-            // decode the predicted cube states from baselines
-
-            DecodePrediction( connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readPredictionDelta );
-
-            // decode the not changed and delta cube states from baselines
-
-            DecodeNotChangedAndDeltas( connectionData.receiveBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta );
-
-            // add the cube states to the receive delta buffer
-
-            AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubeState );
-
-            // apply the state updates to cubes
-
-            context.ApplyCubeUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, 0, enableJitterBuffer );
-
-            // apply avatar state updates
-
-            context.ApplyAvatarStateUpdates( readNumAvatarStates, ref readAvatarState, fromClientIndex, 0 );
-
-            // process the packet header
-
-            connectionData.connection.ProcessPacketHeader( ref readPacketHeader );
-        }                            
-    }
-
-    void ProcessAcks()
-    {
-        Profiler.BeginSample( "Process Acks" );
-        {
-            for ( int clientIndex = 1; clientIndex < Constants.MaxClients; ++clientIndex )
-            {
-                for ( int i = 1; i < Constants.MaxClients; ++i )
-                {
-                    Context.ConnectionData connectionData = context.GetServerData( i );
-
-                    ProcessAcksForConnection( context, connectionData );
-                }
-            }
-        }
-
-        Profiler.EndSample();
-    }
+    EndSample();
+  }
 }

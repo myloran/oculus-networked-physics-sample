@@ -50,8 +50,8 @@ public class Loopback: Common
 
         SwitchToHostContext();
 
-        networkSimulator.SetLatency( 50.0f );               // 100ms round trip
-        networkSimulator.SetJitter( 50.0f );                // add a bunch of jitter!
+        simulator.SetLatency( 50.0f );               // 100ms round trip
+        simulator.SetJitter( 50.0f );                // add a bunch of jitter!
 
 #if DEBUG_DELTA_COMPRESSION
         networkSimulator.SetPacketLoss( 25.0f );
@@ -124,11 +124,11 @@ public class Loopback: Common
 
             int numInterpolatedAvatarStates;
             ushort avatarResetSequence;
-            if ( connectionData.jitterBuffer.GetInterpolatedAvatarState( ref interpolatedAvatarState, out numInterpolatedAvatarStates, out avatarResetSequence ) )
+            if ( connectionData.jitterBuffer.GetInterpolatedAvatar( ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence ) )
             {
                 if ( avatarResetSequence == context.GetResetSequence() )
                 {
-                    context.ApplyAvatarStateUpdates( numInterpolatedAvatarStates, ref interpolatedAvatarState, fromClientIndex, toClientIndex );
+                    context.ApplyAvatarUpdates( numInterpolatedAvatarStates, ref interpolatedAvatars, fromClientIndex, toClientIndex );
                 }
             }
         }
@@ -145,11 +145,11 @@ public class Loopback: Common
 
             int numInterpolatedAvatarStates;
             ushort avatarResetSequence;
-            if ( connectionData.jitterBuffer.GetInterpolatedAvatarState( ref interpolatedAvatarState, out numInterpolatedAvatarStates, out avatarResetSequence ) )
+            if ( connectionData.jitterBuffer.GetInterpolatedAvatar( ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence ) )
             {
                 if ( avatarResetSequence == context.GetResetSequence() )
                 {
-                    context.ApplyAvatarStateUpdates( numInterpolatedAvatarStates, ref interpolatedAvatarState, fromClientIndex, toClientIndex );
+                    context.ApplyAvatarUpdates( numInterpolatedAvatarStates, ref interpolatedAvatars, fromClientIndex, toClientIndex );
                 }
             }
         }
@@ -192,19 +192,19 @@ public class Loopback: Common
 
         byte[] serverToClientPacketData = GenerateStateUpdatePacket( hostContext, hostContext.GetServerData( 1 ), 0, 1, (float) ( physicsTime - renderTime ) );
 
-        networkSimulator.SendPacket( 0, 1, serverToClientPacketData );
+        simulator.SendPacket( 0, 1, serverToClientPacketData );
 
         byte[] clientToServerPacketData = GenerateStateUpdatePacket( guestContext, guestContext.GetClientData(), 1, 0, (float) ( physicsTime - renderTime ) );
 
-        networkSimulator.SendPacket( 1, 0, clientToServerPacketData );
+        simulator.SendPacket( 1, 0, clientToServerPacketData );
 
-        networkSimulator.AdvanceTime( frameNumber * 1.0 / Constants.PhysicsFrameRate );
+        simulator.AdvanceTime( frame * 1.0 / Constants.PhysicsFrameRate );
 
         while ( true )
         {
             int from, to;
 
-            byte[] packetData = networkSimulator.ReceivePacket( out from, out to );
+            byte[] packetData = simulator.ReceivePacket( out from, out to );
 
             if ( packetData == null )
                 break;
@@ -216,9 +216,9 @@ public class Loopback: Common
                 Assert.IsTrue( from >= 1 );
                 Assert.IsTrue( from < Constants.MaxClients );
 
-                if ( enableJitterBuffer )
+                if ( isJitterBufferEnabled )
                 {
-                    AddStateUpdatePacketToJitterBuffer( context, context.GetServerData( from ), packetData );
+                    AddUpdatePacket( context, context.GetServerData( from ), packetData );
                 }
                 else
                 {
@@ -229,9 +229,9 @@ public class Loopback: Common
             {
                 Assert.IsTrue( from == 0 );
 
-                if ( enableJitterBuffer )
+                if ( isJitterBufferEnabled )
                 {
-                    AddStateUpdatePacketToJitterBuffer( context, context.GetClientData(), packetData );
+                    AddUpdatePacket( context, context.GetClientData(), packetData );
                 }
                 else
                 {
@@ -248,19 +248,19 @@ public class Loopback: Common
 
             Context context = GetContext( to );
 
-            ProcessStateUpdateFromJitterBuffer( context, context.GetServerData( from ), from, to, enableJitterBuffer );
+            ProcessStateUpdateFromJitterBuffer( context, context.GetServerData( from ), from, to, isJitterBufferEnabled );
         }
 
         // process packet from guest jitter buffer
 
-        if ( enableJitterBuffer )
+        if ( isJitterBufferEnabled )
         {
             const int from = 0;
             const int to = 1;
 
             Context context = GetContext( to );
 
-            ProcessStateUpdateFromJitterBuffer( context, context.GetClientData(), from, to, enableJitterBuffer );
+            ProcessStateUpdateFromJitterBuffer( context, context.GetClientData(), from, to, isJitterBufferEnabled );
         }
 
         // advance host remote frame number for each connected client
@@ -340,21 +340,21 @@ public class Loopback: Common
 
         context.UpdateCubePriority();
 
-        context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubeState );
+        context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubes );
 
         Network.PacketHeader writePacketHeader;
 
         connectionData.connection.GeneratePacketHeader( out writePacketHeader );
 
-        writePacketHeader.avatarSampleTimeOffset = avatarSampleTimeOffset;
+        writePacketHeader.timeOffset = avatarSampleTimeOffset;
 
-        writePacketHeader.frameNumber = (uint) frameNumber;
+        writePacketHeader.frameNumber = (uint) frame;
 
         writePacketHeader.resetSequence = context.GetResetSequence();
 
-        DetermineNotChangedAndDeltas( context, connectionData, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubeState, ref cubeDelta );
+        DetermineNotChangedAndDeltas( context, connectionData, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubes, ref cubeDeltas );
 
-        DeterminePrediction( context, connectionData, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubeState, ref predictionDelta );
+        DeterminePrediction( context, connectionData, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubes, ref predictionDelta );
 
         int numAvatarStates = 0;
 
@@ -373,7 +373,7 @@ public class Loopback: Common
                 {
                    // grab state from the local avatar.
 
-                    localAvatar.GetComponent<Avatar>().GetAvatarState( out avatarState[numAvatarStates] );
+                    localAvatar.GetComponent<Avatar>().GetAvatar( out avatars[numAvatarStates] );
                     numAvatarStates++;
                 }
                 else
@@ -383,7 +383,7 @@ public class Loopback: Common
                     var remoteAvatar = context.GetAvatar( i );
                     if ( remoteAvatar )
                     {
-                        remoteAvatar.GetAvatarState( out avatarState[numAvatarStates] );
+                        remoteAvatar.GetAvatarState( out avatars[numAvatarStates] );
                         numAvatarStates++;
                     }
                 }
@@ -397,24 +397,24 @@ public class Loopback: Common
 
             if ( currentContext == GetContext( fromClientIndex ) )
             {
-                localAvatar.GetComponent<Avatar>().GetAvatarState( out avatarState[0] );
+                localAvatar.GetComponent<Avatar>().GetAvatar( out avatars[0] );
             }
             else
             {
-                GetContext( fromClientIndex ).GetAvatar( fromClientIndex ).GetAvatarState( out avatarState[0] );
+                GetContext( fromClientIndex ).GetAvatar( fromClientIndex ).GetAvatarState( out avatars[0] );
             }
         }
 
         for ( int i = 0; i < numAvatarStates; ++i )
-            AvatarState.Quantize( ref avatarState[i], out avatarStateQuantized[i] );
+            AvatarState.Quantize( ref avatars[i], out avatarsQuantized[i] );
 
-        WriteStateUpdatePacket( ref writePacketHeader, numAvatarStates, ref avatarStateQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubeState, ref cubeDelta, ref predictionDelta );
+        WriteUpdatePacket( ref writePacketHeader, numAvatarStates, ref avatarsQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubes, ref cubeDeltas, ref predictionDelta );
 
         byte[] packetData = writeStream.GetData();
 
         // add the sent cube states to the send delta buffer
 
-        AddPacketToDeltaBuffer( ref connectionData.sendBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubeState );
+        AddPacket( ref connectionData.sendBuffer, writePacketHeader.sequence, context.GetResetSequence(), numStateUpdates, ref cubeIds, ref cubes );
 
         // reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
 
@@ -434,12 +434,12 @@ public class Loopback: Common
 
         Network.PacketHeader readPacketHeader;
 
-        if ( ReadStateUpdatePacket( packetData, out readPacketHeader, out readNumAvatarStates, ref readAvatarStateQuantized, out readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta, ref readPredictionDelta ) )
+        if ( ReadUpdatePacket( packetData, out readPacketHeader, out readNumAvatarStates, ref readAvatarsQuantized, out readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubes, ref readCubeDeltas, ref readPredictionDeltas ) )
         {
             // unquantize avatar states
 
             for ( int i = 0; i < readNumAvatarStates; ++i )
-                AvatarState.Unquantize( ref readAvatarStateQuantized[i], out readAvatarState[i] );
+                AvatarState.Unquantize( ref readAvatarsQuantized[i], out readAvatars[i] );
 
             // reset sequence handling
 
@@ -469,23 +469,23 @@ public class Loopback: Common
 
             // decode the predicted cube states from baselines
 
-            DecodePrediction( connectionData.receiveBuffer, context.GetResetSequence(), readPacketHeader.sequence, readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubeState, ref readPredictionDelta );
+            DecodePrediction( connectionData.receiveBuffer, context.GetResetSequence(), readPacketHeader.sequence, readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubes, ref readPredictionDeltas );
 
             // decode the not changed and delta cube states from baselines
 
-            DecodeNotChangedAndDeltas( connectionData.receiveBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubeState, ref readCubeDelta );
+            DecodeNotChangedAndDeltas( connectionData.receiveBuffer, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubes, ref readCubeDeltas );
 
             // add the cube states to the receive delta buffer
 
-            AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubeState );
+            AddPacket( ref connectionData.receiveBuffer, readPacketHeader.sequence, context.GetResetSequence(), readNumStateUpdates, ref readCubeIds, ref readCubes );
 
             // apply the state updates to cubes
 
-            context.ApplyCubeUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, toClientIndex, enableJitterBuffer );
+            context.ApplyCubeUpdates( readNumStateUpdates, ref readCubeIds, ref readCubes, fromClientIndex, toClientIndex, isJitterBufferEnabled );
 
             // apply avatar state updates
 
-            context.ApplyAvatarStateUpdates( readNumAvatarStates, ref readAvatarState, fromClientIndex, toClientIndex );
+            context.ApplyAvatarUpdates( readNumAvatarStates, ref readAvatars, fromClientIndex, toClientIndex );
 
             // process the packet header
 
@@ -501,7 +501,7 @@ public class Loopback: Common
 
         // Mirror the local avatar onto its remote avatar on the current context.
         AvatarState avatarState;
-        localAvatar.GetComponent<Avatar>().GetAvatarState( out avatarState );
+        localAvatar.GetComponent<Avatar>().GetAvatar( out avatarState );
         currentContext.GetAvatar( currentContext.GetClientId() ).ApplyAvatarPose( ref avatarState );
 
         Profiler.EndSample();

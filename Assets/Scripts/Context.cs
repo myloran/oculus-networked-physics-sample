@@ -585,7 +585,7 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public void ApplyAvatarStateUpdates(int count, ref AvatarState[] s, int fromClientId, int toClientId) {
+  public void ApplyAvatarUpdates(int count, ref AvatarState[] s, int fromClientId, int toClientId) {
     for (int i = 0; i < count; ++i) {
       if (toClientId == 0 && s[i].clientId != fromClientId) continue;
 
