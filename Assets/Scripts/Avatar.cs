@@ -6,10 +6,15 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-using System;
 using UnityEngine;
-using UnityEngine.Assertions;
 using System.Collections.Generic;
+using static UnityEngine.Assertions.Assert;
+using static UnityEngine.Quaternion;
+using static UnityEngine.Vector3;
+using static UnityEngine.Time;
+using static System.Math;
+using static Avatar.HandState;
+using static Constants;
 
 public class Avatar : OvrAvatarLocalDriver {
   public struct HandInput {
@@ -17,9 +22,9 @@ public class Avatar : OvrAvatarLocalDriver {
     public float indexTrigger;
     public float previousIndexTrigger;
     public ulong indexPressFrame;
-    public bool pointing;
-    public bool x;
-    public bool y;
+    public bool isPointing;
+    public bool isPressingX;
+    public bool isPressingY;
     public Vector2 stick;
   }
 
@@ -45,7 +50,7 @@ public class Avatar : OvrAvatarLocalDriver {
 
     public ThrowRingBufferEntry[] throws = new ThrowRingBufferEntry[ThrowRingBufferSize];
     public HandInput input;
-    public HandState state = HandState.Neutral;
+    public HandState state = Neutral;
 
     public Vector3 
       prevHandPosition,
@@ -59,7 +64,7 @@ public class Avatar : OvrAvatarLocalDriver {
 
     public int 
       id,
-      throwIndex;
+      throwId;
 
     public bool 
       isTouching,
@@ -72,53 +77,59 @@ public class Avatar : OvrAvatarLocalDriver {
       releaseFrame;
   };
 
-  public const int LeftHand = 0;
-  public const int RightHand = 1;
-  const float LineWidth = 0.02f;
-  const float RaycastDistance = 256.0f;
-  const ulong PointDebounceFrames = 10;
-  const ulong PointStickyFrames = 45;
-  const float PointSphereCastStart = 10.0f;
-  const float PointSphereCastRadius = 0.25f;
-  const float MinimumCubeHeight = 0.1f;
-  const float IndexThreshold = 0.5f;
-  const float IndexStickyFrames = 45;
-  const float GripThreshold = 0.75f;
-  const float GrabDistance = 1.0f;
-  const float GrabRadius = 0.05f;
-  const float WarpDistance = GrabDistance * 0.5f;
-  const float ZoomMinimum = 0.4f;
-  const float ZoomMaximum = 20.0f;
-  const float ZoomSpeed = 4.0f;
-  const float RotateSpeed = 180.0f;
-  const float StickThreshold = 0.65f;
-  const int PostReleaseDisableSelectFrames = 20;
-  const int ThrowRingBufferSize = 16;
-  const float ThrowSpeed = 5.0f;
-  const float HardThrowSpeed = 10.0f;
-  const float MaxThrowSpeed = 20.0f;
-  const float ThrowVelocityMinY = 2.5f;
+  public const int 
+    LeftHand = 0,
+    RightHand = 1,
+    PostReleaseDisableSelectFrames = 20,
+    ThrowRingBufferSize = 16;
+
+  const ulong 
+    PointDebounceFrames = 10,
+    PointStickyFrames = 45;
+
+  const float
+    LineWidth = 0.02f,
+    RaycastDistance = 256.0f,
+    PointSphereCastStart = 10.0f,
+    PointSphereCastRadius = 0.25f,
+    MinimumCubeHeight = 0.1f,
+    IndexThreshold = 0.5f,
+    IndexStickyFrames = 45,
+    GripThreshold = 0.75f,
+    GrabDistance = 1.0f,
+    GrabRadius = 0.05f,
+    WarpDistance = GrabDistance * 0.5f,
+    ZoomMinimum = 0.4f,
+    ZoomMaximum = 20.0f,
+    ZoomSpeed = 4.0f,
+    RotateSpeed = 180.0f,
+    StickThreshold = 0.65f,
+    ThrowSpeed = 5.0f,
+    HardThrowSpeed = 100.0f,
+    MaxThrowSpeed = 20.0f,
+    ThrowVelocityMinY = 2.5f;
+
   public GameObject linePrefab;
   OvrAvatar avatar;
   Context context;
   HandData leftHand = new HandData();
   HandData rightHand = new HandData();
-  int contextLayerCubes;
-  int contextLayerGrip;
-  int contextLayerMask;
+  int cubesLayer;
+  int gripLayer;
+  int layerMask;
 
   public void SetContext(Context c) {
-    Assert.IsNotNull(c);
+    IsNotNull(c);
     context = c;
     ResetHand(ref leftHand);
     ResetHand(ref rightHand);
-    contextLayerCubes = c.gameObject.layer;
-    contextLayerGrip = c.gameObject.layer + 1;
-    contextLayerMask = (1 << contextLayerCubes) | (1 << contextLayerGrip);
+    cubesLayer = c.gameObject.layer;
+    gripLayer = c.gameObject.layer + 1;
+    layerMask = (1 << cubesLayer) | (1 << gripLayer);
   }
 
   void Start() {
-    Assert.IsNotNull(linePrefab);
+    IsNotNull(linePrefab);
     avatar = GetComponent<OvrAvatar>();
     leftHand.id = LeftHand;
     rightHand.id = RightHand;
@@ -128,12 +139,12 @@ public class Avatar : OvrAvatarLocalDriver {
     rightHand.animator = avatar.HandRight.animator;
     leftHand.transform = avatar.HandLeftRoot;
     rightHand.transform = avatar.HandRightRoot;
-    Assert.IsNotNull(leftHand.transform);
-    Assert.IsNotNull(rightHand.transform);
+    IsNotNull(leftHand.transform);
+    IsNotNull(rightHand.transform);
   }
 
   void Update() {
-    Assert.IsNotNull(context);
+    IsNotNull(context);
     Pose p;
     if (!GetPose(out p)) return;
 
@@ -142,7 +153,7 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void FixedUpdate() {
-    Assert.IsNotNull(context);
+    IsNotNull(context);
     Pose p;
     if (!GetPose(out p)) return;
 
@@ -158,9 +169,9 @@ public class Avatar : OvrAvatarLocalDriver {
     UpdateRotate(ref d);
     UpdateZoom(ref d);
     UpdateGrip(ref d);
-    DetectStateChanges(ref d);
+    UpdateState(ref d);
     UpdateCurrentState(ref d);
-    UpdateHeldObject(ref d);
+    UpdateHeldObj(ref d);
   }
 
   void UpdateHandFixed(ref HandData d, Pose pose) => UpdateSnapToHand(ref d);
@@ -171,10 +182,10 @@ public class Avatar : OvrAvatarLocalDriver {
     var angle = 0.0f;
 
     if (d.input.stick.x <= -StickThreshold)
-      angle = +RotateSpeed * Time.deltaTime;
+      angle = +RotateSpeed * deltaTime;
 
     if (d.input.stick.x >= +StickThreshold)
-      angle = -RotateSpeed * Time.deltaTime;
+      angle = -RotateSpeed * deltaTime;
 
     d.grip.transform.RotateAround(
       d.grip.transform.position,
@@ -194,7 +205,7 @@ public class Avatar : OvrAvatarLocalDriver {
       var distance = delta.magnitude;
 
       if (distance > ZoomMinimum) {
-        distance -= ZoomSpeed * Time.deltaTime;
+        distance -= ZoomSpeed * deltaTime;
 
         if (distance < ZoomMinimum)
           distance = ZoomMinimum;
@@ -204,8 +215,8 @@ public class Avatar : OvrAvatarLocalDriver {
     }
 
     if (d.input.stick.y >= +StickThreshold) {      
-      if (Vector3.Dot(position - start, direction) < ZoomMaximum) //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
-        d.grip.transform.position += (ZoomSpeed * Time.deltaTime) * direction;
+      if (Dot(position - start, direction) < ZoomMaximum) //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
+        d.grip.transform.position += (ZoomSpeed * deltaTime) * direction;
     }
   }
 
@@ -248,24 +259,19 @@ public class Avatar : OvrAvatarLocalDriver {
       d.inputFrame = context.GetRenderFrame();
   }
 
-  void UpdateHeldObject(ref HandData d) {
+  void UpdateHeldObj(ref HandData d) {
     if (!d.grip) return;
 
-    int index = (d.throwIndex++) % ThrowRingBufferSize; //track data to improve throw release in ring buffer
+    int id = (d.throwId++) % ThrowRingBufferSize; //track data to improve throw release in ring buffer
     var diff = d.grip.transform.position - d.prevGripPosition;
-    var speed = (float)Math.Sqrt(diff.x * diff.x + diff.z * diff.z);
-    d.throws[index].valid = true;
-    d.throws[index].speed = speed * Constants.RenderFrameRate;
-
-    //track previous positions and rotations for hand and index finger so we can use this to determine linear and angular velocity at time of release
-    d.prevHandPosition = d.transform.position;
+    var speed = (float)Sqrt(diff.x * diff.x + diff.z * diff.z);
+    d.throws[id].valid = true;
+    d.throws[id].speed = speed * RenderFrameRate;
+    d.prevHandPosition = d.transform.position; //track previous positions and rotations for hand and index finger so we can use this to determine linear and angular velocity at time of release
     d.prevHandRotation = d.transform.rotation;
-
     d.prevGripPosition = d.grip.transform.position;
-    d.prevGripRotation = d.grip.transform.rotation;
-
-    //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
-    var network = d.grip.GetComponent<NetworkInfo>();
+    d.prevGripRotation = d.grip.transform.rotation;    
+    var network = d.grip.GetComponent<NetworkInfo>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
     network.SetLastFrame((long)context.GetSimulationFrame());
   }
 
@@ -277,42 +283,42 @@ public class Avatar : OvrAvatarLocalDriver {
     if (i.indexTrigger >= IndexThreshold && i.previousIndexTrigger < IndexThreshold)
       i.indexPressFrame = context.GetRenderFrame();
 
-    i.pointing = true;
-    i.x = controller.button1IsDown;
-    i.y = controller.button2IsDown;
+    i.isPointing = true;
+    i.isPressingX = controller.button1IsDown;
+    i.isPressingY = controller.button2IsDown;
     i.stick = controller.joystickPosition;
   }
 
-  void DetectStateChanges(ref HandData d) {
-    if (d.state == HandState.Neutral) {
+  void UpdateState(ref HandData d) {
+    if (d.state == Neutral) {
       if (DetectGrip(ref d)) return;
 
-      if (d.input.pointing) {
-        Transition(ref d, HandState.Pointing);
+      if (d.input.isPointing) {
+        Transition(ref d, Pointing);
         return;
       }
 
-    } else if(d.state == HandState.Pointing) {
+    } else if(d.state == Pointing) {
       if (DetectGrip(ref d))return;
 
-      if (!d.input.pointing) {
-        Transition(ref d, HandState.Neutral);
+      if (!d.input.isPointing) {
+        Transition(ref d, Neutral);
         return;
       }
 
-    } else if (d.state == HandState.Grip) {
+    } else if (d.state == Grip) {
       if (d.input.handTrigger >= GripThreshold) return;
 
-      if (d.input.pointing)
-        Transition(ref d, HandState.Pointing);
+      if (d.input.isPointing)
+        Transition(ref d, Pointing);
       else
-        Transition(ref d, HandState.Neutral);
+        Transition(ref d, Neutral);
     }
   }
 
   bool DetectGrip(ref HandData d) {
-    if (d.state == HandState.Grip && d.grip == null) {
-      Transition(ref d, HandState.Neutral);
+    if (d.state == Grip && d.grip == null) { //when it will execute?
+      Transition(ref d, Neutral);
       return true;
     }
 
@@ -323,13 +329,13 @@ public class Avatar : OvrAvatarLocalDriver {
     if (!network.CanGrabCube(d.inputFrame)) return false;
 
     AttachToHand(ref d, d.point);
-    Transition(ref d, HandState.Grip);
+    Transition(ref d, Grip);
 
     return true;
   }
 
-  void AttachToHand(ref HandData d, GameObject gameObject) {
-    var network = gameObject.GetComponent<NetworkInfo>();
+  void AttachToHand(ref HandData d, GameObject obj) {
+    var network = obj.GetComponent<NetworkInfo>();
     network.AttachCubeToLocalPlayer(this, d);
 
 #if DEBUG_AUTHORITY
@@ -370,28 +376,25 @@ public class Avatar : OvrAvatarLocalDriver {
     return sum/count >= ThrowSpeed;
   }
 
-  void Release(ref HandData hand, Rigidbody r, bool disableReleaseVelocity = false) {
+  void ApplyReleaseVelocity(ref HandData d, Rigidbody r, bool disableReleaseVelocity = false) {
     if (disableReleaseVelocity) {
-      r.velocity = Vector3.zero;
-      r.angularVelocity = Vector3.zero;
+      r.velocity = zero;
+      r.angularVelocity = zero;
 
-    } else if (IsCloseGrip(ref hand) || IsThrowing(ref hand)) {     
-      r.velocity = (hand.grip.transform.position - hand.prevGripPosition) * Constants.RenderFrameRate; //throw mode
-      r.angularVelocity = CalculateAngularVelocity(hand.prevGripRotation, hand.grip.transform.rotation, 1.0f / Constants.RenderFrameRate, 0.001f);
-      var speed = r.velocity.magnitude;
+    } else if (IsCloseGrip(ref d) || IsThrowing(ref d)) {     
+      r.velocity = (d.grip.transform.position - d.prevGripPosition) * RenderFrameRate; //throw mode
+      r.angularVelocity = CalculateAngularVelocity(d.prevGripRotation, d.grip.transform.rotation, 1.0f / RenderFrameRate, 0.001f);
 
-      if (r.velocity.magnitude > MaxThrowSpeed) {
-        r.velocity = (r.velocity / speed) * MaxThrowSpeed;
-      }
+      if (r.velocity.magnitude > MaxThrowSpeed)
+        r.velocity = (r.velocity / r.velocity.magnitude) * MaxThrowSpeed;
 
-      if (r.velocity.x * r.velocity.x + r.velocity.z * r.velocity.z > HardThrowSpeed * HardThrowSpeed) {
-        if (r.velocity.y < ThrowVelocityMinY)
-          r.velocity = new Vector3(r.velocity.x, ThrowVelocityMinY, r.velocity.z);
-      }
+      if (r.velocity.x * r.velocity.x + r.velocity.z * r.velocity.z > HardThrowSpeed
+        && r.velocity.y < ThrowVelocityMinY
+      ) r.velocity = new Vector3(r.velocity.x, ThrowVelocityMinY, r.velocity.z);
 
     } else {        
-      r.velocity = 3 * (hand.transform.position - hand.prevHandPosition) * Constants.RenderFrameRate; //placement mode
-      r.angularVelocity = 2 * CalculateAngularVelocity(hand.prevHandRotation, hand.transform.rotation, 1.0f / Constants.RenderFrameRate, 0.1f);
+      r.velocity = 3 * (d.transform.position - d.prevHandPosition) * RenderFrameRate; //placement mode
+      r.angularVelocity = 2 * CalculateAngularVelocity(d.prevHandRotation, d.transform.rotation, 1.0f / RenderFrameRate, 0.1f);
     }
   }
 
@@ -424,26 +427,26 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void ExitState(ref HandData d) {
-    if (d.state == HandState.Pointing)
+    if (d.state == Pointing)
       DestroyLine(ref d);
 
-    else if (d.state == HandState.Grip)
+    else if (d.state == Grip)
       DetachFromHand(ref d);
   }
 
   void EnterState(ref HandData d, HandState state) {
-    if (state == HandState.Pointing)
+    if (state == Pointing)
       CreatePointingLine(ref d);
 
     d.state = state;
   }
 
   void UpdateCurrentState(ref HandData d) {
-    if (d.state == HandState.Pointing) {
+    if (d.state == Pointing) {
       UpdateLine(ref d);
       ForcePointAnimation(ref d);
 
-    } else if (d.state == HandState.Grip) {
+    } else if (d.state == Grip) {
       if (IsCloseGrip(ref d))
         ForceGripAnimation(ref d);
       else
@@ -466,8 +469,8 @@ public class Avatar : OvrAvatarLocalDriver {
   void CreatePointingLine(ref HandData d) {
     if (d.line) return;
 
-    d.line = Instantiate(linePrefab, Vector3.zero, Quaternion.identity);
-    Assert.IsNotNull(d.line);
+    d.line = Instantiate(linePrefab, zero, identity);
+    IsNotNull(d.line);
   }
 
   bool FilterPointObject(ref HandData hand, Rigidbody r) {
@@ -476,7 +479,7 @@ public class Avatar : OvrAvatarLocalDriver {
     var obj = r.gameObject;
     if (!obj) return false;
 
-    if (obj.layer != contextLayerCubes && obj.layer != contextLayerGrip)
+    if (obj.layer != cubesLayer && obj.layer != gripLayer)
       return false;
 
     var network = obj.GetComponent<NetworkInfo>();
@@ -495,14 +498,14 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void UpdateLine(ref HandData d) {
-    Assert.IsNotNull(d.line);
+    IsNotNull(d.line);
     Vector3 start, direction;
     GetFingerInput(ref d, out start, out direction);
 
     var finish = start + direction * RaycastDistance;
     
     if (d.releaseFrame + PostReleaseDisableSelectFrames < context.GetRenderFrame()) { //don't allow any selection for a few frames after releasing an object      
-      var colliders = Physics.OverlapSphere(d.transform.position, GrabRadius, contextLayerMask); //first select any object overlapping the hand
+      var colliders = Physics.OverlapSphere(d.transform.position, GrabRadius, layerMask); //first select any object overlapping the hand
 
       if (colliders.Length > 0 && FilterPointObject(ref d, colliders[0].attachedRigidbody)) {
         finish = start;
@@ -513,13 +516,13 @@ public class Avatar : OvrAvatarLocalDriver {
         d.isTouching = false; //otherwise, raycast forward along point direction for accurate selection up close
         RaycastHit hit;
 
-        if (Physics.Linecast(start, finish, out hit, contextLayerMask)) {
+        if (Physics.Linecast(start, finish, out hit, layerMask)) {
           if (FilterPointObject(ref d, hit.rigidbody)) {
             finish = start + direction * hit.distance;
             SetPointObject(ref d, hit.rigidbody.gameObject);
           }
 
-        } else if (Physics.SphereCast(start + direction * PointSphereCastStart, PointSphereCastRadius, finish, out hit, contextLayerMask)) {
+        } else if (Physics.SphereCast(start + direction * PointSphereCastStart, PointSphereCastRadius, finish, out hit, layerMask)) {
           // failing an accurate hit, sphere cast starting from a bit further away to provide easier selection of far away objects
           if (FilterPointObject(ref d, hit.rigidbody)) {
             finish = start + direction * (PointSphereCastStart + hit.distance);
@@ -540,13 +543,13 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void DestroyLine(ref HandData d) {
-    Assert.IsNotNull(d.line);
+    IsNotNull(d.line);
     Destroy(d.line);
     d.line = null;
   }
 
   void ForcePointAnimation(ref HandData d) {
-    if (d.isTouching && d.state == HandState.Pointing)
+    if (d.isTouching && d.state == Pointing)
       d.animator.SetLayerWeight(d.animator.GetLayerIndex("Point Layer"), 0.0f); //indicates state of touching an object to player (for up-close grip)
     else
       d.animator.SetLayerWeight(d.animator.GetLayerIndex("Point Layer"), 1.0f);
@@ -559,61 +562,58 @@ public class Avatar : OvrAvatarLocalDriver {
     h.animator.SetLayerWeight(h.animator.GetLayerIndex("Thumb Layer"), 0.0f);
   }
 
-  Vector3 CalculateAngularVelocity(Quaternion previous, Quaternion current, float dt, float minimumAngle) {
-    Assert.IsTrue(dt > 0.0f);
-    var rotation = current * Quaternion.Inverse(previous);
-    var theta = (float)(2.0f * Math.Acos(rotation.w));
+  Vector3 CalculateAngularVelocity(Quaternion previous, Quaternion current, float delta, float minimumAngle) {
+    IsTrue(delta > 0.0f);
+    var rotation = current * Inverse(previous);
+    var angle = (float)(2.0f * Acos(rotation.w)); //theta
 
-    if (float.IsNaN(theta)) return Vector3.zero;
-    if (Math.Abs(theta) < minimumAngle) return Vector3.zero;
+    if (float.IsNaN(angle)) return zero;
+    if (Abs(angle) < minimumAngle) return zero;
 
-    if (theta > Math.PI)
-      theta -= 2.0f * (float)Math.PI;
+    if (angle > PI)
+      angle -= 2.0f * (float)PI;
 
-    var cone = (float)Math.Sqrt(rotation.x * rotation.x
+    var cone = (float)Sqrt(rotation.x * rotation.x
       + rotation.y * rotation.y
       + rotation.z * rotation.z);
 
-    var speed = theta / dt / cone;
+    var speed = angle / delta / cone;
 
     var velocity = new Vector3(
       speed * rotation.x, 
       speed * rotation.y, 
       speed * rotation.z);
 
-    Assert.IsFalse(float.IsNaN(velocity.x));
-    Assert.IsFalse(float.IsNaN(velocity.y));
-    Assert.IsFalse(float.IsNaN(velocity.z));
+    IsFalse(float.IsNaN(velocity.x));
+    IsFalse(float.IsNaN(velocity.y));
+    IsFalse(float.IsNaN(velocity.z));
 
     return velocity;
   }
 
   public bool GetAvatar(out AvatarState s) {
-    Pose frame;
-    if (!avatar.Driver.GetPose(out frame)) {
+    Pose pose;
+    if (!avatar.Driver.GetPose(out pose)) {
       s = AvatarState.Default;
       return false;
     }
-    AvatarState.Initialize(out s, context.GetClientId(), frame, leftHand.grip, rightHand.grip);
+    AvatarState.Initialize(out s, context.GetClientId(), pose, leftHand.grip, rightHand.grip);
 
     return true;
   }
 
-  public void CubeAttached(ref HandData d) => UpdateHeldObject(ref d);
+  public void AttachCube(ref HandData d) => UpdateHeldObj(ref d);
 
-  public void CubeDetached(ref HandData d) {
+  public void DetachCube(ref HandData d) {
     var rigidBody = d.grip.GetComponent<Rigidbody>();
     rigidBody.isKinematic = false;
-    d.grip.layer = contextLayerCubes;
-    Release(ref d, rigidBody, d.hasReleaseVelocity);
+    d.grip.layer = cubesLayer;
+    ApplyReleaseVelocity(ref d, rigidBody, d.hasReleaseVelocity);
     d.grip.transform.SetParent(null);
     d.grip = null;
 
-    if (rigidBody.position.y < MinimumCubeHeight) {
-      var position = rigidBody.position;
-      position.y = MinimumCubeHeight;
-      rigidBody.position = position;
-    }
+    if (rigidBody.position.y < MinimumCubeHeight)
+      rigidBody.position = rigidBody.position.WithY(MinimumCubeHeight);
 
     if (d.supports != null) {
       WakeUpObjects(d.supports);
@@ -627,7 +627,7 @@ public class Avatar : OvrAvatarLocalDriver {
 
   public void ResetHand(ref HandData d) {
     d.hasReleaseVelocity = true;
-    Transition(ref d, HandState.Neutral);
+    Transition(ref d, Neutral);
     d.hasReleaseVelocity = false;
     d.isTouching = false;
     d.line = null;
@@ -636,17 +636,17 @@ public class Avatar : OvrAvatarLocalDriver {
     d.grip = null;
     d.inputFrame = 0;
     d.startFrame = 0;
-    d.prevHandPosition = Vector3.zero;
-    d.prevGripPosition = Vector3.zero;
-    d.prevHandRotation = Quaternion.identity;
-    d.prevGripRotation = Quaternion.identity;
+    d.prevHandPosition = zero;
+    d.prevGripPosition = zero;
+    d.prevHandRotation = identity;
+    d.prevGripRotation = identity;
     d.releaseFrame = 0;
     d.supports = null;
   }
 
   public bool IsPressingGrip() => leftHand.input.handTrigger > GripThreshold || rightHand.input.handTrigger > GripThreshold;
   public bool IsPressingIndex() => leftHand.input.indexTrigger > IndexThreshold || rightHand.input.indexTrigger > IndexThreshold;
-  public bool IsPressingX() => leftHand.input.x || rightHand.input.x;
-  public bool IsPressingY() => leftHand.input.y || rightHand.input.y;
+  public bool IsPressingX() => leftHand.input.isPressingX || rightHand.input.isPressingX;
+  public bool IsPressingY() => leftHand.input.isPressingY || rightHand.input.isPressingY;
   public override bool GetPose(out Pose p) => base.GetPose(out p);
 }

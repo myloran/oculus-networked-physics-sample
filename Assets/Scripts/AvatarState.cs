@@ -181,22 +181,22 @@ public struct AvatarState {
     s.voiceAmplitude = pose.voiceAmplitude;
   }
 
-  public static void ApplyPose(ref AvatarState s, int clientId, Pose frame, Context context) {
-    frame.headPosition = s.headPosition;
-    frame.headRotation = s.headRotation;
-    frame.handLeftPosition = s.leftHandPosition;
-    frame.handLeftRotation = s.leftHandRotation;
-    frame.handLeftPose.gripFlex = s.leftHandGripTrigger;
-    frame.handLeftPose.indexFlex = s.leftHandIdTrigger;
-    frame.handLeftPose.isPointing = s.isLeftHandPointing;
-    frame.handLeftPose.isThumbUp = s.areLeftHandThumbsUp;
-    frame.handRightPosition = s.rightHandPosition;
-    frame.handRightRotation = s.rightHandRotation;
-    frame.handRightPose.gripFlex = s.rightHandGripTrigger;
-    frame.handRightPose.indexFlex = s.rightHandIdTrigger;
-    frame.handRightPose.isPointing = s.isRightHandPointing;
-    frame.handRightPose.isThumbUp = s.areRightHandThumbsUp;
-    frame.voiceAmplitude = s.voiceAmplitude;
+  public static void ApplyPose(ref AvatarState s, int clientId, Pose pose, Context context) {
+    pose.headPosition = s.headPosition;
+    pose.headRotation = s.headRotation;
+    pose.handLeftPosition = s.leftHandPosition;
+    pose.handLeftRotation = s.leftHandRotation;
+    pose.handLeftPose.gripFlex = s.leftHandGripTrigger;
+    pose.handLeftPose.indexFlex = s.leftHandIdTrigger;
+    pose.handLeftPose.isPointing = s.isLeftHandPointing;
+    pose.handLeftPose.isThumbUp = s.areLeftHandThumbsUp;
+    pose.handRightPosition = s.rightHandPosition;
+    pose.handRightRotation = s.rightHandRotation;
+    pose.handRightPose.gripFlex = s.rightHandGripTrigger;
+    pose.handRightPose.indexFlex = s.rightHandIdTrigger;
+    pose.handRightPose.isPointing = s.isRightHandPointing;
+    pose.handRightPose.isThumbUp = s.areRightHandThumbsUp;
+    pose.voiceAmplitude = s.voiceAmplitude;
   }
 
   public static void UpdateLeftHandSequenceNumbers(ref AvatarState s, Context context) {
@@ -238,7 +238,7 @@ public struct AvatarState {
 
     network.SetAuthoritySequence(s.leftHandAuthoritySequence);
     network.SetOwnershipSequence(s.leftHandOwnershipSequence);
-    network.MoveWithSmoothingLocal(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
+    network.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
   }
 
   public static void ApplyRightHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
@@ -255,7 +255,7 @@ public struct AvatarState {
       network.SetAuthoritySequence(s.rightHandAuthoritySequence);
       network.SetOwnershipSequence(s.rightHandOwnershipSequence);
 
-      network.MoveWithSmoothingLocal(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
+      network.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
     }
   }
 

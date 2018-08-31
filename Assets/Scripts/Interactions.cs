@@ -34,10 +34,10 @@ public class Interactions {
     entries[id2].Remove(id1);
   }
 
-  public Entry Get(int cubeId) {
-    Assert.IsTrue(cubeId >= 0);
-    Assert.IsTrue(cubeId < NumCubes);
+  public Entry Get(int id) {
+    Assert.IsTrue(id >= 0);
+    Assert.IsTrue(id < NumCubes);
 
-    return entries[cubeId];
+    return entries[id];
   }
 }

@@ -6,12 +6,14 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
-using System;
 using UnityEngine;
 using UnityEngine.Assertions;
+using static UnityEngine.Quaternion;
+using static UnityEngine.Vector3;
+using static System.Math;
+using static NetworkInfo.HoldType;
 
-public class NetworkInfo : MonoBehaviour {
+public class NetworkInfo : UnityEngine.MonoBehaviour {
   const int collisionWithFloor = -1;
   const int nobody = -1;
   public GameObject smoothed;
@@ -24,15 +26,15 @@ public class NetworkInfo : MonoBehaviour {
   public ushort m_ownershipSequence;                                  // sequence number increased on each ownership change (players grabs/release this cube)
   public ushort m_authoritySequence;                                  // sequence number increased on each authority change (eg. indirect interaction, such as being hit by an object thrown by a player)
   public int m_holdClientIndex = nobody;                              // client id of player currently holding this cube. -1 if not currently being held.
-  public HoldType m_holdType = HoldType.None;                         // while this cube is being held, this identifies whether it is being held in the left or right hand, or by the headset + controller fallback.
+  public HoldType m_holdType = None;                         // while this cube is being held, this identifies whether it is being held in the left or right hand, or by the headset + controller fallback.
   public Avatar m_localAvatar;                                        // while this cube is held by the local player, this points to the local avatar.
   public Avatar.HandData m_localHand;                                 // while this cube is held by the local player, this points to the local avatar hand that is holding it.
   public RemoteAvatar m_remoteAvatar;                                 // while this cube is held by a remote player, this points to the remote avatar.
   public RemoteAvatar.Hand m_remoteHand;                          // while this cube is held by a remote player, this points to the remote avatar hand that is holding it.
   public ulong m_lastActiveFrame = 0;                                 // the frame number this cube was last active (not at rest). used to return to default authority (white) some amount of time after coming to rest.
   public long m_lastPlayerInteractionFrame = -100000;                 // the last frame number this cube was held by a player. used to increase priority for objects for a few seconds after they are thrown.
-  public Vector3 m_positionError = Vector3.zero;                      // the current position error between the physical cube and its visual representation.
-  public Quaternion m_rotationError = Quaternion.identity;            // the current rotation error between the physical cube and its visual representation.
+  public Vector3 m_positionError = zero;                      // the current position error between the physical cube and its visual representation.
+  public Quaternion m_rotationError = identity;            // the current rotation error between the physical cube and its visual representation.
 
   public enum HoldType {
     None,                                               // not currently being held
@@ -40,10 +42,10 @@ public class NetworkInfo : MonoBehaviour {
     RightHand,                                          // held by right touch controller
   };
 
-  public void Init(Context context, int cubeId) {
-    m_context = context;
+  public void Init(Context c, int cubeId) {
+    m_context = c;
     m_cubeId = cubeId;
-    touching.GetComponent<Touching>().Initialize(context, cubeId);
+    touching.GetComponent<Touching>().Initialize(c, cubeId);
     smoothed.transform.parent = null;
   }
 
@@ -78,9 +80,9 @@ public class NetworkInfo : MonoBehaviour {
    *  1. No other player is currently grabbing that cube (common case)
    *  2. The local player already grabbing the cube, and the time the cube was grabbed is older than the current input to grab this cube. This allows passing cubes from hand to hand.
    */
-  public bool CanGrabCube(ulong gripInputStartFrame) {
+  public bool CanGrabCube(ulong frame) { //gripObjectStartFrame
     if (m_holdClientIndex == nobody) return true;
-    if (m_localHand?.startFrame < gripInputStartFrame) return true; //gripObjectStartFrame
+    if (m_localHand?.startFrame < frame) return true; //is this always true?
 
     return false;
   }
@@ -92,14 +94,9 @@ public class NetworkInfo : MonoBehaviour {
     DetachCube();
     m_localAvatar = avatar;
     m_localHand = h;
-
-    m_holdType = (h.id == Avatar.LeftHand)
-      ? HoldType.LeftHand 
-      : HoldType.RightHand;
-
+    m_holdType = (h.id == Avatar.LeftHand) ? LeftHand : RightHand;
     m_holdClientIndex = m_context.GetClientId();
     m_authorityIndex = m_context.GetAuthorityId();
-
     IncreaseOwnershipSequence();
     SetAuthoritySequence(0);
     touching.GetComponent<BoxCollider>().isTrigger = false;
@@ -107,15 +104,15 @@ public class NetworkInfo : MonoBehaviour {
     h.grip = gameObject;
     gameObject.layer = m_context.GetGripLayer();
     gameObject.transform.SetParent(h.transform, true);
-    h.supports = m_context.GetSupports(h.grip);
-    avatar.CubeAttached(ref h);
+    h.supports = m_context.FindSupports(h.grip);
+    avatar.AttachCube(ref h);
   }
 
   /*
    * Attach cube to remote player
    */
-  public void AttachCubeToRemotePlayer(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientIndex) {
-    Assert.IsTrue(clientIndex != m_context.GetClientId());
+  public void AttachCubeToRemotePlayer(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientId) {
+    Assert.IsTrue(clientId != m_context.GetClientId());
     DetachCube();
     h.grip = gameObject;
     var rigidBody = gameObject.GetComponent<Rigidbody>();
@@ -124,8 +121,8 @@ public class NetworkInfo : MonoBehaviour {
     gameObject.transform.SetParent(h.transform, true);
     m_remoteAvatar = avatar;
     m_remoteHand = h;
-    m_holdClientIndex = clientIndex;
-    m_authorityIndex = clientIndex + 1;
+    m_holdClientIndex = clientId;
+    m_authorityIndex = clientId + 1;
     avatar.CubeAttached(ref h);
   }
 
@@ -136,7 +133,7 @@ public class NetworkInfo : MonoBehaviour {
     if (m_holdClientIndex == nobody) return;
 
     if (m_localAvatar) {
-      m_localAvatar.CubeDetached(ref m_localHand);
+      m_localAvatar.DetachCube(ref m_localHand);
       touching.GetComponent<BoxCollider>().isTrigger = true;
     }
 
@@ -147,7 +144,7 @@ public class NetworkInfo : MonoBehaviour {
     m_localHand = null;
     m_remoteHand = null;
     m_remoteAvatar = null;
-    m_holdType = HoldType.None;
+    m_holdType = None;
     m_holdClientIndex = nobody;
   }
 
@@ -183,13 +180,13 @@ public class NetworkInfo : MonoBehaviour {
     gameObject.transform.position = position;
     gameObject.transform.rotation = rotation;
     m_positionError = oldPosition - position;
-    m_rotationError = Quaternion.Inverse(rotation) * oldRotation;
+    m_rotationError = Inverse(rotation) * oldRotation;
   }
 
   /*
    * Local version of function to move with smoothing. Used for cubes held in remote avatar hands.
    */
-  public void MoveWithSmoothingLocal(Vector3 localPosition, Quaternion localRotation) {
+  public void LocalSmoothMove(Vector3 localPosition, Quaternion localRotation) {
     Assert.IsTrue(gameObject.transform.parent != null);
     var oldPosition = gameObject.transform.position + m_positionError;
     var oldRotation = gameObject.transform.rotation * m_rotationError;
@@ -198,7 +195,7 @@ public class NetworkInfo : MonoBehaviour {
     gameObject.transform.localPosition = localPosition;
     gameObject.transform.localRotation = localRotation;
     m_positionError = oldPosition - position;
-    m_rotationError = oldRotation * Quaternion.Inverse(rotation);
+    m_rotationError = oldRotation * Inverse(rotation);
   }
 
   /*
@@ -220,20 +217,19 @@ public class NetworkInfo : MonoBehaviour {
 
     m_positionError = m_positionError.sqrMagnitude > epsilon
       ? m_positionError * positionSmooth
-      : Vector3.zero;
+      : zero;
 
-    if (Math.Abs(m_rotationError.x) > epsilon
-      || Math.Abs(m_rotationError.y) > epsilon
-      || Math.Abs(m_rotationError.y) > epsilon 
-      || Math.Abs(1.0f - m_rotationError.w) > epsilon
+    if (Abs(m_rotationError.x) > epsilon
+      || Abs(m_rotationError.y) > epsilon
+      || Abs(m_rotationError.y) > epsilon 
+      || Abs(1.0f - m_rotationError.w) > epsilon
     )
-      m_rotationError = Quaternion.Slerp(m_rotationError, Quaternion.identity, 1.0f - rotationSmooth);
+      m_rotationError = Slerp(m_rotationError, identity, 1.0f - rotationSmooth);
     else
-      m_rotationError = Quaternion.identity;
+      m_rotationError = identity;
 
     smoothed.transform.position = gameObject.transform.position + m_positionError;
     smoothed.transform.rotation = gameObject.transform.rotation * m_rotationError;
-
 #endif // #if DISABLE_SMOOTHING
   }
 }

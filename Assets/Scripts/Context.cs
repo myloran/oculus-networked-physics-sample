@@ -37,7 +37,8 @@ public class Context : MonoBehaviour {
   RingBuffer[] buffer = new RingBuffer[NumCubes * RingBufferSize];
   ulong[] collisionFrames = new ulong[NumCubes];
 
-  ulong renderFrame = 0,
+  ulong 
+    renderFrame = 0,
     simulationFrame = 0;
 
   int 
@@ -366,10 +367,10 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public void OnTouchStart(int cubeId1, int cubeId2) 
+  public void StartTouching(int cubeId1, int cubeId2) 
     => interactions.Add((ushort)cubeId1, (ushort)cubeId2);
 
-  public void OnTouchFinish(int cubeId1, int cubeId2) 
+  public void FinishTouching(int cubeId1, int cubeId2) 
     => interactions.Remove((ushort)cubeId1, (ushort)cubeId2);
 
   public void FindSupports(GameObject obj, ref HashSet<GameObject> supports) {
@@ -387,7 +388,7 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public List<GameObject> GetSupports(GameObject obj) {
+  public List<GameObject> FindSupports(GameObject obj) {
     // Support objects are used to determine the set of objects that should be woken up when you grab a cube.
     // Without this, objects resting on the cube you grab stay floating in the air. This function tries to only
     // wake up objects that are above (resting on) the game object that is being recursively walked. The idea being
@@ -640,7 +641,7 @@ public class Context : MonoBehaviour {
     for (int i = 0; i < RingBufferSize; ++i)
       buffer[baseId + i].position = new Vector3(1000000, 1000000, 1000000);
 
-    int id = baseId + (int)(simulationFrame % RingBufferSize);
+    int id = baseId + (int)(simulationFrame % RingBufferSize); //what is this doing?
     buffer[id].position = zero;
   }
 
@@ -656,22 +657,18 @@ public class Context : MonoBehaviour {
         baseId += RingBufferSize;
         continue;
       }
-
       network.SetLastActiveFrame(simulationFrame);
-      var position = buffer[baseId].position;
-      var axis = buffer[baseId].axis;
       var needSleep = true;
 
       for (int j = 1; j < RingBufferSize; ++j) {
-        int id = baseId + j;
-        var diff = buffer[id].position - position;
+        var diff = buffer[baseId + j].position - buffer[baseId].position;
 
         if (diff.sqrMagnitude > 0.01f * 0.01f) {
           needSleep = false;
           break;
         }
 
-        if (Dot(buffer[id].axis, axis) < 0.9999f) {
+        if (Dot(buffer[baseId + j].axis, buffer[baseId].axis) < 0.9999f) {
           needSleep = false;
           break;
         }
