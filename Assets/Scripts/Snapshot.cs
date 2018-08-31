@@ -264,7 +264,7 @@ public class Snapshot {
     var rotation = SmallestThreeToQuaternion(s.rotationLargest, s.rotationX, s.rotationY, s.rotationZ);
 
     if (isSmooth) {
-      network.MoveWithSmoothing(position, rotation);
+      network.SmoothMove(position, rotation);
     } else {
       rigidbody.position = position;
       rigidbody.rotation = rotation;

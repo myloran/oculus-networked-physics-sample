@@ -26,7 +26,7 @@ public struct AuthoritySystem
      *  from the point of view of the server (client 0), wins.
      */
 
-    public static bool ShouldApplyCubeUpdate( Context context, int cubeId, ushort ownershipSequence, ushort authoritySequence, int authorityIndex, bool fromAvatar, int fromClientIndex, int toClientIndex )
+    public static bool ShouldApplyUpdate( Context context, int cubeId, ushort ownershipSequence, ushort authoritySequence, int authorityIndex, bool fromAvatar, int fromClientIndex, int toClientIndex )
     {
         var cube = context.GetCube( cubeId );
 

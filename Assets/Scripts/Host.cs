@@ -429,13 +429,13 @@ public class Host : Common
             context.IncreaseResetSequence();
         }
 
-        context.CheckForAtRestObjects();
+        context.UpdateSleep();
 
         ProcessPacketsFromConnectedClients();
 
         SendPacketsToConnectedClients();
 
-        context.CheckForAtRestObjects();
+        context.UpdateSleep();
 
         base.FixedUpdate();
     }
@@ -689,7 +689,7 @@ public class Host : Common
 
             // apply the state updates to cubes
 
-            context.ApplyCubeStateUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, 0, enableJitterBuffer );
+            context.ApplyCubeUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, 0, enableJitterBuffer );
 
             // apply avatar state updates
 

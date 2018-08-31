@@ -232,7 +232,7 @@ public class Avatar : OvrAvatarLocalDriver {
 
       var rigidBody = h.grip.GetComponent<Rigidbody>();
       var network = h.grip.GetComponent<NetworkInfo>();
-      network.MoveWithSmoothing(start + delta, rigidBody.rotation);
+      network.SmoothMove(start + delta, rigidBody.rotation);
     }
 
     for (int i = 0; i < ThrowRingBufferSize; ++i) { //clear the throw ring buffer

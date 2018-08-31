@@ -476,7 +476,7 @@ public class Guest: Common
     {
         if ( IsConnectedToServer() )
         {
-            context.CheckForAtRestObjects();
+            context.UpdateSleep();
         }
 
         ProcessPacketsFromServer();
@@ -487,7 +487,7 @@ public class Guest: Common
 
             SendPacketToServer();
 
-            context.CheckForAtRestObjects();
+            context.UpdateSleep();
         }
 
         base.FixedUpdate();
@@ -736,7 +736,7 @@ public class Guest: Common
             int fromClientIndex = 0;
             int toClientIndex = clientIndex;
 
-            context.ApplyCubeStateUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, toClientIndex, enableJitterBuffer && renderTime > timeConnected + 0.25 );
+            context.ApplyCubeUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, toClientIndex, enableJitterBuffer && renderTime > timeConnected + 0.25 );
 
             // apply avatar state updates
 

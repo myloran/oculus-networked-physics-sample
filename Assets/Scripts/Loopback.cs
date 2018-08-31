@@ -187,8 +187,8 @@ public class Loopback: Common
 
         MirrorLocalAvatarToRemote();
 
-        hostContext.CheckForAtRestObjects();
-        guestContext.CheckForAtRestObjects();
+        hostContext.UpdateSleep();
+        guestContext.UpdateSleep();
 
         byte[] serverToClientPacketData = GenerateStateUpdatePacket( hostContext, hostContext.GetServerData( 1 ), 0, 1, (float) ( physicsTime - renderTime ) );
 
@@ -285,8 +285,8 @@ public class Loopback: Common
                 connectionData.frame++;
         }
 
-        hostContext.CheckForAtRestObjects();
-        guestContext.CheckForAtRestObjects();
+        hostContext.UpdateSleep();
+        guestContext.UpdateSleep();
 
         ProcessAcks();
 
@@ -481,7 +481,7 @@ public class Loopback: Common
 
             // apply the state updates to cubes
 
-            context.ApplyCubeStateUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, toClientIndex, enableJitterBuffer );
+            context.ApplyCubeUpdates( readNumStateUpdates, ref readCubeIds, ref readCubeState, fromClientIndex, toClientIndex, enableJitterBuffer );
 
             // apply avatar state updates
 

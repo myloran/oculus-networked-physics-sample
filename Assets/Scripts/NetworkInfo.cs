@@ -173,7 +173,7 @@ public class NetworkInfo : MonoBehaviour {
   /*
    * Moves the physical cube immediately, while the visual cube smoothly eases towards the corrected position over time.
    */
-  public void MoveWithSmoothing(Vector3 position, Quaternion rotation) {
+  public void SmoothMove(Vector3 position, Quaternion rotation) {
     var rigidBody = gameObject.GetComponent<Rigidbody>();
     var oldPosition = rigidBody.position + m_positionError; //oldSmoothedPosition
     var oldRotation = rigidBody.rotation * m_rotationError; //oldSmoothedRotation

@@ -244,7 +244,7 @@ public class Common: MonoBehaviour
 
         // apply the state updates to cubes
 
-        context.ApplyCubeStateUpdates( entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState, fromClientIndex, toClientIndex, applySmoothing );
+        context.ApplyCubeUpdates( entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState, fromClientIndex, toClientIndex, applySmoothing );
 
         // process the packet header (handles acks)
 
