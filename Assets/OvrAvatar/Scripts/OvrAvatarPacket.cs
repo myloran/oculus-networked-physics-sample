@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.IO;
 using System.Collections.Generic;
-using Frame = OvrAvatarDriver.PoseFrame;
+using Frame = OvrAvatarDriver.Pose;
 using Controller = OvrAvatarDriver.ControllerPose;
 using Hand = OvrAvatarDriver.HandPose;
 
@@ -30,15 +30,15 @@ public class OvrAvatarPacket {
   public Frame GetPoseFrame(float seconds) {
     if (frames.Count == 1) return frames[0];
     
-    int index = 1; //This can be replaced with a more efficient binary search
-    while (index < times.Count && times[index] < seconds)
-      ++index;
+    int id = 1; //This can be replaced with a more efficient binary search
+    while (id < times.Count && times[id] < seconds)
+      ++id;
     
-    var from = times[index - 1];
-    var to = times[index];
+    var from = times[id - 1];
+    var to = times[id];
     var time = (seconds-from) / (to-from);
 
-    return Frame.Interpolate(frames[index - 1], frames[index], time);
+    return Frame.Interpolate(frames[id - 1], frames[id], time);
   }
 
   public static OvrAvatarPacket Read(Stream stream) {
@@ -86,50 +86,50 @@ public class OvrAvatarPacket {
 }
 
 static class BinaryWriterExtensions {
-  public static void Write(this BinaryWriter w, Frame frame) {
-    w.Write(frame.headPosition);
-    w.Write(frame.headRotation);
-    w.Write(frame.handLeftPosition);
-    w.Write(frame.handLeftRotation);
-    w.Write(frame.handRightPosition);
-    w.Write(frame.handRightRotation);
-    w.Write(frame.voiceAmplitude);
-    w.Write(frame.controllerLeftPose);
-    w.Write(frame.controllerRightPose);
-    w.Write(frame.handLeftPose);
-    w.Write(frame.handRightPose);
+  public static void Write(this BinaryWriter w, Frame f) {
+    w.Write(f.headPosition);
+    w.Write(f.headRotation);
+    w.Write(f.handLeftPosition);
+    w.Write(f.handLeftRotation);
+    w.Write(f.handRightPosition);
+    w.Write(f.handRightRotation);
+    w.Write(f.voiceAmplitude);
+    w.Write(f.controllerLeftPose);
+    w.Write(f.controllerRightPose);
+    w.Write(f.handLeftPose);
+    w.Write(f.handRightPose);
   }
 
-  public static void Write(this BinaryWriter w, Vector3 vec3) {
-    w.Write(vec3.x);
-    w.Write(vec3.y);
-    w.Write(vec3.z);
+  public static void Write(this BinaryWriter w, Vector3 v) {
+    w.Write(v.x);
+    w.Write(v.y);
+    w.Write(v.z);
   }
 
-  public static void Write(this BinaryWriter w, Vector2 vec2) {
-    w.Write(vec2.x);
-    w.Write(vec2.y);
+  public static void Write(this BinaryWriter w, Vector2 v) {
+    w.Write(v.x);
+    w.Write(v.y);
   }
 
-  public static void Write(this BinaryWriter w, Quaternion quat) {
-    w.Write(quat.x);
-    w.Write(quat.y);
-    w.Write(quat.z);
-    w.Write(quat.w);
+  public static void Write(this BinaryWriter w, Quaternion q) {
+    w.Write(q.x);
+    w.Write(q.y);
+    w.Write(q.z);
+    w.Write(q.w);
   }
-  public static void Write(this BinaryWriter w, Controller pose) {
-    w.Write(pose.button1IsDown);
-    w.Write(pose.button2IsDown);
-    w.Write(pose.joystickPosition);
-    w.Write(pose.indexTrigger);
-    w.Write(pose.gripTrigger);
+  public static void Write(this BinaryWriter w, Controller c) {
+    w.Write(c.button1IsDown);
+    w.Write(c.button2IsDown);
+    w.Write(c.joystickPosition);
+    w.Write(c.indexTrigger);
+    w.Write(c.gripTrigger);
   }
 
-  public static void Write(this BinaryWriter w, Hand pose) {
-    w.Write(pose.indexFlex);
-    w.Write(pose.gripFlex);
-    w.Write(pose.isPointing);
-    w.Write(pose.isThumbUp);
+  public static void Write(this BinaryWriter w, Hand p) {
+    w.Write(p.indexFlex);
+    w.Write(p.gripFlex);
+    w.Write(p.isPointing);
+    w.Write(p.isThumbUp);
   }
 }
 

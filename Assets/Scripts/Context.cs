@@ -721,7 +721,7 @@ public class Context : MonoBehaviour {
       if (!avatar) continue;
 
       avatar.SetContext(this);
-      avatar.SetClientIndex(i);
+      avatar.SetClientId(i);
     }
   }
 

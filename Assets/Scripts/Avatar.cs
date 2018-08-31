@@ -6,7 +6,6 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
 using System;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -120,7 +119,7 @@ public class Avatar : OvrAvatarLocalDriver {
 
   void Start() {
     Assert.IsNotNull(linePrefab);
-    avatar = (OvrAvatar)GetComponent(typeof(OvrAvatar));
+    avatar = GetComponent<OvrAvatar>();
     leftHand.id = LeftHand;
     rightHand.id = RightHand;
     leftHand.name = "left hand";
@@ -135,62 +134,62 @@ public class Avatar : OvrAvatarLocalDriver {
 
   void Update() {
     Assert.IsNotNull(context);
-    PoseFrame frame;
-    if (!avatar.Driver.GetCurrentPose(out frame)) return;
+    Pose p;
+    if (!GetPose(out p)) return;
 
-    UpdateHand(ref leftHand, frame);
-    UpdateHand(ref rightHand, frame);
+    UpdateHand(ref leftHand, p);
+    UpdateHand(ref rightHand, p);
   }
 
   void FixedUpdate() {
     Assert.IsNotNull(context);
-    PoseFrame frame;
-    if (!avatar.Driver.GetCurrentPose(out frame)) return;
+    Pose p;
+    if (!GetPose(out p)) return;
 
-    UpdateHandFixed(ref leftHand, frame);
-    UpdateHandFixed(ref rightHand, frame);
+    UpdateHandFixed(ref leftHand, p);
+    UpdateHandFixed(ref rightHand, p);
   }
 
-  void UpdateHand(ref HandData h, PoseFrame frame) {
-    var hand = (h.id == LeftHand) ? frame.handLeftPose : frame.handRightPose;
-    var controller = (h.id == LeftHand) ? frame.controllerLeftPose : frame.controllerRightPose;
+  void UpdateHand(ref HandData d, Pose pose) {
+    var hand = (d.id == LeftHand) ? pose.handLeftPose : pose.handRightPose;
+    var controller = (d.id == LeftHand) ? pose.controllerLeftPose : pose.controllerRightPose;
 
-    TranslateHandPoseToInput(ref hand, ref controller, ref h.input);
-    UpdateRotate(ref h);
-    UpdateZoom(ref h);
-    UpdateGrip(ref h);
-    DetectStateChanges(ref h);
-    UpdateCurrentState(ref h);
-    UpdateHeldObject(ref h);
+    CollectInput(ref hand, ref controller, ref d.input); //why this is needed?
+    UpdateRotate(ref d);
+    UpdateZoom(ref d);
+    UpdateGrip(ref d);
+    DetectStateChanges(ref d);
+    UpdateCurrentState(ref d);
+    UpdateHeldObject(ref d);
   }
 
-  void UpdateHandFixed(ref HandData h, PoseFrame frame) => UpdateSnapToHand(ref h);
+  void UpdateHandFixed(ref HandData d, Pose pose) => UpdateSnapToHand(ref d);
 
-  void UpdateRotate(ref HandData h) {
-    if (!h.grip) return;
+  void UpdateRotate(ref HandData d) {
+    if (!d.grip) return;
 
     var angle = 0.0f;
 
-    if (h.input.stick.x <= -StickThreshold)
+    if (d.input.stick.x <= -StickThreshold)
       angle = +RotateSpeed * Time.deltaTime;
 
-    if (h.input.stick.x >= +StickThreshold)
+    if (d.input.stick.x >= +StickThreshold)
       angle = -RotateSpeed * Time.deltaTime;
 
-    h.grip.transform.RotateAround(
-      h.grip.transform.position,
-      h.transform.forward, 
+    d.grip.transform.RotateAround(
+      d.grip.transform.position,
+      d.transform.forward, 
       angle);
   }
 
-  void UpdateZoom(ref HandData h) {
-    if (!h.grip) return;
+  void UpdateZoom(ref HandData d) {
+    if (!d.grip) return;
 
     Vector3 start, direction;
-    GetIndexFingerStartPointAndDirection(ref h, out start, out direction);
-    var position = h.grip.transform.position;
+    GetFingerInput(ref d, out start, out direction);
+    var position = d.grip.transform.position;
 
-    if (h.input.stick.y <= -StickThreshold) {
+    if (d.input.stick.y <= -StickThreshold) {
       var delta = position - start; //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
       var distance = delta.magnitude;
 
@@ -200,28 +199,28 @@ public class Avatar : OvrAvatarLocalDriver {
         if (distance < ZoomMinimum)
           distance = ZoomMinimum;
 
-        h.grip.transform.position = start + delta;
+        d.grip.transform.position = start + delta;
       }
     }
 
-    if (h.input.stick.y >= +StickThreshold) {      
+    if (d.input.stick.y >= +StickThreshold) {      
       if (Vector3.Dot(position - start, direction) < ZoomMaximum) //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
-        h.grip.transform.position += (ZoomSpeed * Time.deltaTime) * direction;
+        d.grip.transform.position += (ZoomSpeed * Time.deltaTime) * direction;
     }
   }
 
-  void UpdateSnapToHand(ref HandData h) {
-    if (!h.grip) return;
+  void UpdateSnapToHand(ref HandData d) {
+    if (!d.grip) return;
 
     Vector3 start, direction;
-    GetIndexFingerStartPointAndDirection(ref h, out start, out direction);
+    GetFingerInput(ref d, out start, out direction);
 
-    if (h.input.indexTrigger < IndexThreshold
-      || h.input.indexPressFrame + IndexStickyFrames < context.GetRenderFrame()
+    if (d.input.indexTrigger < IndexThreshold
+      || d.input.indexPressFrame + IndexStickyFrames < context.GetRenderFrame()
     ) return;
 
-    h.input.indexPressFrame = 0;
-    var delta = h.grip.transform.position - start; //warp to hand on index grip
+    d.input.indexPressFrame = 0;
+    var delta = d.grip.transform.position - start; //warp to hand on index grip
     var distance = delta.magnitude;
 
     if (distance > WarpDistance) {
@@ -230,108 +229,108 @@ public class Avatar : OvrAvatarLocalDriver {
       if (distance < ZoomMinimum)
         distance = ZoomMinimum;
 
-      var rigidBody = h.grip.GetComponent<Rigidbody>();
-      var network = h.grip.GetComponent<NetworkInfo>();
+      var rigidBody = d.grip.GetComponent<Rigidbody>();
+      var network = d.grip.GetComponent<NetworkInfo>();
       network.SmoothMove(start + delta, rigidBody.rotation);
     }
 
     for (int i = 0; i < ThrowRingBufferSize; ++i) { //clear the throw ring buffer
-      h.throws[i].valid = false;
-      h.throws[i].speed = 0.0f;
+      d.throws[i].valid = false;
+      d.throws[i].speed = 0.0f;
     }
   }
 
-  void UpdateGrip(ref HandData h) {
-    if (h.input.handTrigger <= GripThreshold)
-      h.inputFrame = 0;
+  void UpdateGrip(ref HandData d) {
+    if (d.input.handTrigger <= GripThreshold)
+      d.inputFrame = 0;
 
-    else if (h.inputFrame == 0)
-      h.inputFrame = context.GetRenderFrame();
+    else if (d.inputFrame == 0)
+      d.inputFrame = context.GetRenderFrame();
   }
 
-  void UpdateHeldObject(ref HandData h) {
-    if (!h.grip) return;
+  void UpdateHeldObject(ref HandData d) {
+    if (!d.grip) return;
 
-    int index = (h.throwIndex++) % ThrowRingBufferSize; //track data to improve throw release in ring buffer
-    var diff = h.grip.transform.position - h.prevGripPosition;
+    int index = (d.throwIndex++) % ThrowRingBufferSize; //track data to improve throw release in ring buffer
+    var diff = d.grip.transform.position - d.prevGripPosition;
     var speed = (float)Math.Sqrt(diff.x * diff.x + diff.z * diff.z);
-    h.throws[index].valid = true;
-    h.throws[index].speed = speed * Constants.RenderFrameRate;
+    d.throws[index].valid = true;
+    d.throws[index].speed = speed * Constants.RenderFrameRate;
 
     //track previous positions and rotations for hand and index finger so we can use this to determine linear and angular velocity at time of release
-    h.prevHandPosition = h.transform.position;
-    h.prevHandRotation = h.transform.rotation;
+    d.prevHandPosition = d.transform.position;
+    d.prevHandRotation = d.transform.rotation;
 
-    h.prevGripPosition = h.grip.transform.position;
-    h.prevGripRotation = h.grip.transform.rotation;
+    d.prevGripPosition = d.grip.transform.position;
+    d.prevGripRotation = d.grip.transform.rotation;
 
     //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
-    var network = h.grip.GetComponent<NetworkInfo>();
+    var network = d.grip.GetComponent<NetworkInfo>();
     network.SetLastFrame((long)context.GetSimulationFrame());
   }
 
-  void TranslateHandPoseToInput(ref HandPose handPose, ref ControllerPose controllerPose, ref HandInput i) {
-    i.handTrigger = handPose.gripFlex;
+  void CollectInput(ref HandPose hand, ref ControllerPose controller, ref HandInput i) {
+    i.handTrigger = hand.gripFlex;
     i.previousIndexTrigger = i.indexTrigger;
-    i.indexTrigger = handPose.indexFlex;
+    i.indexTrigger = hand.indexFlex;
 
     if (i.indexTrigger >= IndexThreshold && i.previousIndexTrigger < IndexThreshold)
       i.indexPressFrame = context.GetRenderFrame();
 
     i.pointing = true;
-    i.x = controllerPose.button1IsDown;
-    i.y = controllerPose.button2IsDown;
-    i.stick = controllerPose.joystickPosition;
+    i.x = controller.button1IsDown;
+    i.y = controller.button2IsDown;
+    i.stick = controller.joystickPosition;
   }
 
-  void DetectStateChanges(ref HandData h) {
-    if (h.state == HandState.Neutral) {
-      if (DetectGripTransition(ref h)) return;
+  void DetectStateChanges(ref HandData d) {
+    if (d.state == HandState.Neutral) {
+      if (DetectGrip(ref d)) return;
 
-      if (h.input.pointing) {
-        TransitionToState(ref h, HandState.Pointing);
+      if (d.input.pointing) {
+        Transition(ref d, HandState.Pointing);
         return;
       }
 
-    } else if(h.state == HandState.Pointing) {
-      if (DetectGripTransition(ref h))return;
+    } else if(d.state == HandState.Pointing) {
+      if (DetectGrip(ref d))return;
 
-      if (!h.input.pointing) {
-        TransitionToState(ref h, HandState.Neutral);
+      if (!d.input.pointing) {
+        Transition(ref d, HandState.Neutral);
         return;
       }
 
-    } else if (h.state == HandState.Grip) {
-      if (h.input.handTrigger >= GripThreshold) return;
+    } else if (d.state == HandState.Grip) {
+      if (d.input.handTrigger >= GripThreshold) return;
 
-      if (h.input.pointing)
-        TransitionToState(ref h, HandState.Pointing);
+      if (d.input.pointing)
+        Transition(ref d, HandState.Pointing);
       else
-        TransitionToState(ref h, HandState.Neutral);
+        Transition(ref d, HandState.Neutral);
     }
   }
 
-  bool DetectGripTransition(ref HandData h) {
-    if (h.state == HandState.Grip && h.grip == null) {
-      TransitionToState(ref h, HandState.Neutral);
+  bool DetectGrip(ref HandData d) {
+    if (d.state == HandState.Grip && d.grip == null) {
+      Transition(ref d, HandState.Neutral);
       return true;
     }
 
-    if (h.input.handTrigger < GripThreshold) return false;
-    if (h.point || h.pointFrame + PointStickyFrames < context.GetRenderFrame()) return false;
+    if (d.input.handTrigger < GripThreshold) return false;
+    if (d.point || d.pointFrame + PointStickyFrames < context.GetRenderFrame()) return false;
 
-    var network = h.point.GetComponent<NetworkInfo>();
-    if (!network.CanGrabCube(h.inputFrame)) return false;
+    var network = d.point.GetComponent<NetworkInfo>();
+    if (!network.CanGrabCube(d.inputFrame)) return false;
 
-    AttachToHand(ref h, h.point);
-    TransitionToState(ref h, HandState.Grip);
+    AttachToHand(ref d, d.point);
+    Transition(ref d, HandState.Grip);
 
     return true;
   }
 
-  void AttachToHand(ref HandData h, GameObject gameObject) {
+  void AttachToHand(ref HandData d, GameObject gameObject) {
     var network = gameObject.GetComponent<NetworkInfo>();
-    network.AttachCubeToLocalPlayer(this, h);
+    network.AttachCubeToLocalPlayer(this, d);
 
 #if DEBUG_AUTHORITY
         Debug.Log( "client " + context.GetClientIndex() + " grabbed cube " + network.GetCubeId() + " and set ownership sequence to " + network.GetOwnershipSequence() );
@@ -343,26 +342,26 @@ public class Avatar : OvrAvatarLocalDriver {
       network.SetConfirmed();
 
     for (int i = 0; i < ThrowRingBufferSize; ++i) {
-      h.throws[i].valid = false;
-      h.throws[i].speed = 0.0f;
+      d.throws[i].valid = false;
+      d.throws[i].speed = 0.0f;
     }
   }
 
-  bool IsCloseGrip(ref HandData h) {
-    if (!h.grip) return false;
+  bool IsCloseGrip(ref HandData d) {
+    if (!d.grip) return false;
 
-    var delta = h.grip.transform.position - h.transform.position;
+    var delta = d.grip.transform.position - d.transform.position;
 
     return delta.magnitude <= GrabDistance;
   }
 
-  bool IsThrowing(ref HandData h) {
+  bool IsThrowing(ref HandData d) {
     int count = 0;
     var sum = 0.0f;
 
     for (int i = 0; i < ThrowRingBufferSize; ++i) {
-      if (h.throws[i].valid)
-        sum += h.throws[i].speed;
+      if (d.throws[i].valid)
+        sum += d.throws[i].speed;
 
       count++;
     }
@@ -396,8 +395,8 @@ public class Avatar : OvrAvatarLocalDriver {
     }
   }
 
-  void WakeUpObjects(List<GameObject> list) {
-    foreach (var obj in list) {
+  void WakeUpObjects(List<GameObject> objects) {
+    foreach (var obj in objects) {
       var network = obj.GetComponent<NetworkInfo>();
       context.ResetBuffer(network.GetCubeId());
 
@@ -408,10 +407,10 @@ public class Avatar : OvrAvatarLocalDriver {
     }
   }
 
-  void DetachFromHand(ref HandData h) {
-    if (h.grip == null) return; //IMPORTANT: This happens when passing a cube from hand-to-hand
+  void DetachFromHand(ref HandData d) {
+    if (d.grip == null) return; //IMPORTANT: This happens when passing a cube from hand-to-hand
 
-    var network = h.grip.GetComponent<NetworkInfo>();
+    var network = d.grip.GetComponent<NetworkInfo>();
     network.DetachCube();
 
 #if DEBUG_AUTHORITY
@@ -419,56 +418,56 @@ public class Avatar : OvrAvatarLocalDriver {
 #endif // #if DEBUG_AUTHORITY
   }
 
-  void TransitionToState(ref HandData h, HandState nextState) {
-    ExitState(ref h, nextState);
-    EnterState(ref h, nextState);
+  void Transition(ref HandData h, HandState state) {
+    ExitState(ref h);
+    EnterState(ref h, state);
   }
 
-  void ExitState(ref HandData h, HandState nextState) {
-    if (h.state == HandState.Pointing)
-      DestroyPointingLine(ref h);
+  void ExitState(ref HandData d) {
+    if (d.state == HandState.Pointing)
+      DestroyLine(ref d);
 
-    else if (h.state == HandState.Grip)
-      DetachFromHand(ref h);
+    else if (d.state == HandState.Grip)
+      DetachFromHand(ref d);
   }
 
-  void EnterState(ref HandData h, HandState nextState) {
-    if (nextState == HandState.Pointing)
-      CreatePointingLine(ref h);
+  void EnterState(ref HandData d, HandState state) {
+    if (state == HandState.Pointing)
+      CreatePointingLine(ref d);
 
-    h.state = nextState;
+    d.state = state;
   }
 
-  void UpdateCurrentState(ref HandData h) {
-    if (h.state == HandState.Pointing) {
-      UpdatePointingLine(ref h);
-      ForcePointAnimation(ref h);
+  void UpdateCurrentState(ref HandData d) {
+    if (d.state == HandState.Pointing) {
+      UpdateLine(ref d);
+      ForcePointAnimation(ref d);
 
-    } else if (h.state == HandState.Grip) {
-      if (IsCloseGrip(ref h))
-        ForceGripAnimation(ref h);
+    } else if (d.state == HandState.Grip) {
+      if (IsCloseGrip(ref d))
+        ForceGripAnimation(ref d);
       else
-        ForcePointAnimation(ref h);
+        ForcePointAnimation(ref d);
 
-      if (!h.grip) return;
-      if (h.grip.transform.position.y > 0.0f) return;
+      if (!d.grip) return;
+      if (d.grip.transform.position.y > 0.0f) return;
 
-      var position = h.grip.transform.position;
+      var position = d.grip.transform.position;
       position.y = 0.0f;
-      h.grip.transform.position = position;
+      d.grip.transform.position = position;
     }
   }
 
-  void SetPointObject(ref HandData h, GameObject gameObject) {
-    h.point = gameObject;
-    h.pointFrame = context.GetRenderFrame();
+  void SetPointObject(ref HandData d, GameObject gameObject) {
+    d.point = gameObject;
+    d.pointFrame = context.GetRenderFrame();
   }
 
-  void CreatePointingLine(ref HandData h) {
-    if (h.line) return;
+  void CreatePointingLine(ref HandData d) {
+    if (d.line) return;
 
-    h.line = Instantiate(linePrefab, Vector3.zero, Quaternion.identity);
-    Assert.IsNotNull(h.line);
+    d.line = Instantiate(linePrefab, Vector3.zero, Quaternion.identity);
+    Assert.IsNotNull(d.line);
   }
 
   bool FilterPointObject(ref HandData hand, Rigidbody r) {
@@ -486,50 +485,51 @@ public class Avatar : OvrAvatarLocalDriver {
     return true;
   }
 
-  void GetIndexFingerStartPointAndDirection(ref HandData h, out Vector3 start, out Vector3 direction) {
+  void GetFingerInput(ref HandData d, out Vector3 start, out Vector3 direction) {
     var positions = new[] {
       new Vector3(-0.05f, 0.0f, 0.0f),
       new Vector3(+0.05f, 0.0f, 0.0f)
     };
-    start = h.transform.TransformPoint(positions[h.id]);
-    direction = h.transform.forward;
+    start = d.transform.TransformPoint(positions[d.id]);
+    direction = d.transform.forward;
   }
 
-  void UpdatePointingLine(ref HandData h) {
-    Assert.IsNotNull(h.line);
+  void UpdateLine(ref HandData d) {
+    Assert.IsNotNull(d.line);
     Vector3 start, direction;
-    GetIndexFingerStartPointAndDirection(ref h, out start, out direction);
+    GetFingerInput(ref d, out start, out direction);
 
     var finish = start + direction * RaycastDistance;
     
-    if (h.releaseFrame + PostReleaseDisableSelectFrames < context.GetRenderFrame()) { //don't allow any selection for a few frames after releasing an object      
-      var hitColliders = Physics.OverlapSphere(h.transform.position, GrabRadius, contextLayerMask); //first select any object overlapping the hand
+    if (d.releaseFrame + PostReleaseDisableSelectFrames < context.GetRenderFrame()) { //don't allow any selection for a few frames after releasing an object      
+      var colliders = Physics.OverlapSphere(d.transform.position, GrabRadius, contextLayerMask); //first select any object overlapping the hand
 
-      if (hitColliders.Length > 0 && FilterPointObject(ref h, hitColliders[0].attachedRigidbody)) {
+      if (colliders.Length > 0 && FilterPointObject(ref d, colliders[0].attachedRigidbody)) {
         finish = start;
-        SetPointObject(ref h, hitColliders[0].gameObject);
-        h.isTouching = true;
-      } else {       
-        h.isTouching = false; //otherwise, raycast forward along point direction for accurate selection up close
-        RaycastHit hitInfo;
+        SetPointObject(ref d, colliders[0].gameObject);
+        d.isTouching = true;
 
-        if (Physics.Linecast(start, finish, out hitInfo, contextLayerMask)) {
-          if (FilterPointObject(ref h, hitInfo.rigidbody)) {
-            finish = start + direction * hitInfo.distance;
-            SetPointObject(ref h, hitInfo.rigidbody.gameObject);
+      } else {       
+        d.isTouching = false; //otherwise, raycast forward along point direction for accurate selection up close
+        RaycastHit hit;
+
+        if (Physics.Linecast(start, finish, out hit, contextLayerMask)) {
+          if (FilterPointObject(ref d, hit.rigidbody)) {
+            finish = start + direction * hit.distance;
+            SetPointObject(ref d, hit.rigidbody.gameObject);
           }
 
-        } else if (Physics.SphereCast(start + direction * PointSphereCastStart, PointSphereCastRadius, finish, out hitInfo, contextLayerMask)) {
+        } else if (Physics.SphereCast(start + direction * PointSphereCastStart, PointSphereCastRadius, finish, out hit, contextLayerMask)) {
           // failing an accurate hit, sphere cast starting from a bit further away to provide easier selection of far away objects
-          if (FilterPointObject(ref h, hitInfo.rigidbody)) {
-            finish = start + direction * (PointSphereCastStart + hitInfo.distance);
-            SetPointObject(ref h, hitInfo.rigidbody.gameObject);
+          if (FilterPointObject(ref d, hit.rigidbody)) {
+            finish = start + direction * (PointSphereCastStart + hit.distance);
+            SetPointObject(ref d, hit.rigidbody.gameObject);
           }
         }
       }
     }
 
-    var line = h.line.GetComponent<LineRenderer>();
+    var line = d.line.GetComponent<LineRenderer>();
     if (!line) return;
 
     line.positionCount = 2;
@@ -539,19 +539,19 @@ public class Avatar : OvrAvatarLocalDriver {
     line.endWidth = LineWidth;
   }
 
-  void DestroyPointingLine(ref HandData h) {
-    Assert.IsNotNull(h.line);
-    Destroy(h.line);
-    h.line = null;
+  void DestroyLine(ref HandData d) {
+    Assert.IsNotNull(d.line);
+    Destroy(d.line);
+    d.line = null;
   }
 
-  void ForcePointAnimation(ref HandData h) {
-    if (h.isTouching && h.state == HandState.Pointing)
-      h.animator.SetLayerWeight(h.animator.GetLayerIndex("Point Layer"), 0.0f); //indicates state of touching an object to player (for up-close grip)
+  void ForcePointAnimation(ref HandData d) {
+    if (d.isTouching && d.state == HandState.Pointing)
+      d.animator.SetLayerWeight(d.animator.GetLayerIndex("Point Layer"), 0.0f); //indicates state of touching an object to player (for up-close grip)
     else
-      h.animator.SetLayerWeight(h.animator.GetLayerIndex("Point Layer"), 1.0f);
+      d.animator.SetLayerWeight(d.animator.GetLayerIndex("Point Layer"), 1.0f);
 
-    h.animator.SetLayerWeight(h.animator.GetLayerIndex("Thumb Layer"), 0.0f);
+    d.animator.SetLayerWeight(d.animator.GetLayerIndex("Thumb Layer"), 0.0f);
   }
 
   void ForceGripAnimation(ref HandData h) {
@@ -589,8 +589,8 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   public bool GetAvatar(out AvatarState s) {
-    PoseFrame frame;
-    if (!avatar.Driver.GetCurrentPose(out frame)) {
+    Pose frame;
+    if (!avatar.Driver.GetPose(out frame)) {
       s = AvatarState.Default;
       return false;
     }
@@ -599,15 +599,15 @@ public class Avatar : OvrAvatarLocalDriver {
     return true;
   }
 
-  public void CubeAttached(ref HandData h) => UpdateHeldObject(ref h);
+  public void CubeAttached(ref HandData d) => UpdateHeldObject(ref d);
 
-  public void CubeDetached(ref HandData h) {
-    var rigidBody = h.grip.GetComponent<Rigidbody>();
+  public void CubeDetached(ref HandData d) {
+    var rigidBody = d.grip.GetComponent<Rigidbody>();
     rigidBody.isKinematic = false;
-    h.grip.layer = contextLayerCubes;
-    Release(ref h, rigidBody, h.hasReleaseVelocity);
-    h.grip.transform.SetParent(null);
-    h.grip = null;
+    d.grip.layer = contextLayerCubes;
+    Release(ref d, rigidBody, d.hasReleaseVelocity);
+    d.grip.transform.SetParent(null);
+    d.grip = null;
 
     if (rigidBody.position.y < MinimumCubeHeight) {
       var position = rigidBody.position;
@@ -615,38 +615,38 @@ public class Avatar : OvrAvatarLocalDriver {
       rigidBody.position = position;
     }
 
-    if (h.supports != null) {
-      WakeUpObjects(h.supports);
-      h.supports = null;
+    if (d.supports != null) {
+      WakeUpObjects(d.supports);
+      d.supports = null;
     }
 
-    h.point = null;
-    h.pointFrame = 0;
-    h.releaseFrame = context.GetRenderFrame();
+    d.point = null;
+    d.pointFrame = 0;
+    d.releaseFrame = context.GetRenderFrame();
   }
 
-  public void ResetHand(ref HandData h) {
-    h.hasReleaseVelocity = true;
-    TransitionToState(ref h, HandState.Neutral);
-    h.hasReleaseVelocity = false;
-    h.isTouching = false;
-    h.line = null;
-    h.point = null;
-    h.pointFrame = 0;
-    h.grip = null;
-    h.inputFrame = 0;
-    h.startFrame = 0;
-    h.prevHandPosition = Vector3.zero;
-    h.prevGripPosition = Vector3.zero;
-    h.prevHandRotation = Quaternion.identity;
-    h.prevGripRotation = Quaternion.identity;
-    h.releaseFrame = 0;
-    h.supports = null;
+  public void ResetHand(ref HandData d) {
+    d.hasReleaseVelocity = true;
+    Transition(ref d, HandState.Neutral);
+    d.hasReleaseVelocity = false;
+    d.isTouching = false;
+    d.line = null;
+    d.point = null;
+    d.pointFrame = 0;
+    d.grip = null;
+    d.inputFrame = 0;
+    d.startFrame = 0;
+    d.prevHandPosition = Vector3.zero;
+    d.prevGripPosition = Vector3.zero;
+    d.prevHandRotation = Quaternion.identity;
+    d.prevGripRotation = Quaternion.identity;
+    d.releaseFrame = 0;
+    d.supports = null;
   }
 
   public bool IsPressingGrip() => leftHand.input.handTrigger > GripThreshold || rightHand.input.handTrigger > GripThreshold;
   public bool IsPressingIndex() => leftHand.input.indexTrigger > IndexThreshold || rightHand.input.indexTrigger > IndexThreshold;
   public bool IsPressingX() => leftHand.input.x || rightHand.input.x;
   public bool IsPressingY() => leftHand.input.y || rightHand.input.y;
-  public override bool GetCurrentPose(out PoseFrame pose) => base.GetCurrentPose(out pose);
+  public override bool GetPose(out Pose p) => base.GetPose(out p);
 }

@@ -28,7 +28,7 @@ public class NetworkInfo : MonoBehaviour {
   public Avatar m_localAvatar;                                        // while this cube is held by the local player, this points to the local avatar.
   public Avatar.HandData m_localHand;                                 // while this cube is held by the local player, this points to the local avatar hand that is holding it.
   public RemoteAvatar m_remoteAvatar;                                 // while this cube is held by a remote player, this points to the remote avatar.
-  public RemoteAvatar.HandData m_remoteHand;                          // while this cube is held by a remote player, this points to the remote avatar hand that is holding it.
+  public RemoteAvatar.Hand m_remoteHand;                          // while this cube is held by a remote player, this points to the remote avatar hand that is holding it.
   public ulong m_lastActiveFrame = 0;                                 // the frame number this cube was last active (not at rest). used to return to default authority (white) some amount of time after coming to rest.
   public long m_lastPlayerInteractionFrame = -100000;                 // the last frame number this cube was held by a player. used to increase priority for objects for a few seconds after they are thrown.
   public Vector3 m_positionError = Vector3.zero;                      // the current position error between the physical cube and its visual representation.
@@ -66,7 +66,7 @@ public class NetworkInfo : MonoBehaviour {
   public void SetLastFrame(long frame) => m_lastPlayerInteractionFrame = frame;
   public bool IsHeldByPlayer() => m_holdClientIndex != -1;
   public bool IsHeldByLocalPlayer() => m_localAvatar != null;
-  public bool IsHeldByRemotePlayer(RemoteAvatar avatar, RemoteAvatar.HandData hand) => m_remoteAvatar == avatar && m_remoteHand == hand;
+  public bool IsHeldByRemotePlayer(RemoteAvatar avatar, RemoteAvatar.Hand hand) => m_remoteAvatar == avatar && m_remoteHand == hand;
   public ushort GetOwnershipSequence() => m_ownershipSequence;
   public ushort GetAuthoritySequence() => m_authoritySequence;
   public ulong GetLastActiveFrame() => m_lastActiveFrame;
@@ -114,10 +114,10 @@ public class NetworkInfo : MonoBehaviour {
   /*
    * Attach cube to remote player
    */
-  public void AttachCubeToRemotePlayer(RemoteAvatar avatar, RemoteAvatar.HandData h, int clientIndex) {
+  public void AttachCubeToRemotePlayer(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientIndex) {
     Assert.IsTrue(clientIndex != m_context.GetClientId());
     DetachCube();
-    h.gripObject = gameObject;
+    h.grip = gameObject;
     var rigidBody = gameObject.GetComponent<Rigidbody>();
     rigidBody.isKinematic = true;
     rigidBody.detectCollisions = false;

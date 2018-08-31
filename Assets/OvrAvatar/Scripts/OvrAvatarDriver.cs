@@ -35,22 +35,29 @@ public abstract class OvrAvatarDriver : MonoBehaviour {
     }
   }
 
-  public class PoseFrame {
-    public Vector3 headPosition;
-    public Quaternion headRotation;
-    public Vector3 handLeftPosition;
-    public Quaternion handLeftRotation;
-    public Vector3 handRightPosition;
-    public Quaternion handRightRotation;
+  public class Pose {
+    public Vector3 
+      headPosition,
+      handLeftPosition,
+      handRightPosition;
+
+    public Quaternion 
+      headRotation,
+      handLeftRotation,
+      handRightRotation;
+
+    public ControllerPose 
+      controllerLeftPose,
+      controllerRightPose;
+
+    public HandPose 
+      handLeftPose,
+      handRightPose;
+
     public float voiceAmplitude;
 
-    public ControllerPose controllerLeftPose;
-    public ControllerPose controllerRightPose;
-    public HandPose handLeftPose;
-    public HandPose handRightPose;
-
-    public static PoseFrame Interpolate(PoseFrame from, PoseFrame to, float time) {
-      return new PoseFrame {
+    public static Pose Interpolate(Pose from, Pose to, float time) {
+      return new Pose {
         headPosition = Vector3.Lerp(from.headPosition, to.headPosition, time),
         headRotation = Quaternion.Slerp(from.headRotation, to.headRotation, time),
         handLeftPosition = Vector3.Lerp(from.handLeftPosition, to.handLeftPosition, time),
@@ -66,5 +73,5 @@ public abstract class OvrAvatarDriver : MonoBehaviour {
     }
   };
 
-  public abstract bool GetCurrentPose(out PoseFrame pose);
+  public abstract bool GetPose(out Pose pose);
 }

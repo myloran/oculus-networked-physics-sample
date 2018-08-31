@@ -59,8 +59,8 @@ public class OvrAvatarLocalDriver : OvrAvatarDriver {
     }
   }
 
-  public override bool GetCurrentPose(out PoseFrame p) {
-    p = new PoseFrame {
+  public override bool GetPose(out Pose p) {
+    p = new Pose {
       voiceAmplitude = voiceAmplitude,
       headPosition = InputTracking.GetLocalPosition(XRNode.CenterEye),
       headRotation = InputTracking.GetLocalRotation(XRNode.CenterEye),

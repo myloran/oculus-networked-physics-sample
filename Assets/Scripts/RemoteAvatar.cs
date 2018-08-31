@@ -6,179 +6,119 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
-using System;
 using UnityEngine;
 using UnityEngine.Assertions;
-using System.Collections.Generic;
+using static AvatarState;
 
-public class RemoteAvatar : OvrAvatarDriver
-{
-    const float LineWidth = 0.25f;
+public class RemoteAvatar : OvrAvatarDriver {
+  public class Hand {
+    public Animator animator;
+    public Transform transform;
 
-    int clientIndex;
+    public GameObject
+      point,
+      grip;
+  }
 
-    public void SetClientIndex( int clientIndex )
-    {
-        this.clientIndex = clientIndex;
+  Context context;
+  Pose pose = new Pose();
+
+  Hand
+    leftHand = new Hand(),
+    rightHand = new Hand();
+  
+  const float LineWidth = 0.25f;
+  int clientId;
+
+  public void SetClientId(int id) => clientId = id;
+  public void SetContext(Context c) => context = c;
+  public void CubeAttached(ref Hand h) => CreatePoint(ref h);
+  public Hand GetLeftHand() => leftHand;
+  public Hand GetRightHand() => rightHand;
+  public GameObject GetHead() => GetComponent<OvrAvatar>().Head.gameObject;
+
+  void Start() {
+    var a = (OvrAvatar)GetComponent(typeof(OvrAvatar));
+    leftHand.animator = a.HandLeft.animator;
+    rightHand.animator = a.HandRight.animator;
+    leftHand.transform = a.HandLeftRoot;
+    rightHand.transform = a.HandRightRoot;
+    Assert.IsNotNull(leftHand.transform);
+    Assert.IsNotNull(rightHand.transform);
+  }
+
+  void CreatePoint(ref Hand h) {
+    if (h.point) return;
+
+    h.point = Instantiate(context.remoteLinePrefabs[clientId], Vector3.zero, Quaternion.identity);
+    Assert.IsNotNull(h.point);
+    UpdatePoint(ref h);
+  }
+
+  void UpdatePoint(ref Hand h) {
+    if (!h.point) return;
+
+    var line = h.point.GetComponent<LineRenderer>();
+    if (!line) return;
+
+    var start = h.transform.position;
+    var finish = h.grip.transform.position;
+
+    if ((finish - start).magnitude < 1) {
+      line.positionCount = 0;
+      return;
     }
 
-    public class HandData
-    {
-        public Animator animator;
-        public Transform transform;
-        public GameObject pointLine;
-        public GameObject gripObject;
-    };
+    line.positionCount = 2;
+    line.SetPosition(0, start);
+    line.SetPosition(1, finish);
+    line.startWidth = LineWidth;
+    line.endWidth = LineWidth;
+  }
 
-    HandData leftHand = new HandData();
-    HandData rightHand = new HandData();
-    PoseFrame remotePose = new PoseFrame();
-    Context context;
+  public void CubeDetached(ref Hand h) {
+    if (!h.grip) return;
 
-    public HandData GetLeftHand() { return leftHand; }
-    public HandData GetRightHand() { return rightHand; }
+    Destroy(h.point);
+    h.point = null;
+    var rigidBody = h.grip.GetComponent<Rigidbody>();
+    rigidBody.isKinematic = false;
+    rigidBody.detectCollisions = true;
+    h.grip.transform.SetParent(null);
+    h.grip = null;
+  }
 
-    public void SetContext( Context context )
-    {
-        this.context = context;
-    }
+  public void Update() {
+    UpdateHand(ref leftHand);
+    UpdateHand(ref rightHand);
+    UpdatePoint(ref leftHand);
+    UpdatePoint(ref rightHand);
+  }
 
-	void Start()
-    {
-        var oculusAvatar = (OvrAvatar) GetComponent( typeof( OvrAvatar ) );
+  public void UpdateHand(ref Hand h) {
+    if (!h.grip) return;
 
-        leftHand.animator = oculusAvatar.HandLeft.animator;
-        rightHand.animator = oculusAvatar.HandRight.animator;
+    var network = h.grip.GetComponent<NetworkInfo>(); //while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
+    network.SetLastFrame((long)context.GetSimulationFrame());
+  }
 
-        leftHand.transform = oculusAvatar.HandLeftRoot;
-        rightHand.transform = oculusAvatar.HandRightRoot;
+  public bool GetAvatarState(out AvatarState s) {
+    Initialize(out s, clientId, pose, leftHand.grip, rightHand.grip);
+    return true;
+  }
 
-        Assert.IsNotNull( leftHand.transform );
-        Assert.IsNotNull( rightHand.transform );
-	}
+  public void ApplyAvatarPose(ref AvatarState s) 
+    => ApplyPose(ref s, clientId, pose, context);
 
-    void CreatePointingLine( ref HandData hand )
-    {
-        if ( !hand.pointLine )
-        {
-            hand.pointLine = (GameObject) Instantiate( context.remoteLinePrefabs[clientIndex], Vector3.zero, Quaternion.identity );
+  public void ApplyLeftHandUpdate(ref AvatarState s) 
+    => AvatarState.ApplyLeftHandUpdate(ref s, clientId, context, this);
 
-            Assert.IsNotNull( hand.pointLine );
+  public void ApplyRightHandUpdate(ref AvatarState s) 
+    => AvatarState.ApplyRightHandUpdate(ref s, clientId, context, this);
 
-            UpdatePointingLine( ref hand );
-        }
-    }
+  public override bool GetPose(out Pose p) {
+    p = pose;
+    return true;
+  }
 
-    void UpdatePointingLine( ref HandData hand )
-    {
-        if ( hand.pointLine )
-        {
-            var lineRenderer = hand.pointLine.GetComponent<LineRenderer>();
-
-            Vector3 start = hand.transform.position;
-            Vector3 finish = hand.gripObject.transform.position;
-
-            if ( lineRenderer )
-            {
-                if ( ( finish - start ).magnitude >= 1 )
-                {
-                    lineRenderer.positionCount = 2;
-                    lineRenderer.SetPosition( 0, start );
-                    lineRenderer.SetPosition( 1, finish );
-                    lineRenderer.startWidth = LineWidth;
-                    lineRenderer.endWidth = LineWidth;
-                }
-                else
-                {
-                    lineRenderer.positionCount = 0;
-                }
-            }
-        }
-    }
-
-    void DestroyPointingLine( ref HandData hand )
-    {
-        if ( hand.pointLine )
-        {
-            DestroyObject( hand.pointLine );
-
-            hand.pointLine = null;
-        }
-    }
-
-    public void CubeAttached( ref HandData hand )
-    {
-        CreatePointingLine( ref hand );
-    }
-
-    public void CubeDetached( ref HandData hand )
-    {
-        if ( !hand.gripObject )
-            return;
-
-        DestroyPointingLine( ref hand );
-
-        var rigidBody = hand.gripObject.GetComponent<Rigidbody>();
-
-        rigidBody.isKinematic = false;
-        rigidBody.detectCollisions = true;
-
-        hand.gripObject.transform.SetParent( null );
-
-        hand.gripObject = null;
-    }
-
-    public void Update()
-    {
-        UpdateHand( ref leftHand );
-        UpdateHand( ref rightHand );
-
-        UpdatePointingLine( ref leftHand );
-        UpdatePointingLine( ref rightHand );
-    }
-
-    public void UpdateHand( ref HandData hand )
-    {
-        if ( hand.gripObject )
-        {
-            // while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
-            NetworkInfo networkInfo = hand.gripObject.GetComponent<NetworkInfo>();
-            networkInfo.SetLastFrame( (long) context.GetSimulationFrame() );
-        }
-    }
-
-    public bool GetAvatarState( out AvatarState state )
-    {
-        AvatarState.Initialize( out state, clientIndex, remotePose, leftHand.gripObject, rightHand.gripObject );
-        return true;
-    }
-
-    public void ApplyAvatarPose( ref AvatarState state )
-    {
-        AvatarState.ApplyPose( ref state, clientIndex, remotePose, context );
-    }
-
-    public void ApplyLeftHandUpdate( ref AvatarState state )
-    {
-        AvatarState.ApplyLeftHandUpdate( ref state, clientIndex, context, this );
-    }
-
-    public void ApplyRightHandUpdate( ref AvatarState state )
-    {
-        AvatarState.ApplyRightHandUpdate( ref state, clientIndex, context, this );
-    }
-
-    public override bool GetCurrentPose( out PoseFrame pose )
-    {
-        pose = remotePose;
-        return true;
-    }
-
-    public GameObject GetHead()
-    {
-        var oculusAvatar = (OvrAvatar) GetComponent( typeof( OvrAvatar ) );
-        return oculusAvatar.Head.gameObject;
-    }
 }
-

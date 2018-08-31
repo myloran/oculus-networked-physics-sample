@@ -4,7 +4,7 @@ using System.Collections.Generic;
 public class OvrAvatarRemoteDriver : OvrAvatarDriver {
   Queue<OvrAvatarPacket> packetQueue = new Queue<OvrAvatarPacket>();
   OvrAvatarPacket currentPacket = null;
-  PoseFrame currentPose = null;
+  Pose currentPose = null;
   const int MinPacketQueue = 1;
   const int MaxPacketQueue = 4;
   float currentPacketTime = 0.0f;
@@ -47,7 +47,7 @@ public class OvrAvatarRemoteDriver : OvrAvatarDriver {
     packetQueue.Enqueue(packet);
   }
 
-  public override bool GetCurrentPose(out PoseFrame pose) {
+  public override bool GetPose(out Pose pose) {
     if (currentPose != null) {
       pose = currentPose;
       return true;

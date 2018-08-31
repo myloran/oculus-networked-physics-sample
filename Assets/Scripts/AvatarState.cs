@@ -11,7 +11,7 @@ using Network;
 using System;
 using UnityEngine;
 using UnityEngine.Assertions;
-using Frame = OvrAvatarDriver.PoseFrame;
+using Pose = OvrAvatarDriver.Pose;
 using static UnityEngine.Quaternion;
 using static UnityEngine.Vector3;
 using static System.Math;
@@ -127,16 +127,16 @@ public struct AvatarState {
     areRightHandThumbsUp,
     isRightHandHoldingCube;
 
-  public static void Initialize(out AvatarState s, int clientId, Frame frame, GameObject leftHandHeldObject, GameObject rightHandHeldObject) {
+  public static void Initialize(out AvatarState s, int clientId, Pose pose, GameObject leftHandHeldObject, GameObject rightHandHeldObject) {
     s.clientId = clientId;
-    s.headPosition = frame.headPosition;
-    s.headRotation = frame.headRotation;
-    s.leftHandPosition = frame.handLeftPosition;
-    s.leftHandRotation = frame.handLeftRotation;
-    s.leftHandGripTrigger = frame.handLeftPose.gripFlex;
-    s.leftHandIdTrigger = frame.handLeftPose.indexFlex;
-    s.isLeftHandPointing = frame.handLeftPose.isPointing;
-    s.areLeftHandThumbsUp = frame.handLeftPose.isThumbUp;
+    s.headPosition = pose.headPosition;
+    s.headRotation = pose.headRotation;
+    s.leftHandPosition = pose.handLeftPosition;
+    s.leftHandRotation = pose.handLeftRotation;
+    s.leftHandGripTrigger = pose.handLeftPose.gripFlex;
+    s.leftHandIdTrigger = pose.handLeftPose.indexFlex;
+    s.isLeftHandPointing = pose.handLeftPose.isPointing;
+    s.areLeftHandThumbsUp = pose.handLeftPose.isThumbUp;
 
     if (leftHandHeldObject) {
       s.isLeftHandHoldingCube = true;
@@ -155,12 +155,12 @@ public struct AvatarState {
       s.leftHandCubeLocalRotation = identity;
     }
 
-    s.rightHandPosition = frame.handRightPosition;
-    s.rightHandRotation = frame.handRightRotation;
-    s.rightHandGripTrigger = frame.handRightPose.gripFlex;
-    s.rightHandIdTrigger = frame.handRightPose.indexFlex;
-    s.isRightHandPointing = frame.handRightPose.isPointing;
-    s.areRightHandThumbsUp = frame.handRightPose.isThumbUp;
+    s.rightHandPosition = pose.handRightPosition;
+    s.rightHandRotation = pose.handRightRotation;
+    s.rightHandGripTrigger = pose.handRightPose.gripFlex;
+    s.rightHandIdTrigger = pose.handRightPose.indexFlex;
+    s.isRightHandPointing = pose.handRightPose.isPointing;
+    s.areRightHandThumbsUp = pose.handRightPose.isThumbUp;
 
     if (rightHandHeldObject) {
       s.isRightHandHoldingCube = true;
@@ -178,10 +178,10 @@ public struct AvatarState {
       s.rightHandCubeLocalPosition = zero;
       s.rightHandCubeLocalRotation = identity;
     }
-    s.voiceAmplitude = frame.voiceAmplitude;
+    s.voiceAmplitude = pose.voiceAmplitude;
   }
 
-  public static void ApplyPose(ref AvatarState s, int clientId, Frame frame, Context context) {
+  public static void ApplyPose(ref AvatarState s, int clientId, Pose frame, Context context) {
     frame.headPosition = s.headPosition;
     frame.headRotation = s.headRotation;
     frame.handLeftPosition = s.leftHandPosition;
