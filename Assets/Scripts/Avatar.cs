@@ -193,30 +193,27 @@ public class Avatar : OvrAvatarLocalDriver {
       angle);
   }
 
-  void UpdateZoom(ref HandData d) {
+  void UpdateZoom(ref HandData d) { //check for input first
     if (!d.grip) return;
 
-    Vector3 start, direction;
-    GetFingerInput(ref d, out start, out direction);
+    var obj = d.grip.transform;
+    var position = GetHandPosition(ref d);
+    var direction = obj.position - position;
 
-    if (d.input.stick.y <= -StickThreshold) { //seems like it does nothing
-      var delta = d.grip.transform.position - start; //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
-      var distance = delta.magnitude;
+    if (d.input.stick.y >= StickThreshold && Dot(direction, d.transform.forward) < ZoomMaximum)
+      obj.position += ZoomSpeed * deltaTime * d.transform.forward; //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
 
-      if (distance > ZoomMinimum) {
-        distance -= ZoomSpeed * deltaTime;
+    else if (d.input.stick.y <= -StickThreshold && direction.magnitude > ZoomMinimum)
+      obj.position = position + direction.normalized * Max(direction.magnitude - ZoomSpeed * deltaTime, ZoomMinimum); //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
+  }
 
-        if (distance < ZoomMinimum)
-          distance = ZoomMinimum;
+  public Vector3 GetHandPosition(ref HandData d) {
+    var positions = new[] {
+      new Vector3(-0.05f, 0.0f, 0.0f),
+      new Vector3(+0.05f, 0.0f, 0.0f)
+    };
 
-        d.grip.transform.position = start + delta;
-      }
-    }
-
-    if (d.input.stick.y >= StickThreshold) {      
-      if (Dot(d.grip.transform.position - start, direction) < ZoomMaximum) //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
-        d.grip.transform.position += (ZoomSpeed * deltaTime) * direction;
-    }
+    return d.transform.TransformPoint(positions[d.id]);
   }
 
   void UpdateSnapToHand(ref HandData d) {
@@ -488,11 +485,7 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void GetFingerInput(ref HandData d, out Vector3 start, out Vector3 direction) {
-    var positions = new[] {
-      new Vector3(-0.05f, 0.0f, 0.0f),
-      new Vector3(+0.05f, 0.0f, 0.0f)
-    };
-    start = d.transform.TransformPoint(positions[d.id]);
+    start = GetHandPosition(ref d);
     direction = d.transform.forward;
   }
 
