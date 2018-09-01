@@ -166,7 +166,7 @@ public class Avatar : OvrAvatarLocalDriver {
     var controller = (d.id == LeftHand) ? pose.controllerLeftPose : pose.controllerRightPose;
 
     CollectInput(ref hand, ref controller, ref d.input); //why this is needed?
-    UpdateRotate(ref d);
+    RotateGrip(ref d);
     UpdateZoom(ref d);
     UpdateGrip(ref d);
     UpdateState(ref d);
@@ -176,15 +176,15 @@ public class Avatar : OvrAvatarLocalDriver {
 
   void UpdateHandFixed(ref HandData d, Pose pose) => UpdateSnapToHand(ref d);
 
-  void UpdateRotate(ref HandData d) {
+  void RotateGrip(ref HandData d) {
     if (!d.grip) return;
 
     var angle = 0.0f;
 
     if (d.input.stick.x <= -StickThreshold)
-      angle = +RotateSpeed * deltaTime;
+      angle = RotateSpeed * deltaTime;
 
-    if (d.input.stick.x >= +StickThreshold)
+    if (d.input.stick.x >= StickThreshold)
       angle = -RotateSpeed * deltaTime;
 
     d.grip.transform.RotateAround(
@@ -198,10 +198,9 @@ public class Avatar : OvrAvatarLocalDriver {
 
     Vector3 start, direction;
     GetFingerInput(ref d, out start, out direction);
-    var position = d.grip.transform.position;
 
-    if (d.input.stick.y <= -StickThreshold) {
-      var delta = position - start; //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
+    if (d.input.stick.y <= -StickThreshold) { //seems like it does nothing
+      var delta = d.grip.transform.position - start; //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
       var distance = delta.magnitude;
 
       if (distance > ZoomMinimum) {
@@ -214,8 +213,8 @@ public class Avatar : OvrAvatarLocalDriver {
       }
     }
 
-    if (d.input.stick.y >= +StickThreshold) {      
-      if (Dot(position - start, direction) < ZoomMaximum) //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
+    if (d.input.stick.y >= StickThreshold) {      
+      if (Dot(d.grip.transform.position - start, direction) < ZoomMaximum) //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
         d.grip.transform.position += (ZoomSpeed * deltaTime) * direction;
     }
   }
