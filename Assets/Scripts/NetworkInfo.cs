@@ -27,8 +27,8 @@ public class NetworkInfo : UnityEngine.MonoBehaviour {
   public ushort m_authoritySequence;                                  // sequence number increased on each authority change (eg. indirect interaction, such as being hit by an object thrown by a player)
   public int m_holdClientIndex = nobody;                              // client id of player currently holding this cube. -1 if not currently being held.
   public HoldType m_holdType = None;                         // while this cube is being held, this identifies whether it is being held in the left or right hand, or by the headset + controller fallback.
-  public Avatar m_localAvatar;                                        // while this cube is held by the local player, this points to the local avatar.
-  public Avatar.HandData m_localHand;                                 // while this cube is held by the local player, this points to the local avatar hand that is holding it.
+  public Hands m_localAvatar;                                        // while this cube is held by the local player, this points to the local avatar.
+  public Hands.HandData m_localHand;                                 // while this cube is held by the local player, this points to the local avatar hand that is holding it.
   public RemoteAvatar m_remoteAvatar;                                 // while this cube is held by a remote player, this points to the remote avatar.
   public RemoteAvatar.Hand m_remoteHand;                          // while this cube is held by a remote player, this points to the remote avatar hand that is holding it.
   public ulong m_lastActiveFrame = 0;                                 // the frame number this cube was last active (not at rest). used to return to default authority (white) some amount of time after coming to rest.
@@ -64,8 +64,8 @@ public class NetworkInfo : UnityEngine.MonoBehaviour {
   public int GetCubeId() => m_cubeId;
   public int GetAuthorityId() => m_authorityIndex;
   public int GetHoldClientId() => m_holdClientIndex;
-  public long GetLastFrame() => m_lastPlayerInteractionFrame;
-  public void SetLastFrame(long frame) => m_lastPlayerInteractionFrame = frame;
+  public long GetInteractionFrame() => m_lastPlayerInteractionFrame;
+  public void SetInteractionFrame(long frame) => m_lastPlayerInteractionFrame = frame;
   public bool IsHeldByPlayer() => m_holdClientIndex != -1;
   public bool IsHeldByLocalPlayer() => m_localAvatar != null;
   public bool IsHeldByRemotePlayer(RemoteAvatar avatar, RemoteAvatar.Hand hand) => m_remoteAvatar == avatar && m_remoteHand == hand;
@@ -90,11 +90,11 @@ public class NetworkInfo : UnityEngine.MonoBehaviour {
   /*
    * Attach cube to local player.
    */
-  public void AttachCubeToLocalPlayer(Avatar avatar, Avatar.HandData h) {
+  public void AttachCubeToLocalPlayer(Hands hands, Hands.HandData h) {
     DetachCube();
-    m_localAvatar = avatar;
+    m_localAvatar = hands;
     m_localHand = h;
-    m_holdType = (h.id == Avatar.LeftHand) ? LeftHand : RightHand;
+    m_holdType = (h.id == Hands.LeftHand) ? LeftHand : RightHand;
     m_holdClientIndex = m_context.GetClientId();
     m_authorityIndex = m_context.GetAuthorityId();
     IncreaseOwnershipSequence();
@@ -105,7 +105,7 @@ public class NetworkInfo : UnityEngine.MonoBehaviour {
     gameObject.layer = m_context.GetGripLayer();
     gameObject.transform.SetParent(h.transform, true);
     h.supports = m_context.FindSupports(h.grip);
-    avatar.AttachCube(ref h);
+    hands.AttachCube(ref h);
   }
 
   /*

@@ -71,7 +71,7 @@ public class Loopback: Common
         guestContext.ShowAvatar( 1 );
         guestContext.ShowAvatar( 1 );
 
-        localAvatar.GetComponent<Avatar>().SetContext( hostContext.GetComponent<Context>() );
+        localAvatar.GetComponent<Hands>().SetContext( hostContext.GetComponent<Context>() );
         localAvatar.transform.position = hostContext.GetAvatar( 0 ).gameObject.transform.position;
         localAvatar.transform.rotation = hostContext.GetAvatar( 0 ).gameObject.transform.rotation;
 
@@ -93,7 +93,7 @@ public class Loopback: Common
         guestContext.ShowAvatar( 0 );
         guestContext.HideAvatar( 1 );
 
-        localAvatar.GetComponent<Avatar>().SetContext( guestContext.GetComponent<Context>() );
+        localAvatar.GetComponent<Hands>().SetContext( guestContext.GetComponent<Context>() );
         localAvatar.transform.position = guestContext.GetAvatar( 1 ).gameObject.transform.position;
         localAvatar.transform.rotation = guestContext.GetAvatar( 1 ).gameObject.transform.rotation;
 
@@ -166,9 +166,9 @@ public class Loopback: Common
 
     new void FixedUpdate()
     {
-        var avatar = localAvatar.GetComponent<Avatar>();
+        var hands = localAvatar.GetComponent<Hands>();
 
-        bool reset = Input.GetKey( "space" ) || ( avatar.IsPressingIndex() && avatar.IsPressingX() );
+        bool reset = Input.GetKey( "space" ) || ( hands.IsPressingIndex() && hands.IsPressingX() );
 
         if ( reset )
         {
@@ -176,11 +176,11 @@ public class Loopback: Common
             hostContext.IncreaseResetSequence();
         }
 
-        if ( Input.GetKey( "1" ) || avatar.IsPressingX() )
+        if ( Input.GetKey( "1" ) || hands.IsPressingX() )
         {
             SwitchToHostContext();
         }
-        else if ( Input.GetKey( "2" ) || avatar.IsPressingY() )
+        else if ( Input.GetKey( "2" ) || hands.IsPressingY() )
         {
             SwitchToGuestContext();
         }
@@ -373,7 +373,7 @@ public class Loopback: Common
                 {
                    // grab state from the local avatar.
 
-                    localAvatar.GetComponent<Avatar>().GetAvatar( out avatars[numAvatarStates] );
+                    localAvatar.GetComponent<Hands>().GetState( out avatars[numAvatarStates] );
                     numAvatarStates++;
                 }
                 else
@@ -397,7 +397,7 @@ public class Loopback: Common
 
             if ( currentContext == GetContext( fromClientIndex ) )
             {
-                localAvatar.GetComponent<Avatar>().GetAvatar( out avatars[0] );
+                localAvatar.GetComponent<Hands>().GetState( out avatars[0] );
             }
             else
             {
@@ -501,7 +501,7 @@ public class Loopback: Common
 
         // Mirror the local avatar onto its remote avatar on the current context.
         AvatarState avatarState;
-        localAvatar.GetComponent<Avatar>().GetAvatar( out avatarState );
+        localAvatar.GetComponent<Hands>().GetState( out avatarState );
         currentContext.GetAvatar( currentContext.GetClientId() ).ApplyAvatarPose( ref avatarState );
 
         Profiler.EndSample();

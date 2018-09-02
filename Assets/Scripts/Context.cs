@@ -530,7 +530,7 @@ public class Context : MonoBehaviour {
       if (collisionFrames[i] + HighEnergyCollisionPriorityBoostNumFrames >= (ulong)frame) //higher priority for cubes that were recently in a high energy collision
         priority = 10.0f;
       
-      if (network.GetLastFrame() + ThrownObjectPriorityBoostNumFrames >= frame) //*extremely* high priority for cubes that were just thrown by a player
+      if (network.GetInteractionFrame() + ThrownObjectPriorityBoostNumFrames >= frame) //*extremely* high priority for cubes that were just thrown by a player
         priority = 1000000.0f;
 
       d.priorities[i].accumulator += priority;

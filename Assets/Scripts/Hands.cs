@@ -13,10 +13,13 @@ using static UnityEngine.Quaternion;
 using static UnityEngine.Vector3;
 using static UnityEngine.Time;
 using static System.Math;
-using static Avatar.HandState;
+using static Hands.HandState;
 using static Constants;
 
-public class Avatar : OvrAvatarLocalDriver {
+/// <summary>
+/// Handles pointing and grabbing for both hand
+/// </summary>
+public class Hands : OvrAvatarLocalDriver {
   public struct HandInput {
     public float handTrigger;
     public float indexTrigger;
@@ -36,7 +39,7 @@ public class Avatar : OvrAvatarLocalDriver {
 
   public class HandData {
     public struct ThrowRingBufferEntry {
-      public bool valid;
+      public bool valid; //is this really needed?
       public float speed;
     };
 
@@ -112,8 +115,11 @@ public class Avatar : OvrAvatarLocalDriver {
   public GameObject linePrefab;
   OvrAvatar avatar;
   Context context;
-  HandData leftHand = new HandData();
-  HandData rightHand = new HandData();
+
+  HandData 
+    left = new HandData(),
+    right = new HandData();
+
   int cubesLayer;
   int gripLayer;
   int layerMask;
@@ -121,8 +127,8 @@ public class Avatar : OvrAvatarLocalDriver {
   public void SetContext(Context c) {
     IsNotNull(c);
     context = c;
-    ResetHand(ref leftHand);
-    ResetHand(ref rightHand);
+    ResetHand(ref left);
+    ResetHand(ref right);
     cubesLayer = c.gameObject.layer;
     gripLayer = c.gameObject.layer + 1;
     layerMask = (1 << cubesLayer) | (1 << gripLayer);
@@ -131,16 +137,16 @@ public class Avatar : OvrAvatarLocalDriver {
   void Start() {
     IsNotNull(linePrefab);
     avatar = GetComponent<OvrAvatar>();
-    leftHand.id = LeftHand;
-    rightHand.id = RightHand;
-    leftHand.name = "left hand";
-    rightHand.name = "right hand";
-    leftHand.animator = avatar.HandLeft.animator;
-    rightHand.animator = avatar.HandRight.animator;
-    leftHand.transform = avatar.HandLeftRoot;
-    rightHand.transform = avatar.HandRightRoot;
-    IsNotNull(leftHand.transform);
-    IsNotNull(rightHand.transform);
+    left.id = LeftHand;
+    right.id = RightHand;
+    left.name = "left hand";
+    right.name = "right hand";
+    left.animator = avatar.HandLeft.animator;
+    right.animator = avatar.HandRight.animator;
+    left.transform = avatar.HandLeftRoot;
+    right.transform = avatar.HandRightRoot;
+    IsNotNull(left.transform);
+    IsNotNull(right.transform);
   }
 
   void Update() {
@@ -148,8 +154,8 @@ public class Avatar : OvrAvatarLocalDriver {
     Pose p;
     if (!GetPose(out p)) return;
 
-    UpdateHand(ref leftHand, p);
-    UpdateHand(ref rightHand, p);
+    UpdateHand(ref left, p);
+    UpdateHand(ref right, p);
   }
 
   void FixedUpdate() {
@@ -157,8 +163,8 @@ public class Avatar : OvrAvatarLocalDriver {
     Pose p;
     if (!GetPose(out p)) return;
 
-    UpdateHandFixed(ref leftHand, p);
-    UpdateHandFixed(ref rightHand, p);
+    if (left.grip) UpdateSnapToHand(ref left);
+    if (right.grip) UpdateSnapToHand(ref right);
   }
 
   void UpdateHand(ref HandData d, Pose pose) {
@@ -167,35 +173,31 @@ public class Avatar : OvrAvatarLocalDriver {
 
     CollectInput(ref hand, ref controller, ref d.input); //why this is needed?
     UpdateGripFrame(ref d);
-    RotateGrip(ref d);
-    ZoomGrip(ref d);
     CheckState(ref d);
     UpdateState(ref d);
+
+    if (!d.grip) return;
+
+    RotateGrip(ref d);
+    ZoomGrip(ref d);
     UpdateHeldObj(ref d);
   }
 
-  void UpdateHandFixed(ref HandData d, Pose pose) => UpdateSnapToHand(ref d);
-
   void RotateGrip(ref HandData d) {
-    if (!d.grip) return;
-
-    var angle = 0.0f;
-
-    if (d.input.stick.x <= -StickThreshold)
-      angle = RotateSpeed * deltaTime;
-
-    if (d.input.stick.x >= StickThreshold)
-      angle = -RotateSpeed * deltaTime;
-
     d.grip.transform.RotateAround(
       d.grip.transform.position,
-      d.transform.forward, 
-      angle);
+      d.transform.forward,
+      GetStickX(ref d) * RotateSpeed * deltaTime);
   }
 
-  void ZoomGrip(ref HandData d) { //check for input first
-    if (!d.grip) return;
+  int GetStickX(ref HandData d) {
+    if (d.input.stick.x <= -StickThreshold) return -1;
+    if (d.input.stick.x >= StickThreshold) return 1;
 
+    return 0;
+  }
+
+  void ZoomGrip(ref HandData d) {
     var grip = d.grip.transform;
     var position = GetHandPosition(ref d);
     var direction = grip.position - position;
@@ -207,7 +209,7 @@ public class Avatar : OvrAvatarLocalDriver {
       grip.position = position + direction.normalized * Max(direction.magnitude - ZoomSpeed * deltaTime, ZoomMinimum); //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
   }
 
-  public Vector3 GetHandPosition(ref HandData d) {
+  Vector3 GetHandPosition(ref HandData d) {
     var positions = new[] {
       new Vector3(-0.05f, 0.0f, 0.0f),
       new Vector3(+0.05f, 0.0f, 0.0f)
@@ -217,8 +219,6 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void UpdateSnapToHand(ref HandData d) {
-    if (!d.grip) return;
-
     Vector3 start, direction;
     GetFingerInput(ref d, out start, out direction);
 
@@ -256,19 +256,19 @@ public class Avatar : OvrAvatarLocalDriver {
   }
 
   void UpdateHeldObj(ref HandData d) {
-    if (!d.grip) return;
-
     int id = (d.throwId++) % ThrowRingBufferSize; //track data to improve throw release in ring buffer
     var diff = d.grip.transform.position - d.prevGripPosition;
     var speed = (float)Sqrt(diff.x * diff.x + diff.z * diff.z);
+
     d.throws[id].valid = true;
     d.throws[id].speed = speed * RenderFrameRate;
     d.prevHandPosition = d.transform.position; //track previous positions and rotations for hand and index finger so we can use this to determine linear and angular velocity at time of release
     d.prevHandRotation = d.transform.rotation;
     d.prevGripPosition = d.grip.transform.position;
-    d.prevGripRotation = d.grip.transform.rotation;    
+    d.prevGripRotation = d.grip.transform.rotation;
+
     var network = d.grip.GetComponent<NetworkInfo>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
-    network.SetLastFrame((long)context.GetSimulationFrame());
+    network.SetInteractionFrame((long)context.GetSimulationFrame());
   }
 
   void CollectInput(ref HandPose hand, ref ControllerPose controller, ref HandInput i) {
@@ -295,7 +295,7 @@ public class Avatar : OvrAvatarLocalDriver {
       }
 
     } else if(d.state == Pointing) {
-      if (DetectGrip(ref d))return;
+      if (DetectGrip(ref d)) return;
 
       if (!d.input.isPointing) {
         Transition(ref d, Neutral);
@@ -557,7 +557,7 @@ public class Avatar : OvrAvatarLocalDriver {
   Vector3 CalculateAngularVelocity(Quaternion previous, Quaternion current, float delta, float minimumAngle) {
     IsTrue(delta > 0.0f);
     var rotation = current * Inverse(previous);
-    var angle = (float)(2.0f * Acos(rotation.w)); //theta
+    var angle = (float)(2.0f * Acos(rotation.w));
 
     if (float.IsNaN(angle)) return zero;
     if (Abs(angle) < minimumAngle) return zero;
@@ -583,13 +583,13 @@ public class Avatar : OvrAvatarLocalDriver {
     return velocity;
   }
 
-  public bool GetAvatar(out AvatarState s) {
+  public bool GetState(out AvatarState s) {
     Pose pose;
     if (!avatar.Driver.GetPose(out pose)) {
       s = AvatarState.Default;
       return false;
     }
-    AvatarState.Initialize(out s, context.GetClientId(), pose, leftHand.grip, rightHand.grip);
+    AvatarState.Initialize(out s, context.GetClientId(), pose, left.grip, right.grip);
 
     return true;
   }
@@ -636,9 +636,9 @@ public class Avatar : OvrAvatarLocalDriver {
     d.supports = null;
   }
 
-  public bool IsPressingGrip() => leftHand.input.handTrigger > GripThreshold || rightHand.input.handTrigger > GripThreshold;
-  public bool IsPressingIndex() => leftHand.input.indexTrigger > IndexThreshold || rightHand.input.indexTrigger > IndexThreshold;
-  public bool IsPressingX() => leftHand.input.isPressingX || rightHand.input.isPressingX;
-  public bool IsPressingY() => leftHand.input.isPressingY || rightHand.input.isPressingY;
+  public bool IsPressingGrip() => left.input.handTrigger > GripThreshold || right.input.handTrigger > GripThreshold;
+  public bool IsPressingIndex() => left.input.indexTrigger > IndexThreshold || right.input.indexTrigger > IndexThreshold;
+  public bool IsPressingX() => left.input.isPressingX || right.input.isPressingX;
+  public bool IsPressingY() => left.input.isPressingY || right.input.isPressingY;
   public override bool GetPose(out Pose p) => base.GetPose(out p);
 }

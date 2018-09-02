@@ -90,7 +90,7 @@ public class Host : Common {
     for (int i = 0; i < MaxClients; ++i)
       context.HideAvatar(i);
 
-    localAvatar.GetComponent<Avatar>().SetContext(context.GetComponent<Context>());
+    localAvatar.GetComponent<Hands>().SetContext(context.GetComponent<Context>());
     localAvatar.transform.position = context.GetAvatar(0).gameObject.transform.position;
     localAvatar.transform.rotation = context.GetAvatar(0).gameObject.transform.rotation;
   }
@@ -306,9 +306,9 @@ public class Host : Common {
   }
 
   new void FixedUpdate() {
-    var avatar = localAvatar.GetComponent<Avatar>();
+    var hands = localAvatar.GetComponent<Hands>();
 
-    if (Input.GetKey("space") || (avatar.IsPressingIndex() && avatar.IsPressingX())) {
+    if (Input.GetKey("space") || (hands.IsPressingIndex() && hands.IsPressingX())) {
       context.Reset();
       context.IncreaseResetSequence();
     }
@@ -429,7 +429,7 @@ public class Host : Common {
       if (i == toClientId) continue;
 
       if (i == 0) {        
-        localAvatar.GetComponent<Avatar>().GetAvatar(out avatars[id]); //grab state from the local avatar.
+        localAvatar.GetComponent<Hands>().GetState(out avatars[id]); //grab state from the local avatar.
         Quantize(ref avatars[id], out avatarsQuantized[id]);
         id++;
       } else {        

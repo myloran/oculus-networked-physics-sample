@@ -103,7 +103,7 @@ public class Guest: Common
 
         context.Deactivate();
 
-        localAvatar.GetComponent<Avatar>().SetContext( context.GetComponent<Context>() );
+        localAvatar.GetComponent<Hands>().SetContext( context.GetComponent<Context>() );
     }
 
     void RetryUntilConnectedToServer()
@@ -589,7 +589,7 @@ public class Guest: Common
 
         int numAvatarStates = 1;
 
-        localAvatar.GetComponent<Avatar>().GetAvatar( out avatars[0] );
+        localAvatar.GetComponent<Hands>().GetState( out avatars[0] );
 
         AvatarState.Quantize( ref avatars[0], out avatarsQuantized[0] );
 

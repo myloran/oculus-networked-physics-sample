@@ -127,25 +127,25 @@ public struct AvatarState {
     areRightHandThumbsUp,
     isRightHandHoldingCube;
 
-  public static void Initialize(out AvatarState s, int clientId, Pose pose, GameObject leftHandHeldObject, GameObject rightHandHeldObject) {
+  public static void Initialize(out AvatarState s, int clientId, Pose p, GameObject leftHandHeldObj, GameObject rightHandHeldObj) {
     s.clientId = clientId;
-    s.headPosition = pose.headPosition;
-    s.headRotation = pose.headRotation;
-    s.leftHandPosition = pose.handLeftPosition;
-    s.leftHandRotation = pose.handLeftRotation;
-    s.leftHandGripTrigger = pose.handLeftPose.gripFlex;
-    s.leftHandIdTrigger = pose.handLeftPose.indexFlex;
-    s.isLeftHandPointing = pose.handLeftPose.isPointing;
-    s.areLeftHandThumbsUp = pose.handLeftPose.isThumbUp;
+    s.headPosition = p.headPosition;
+    s.headRotation = p.headRotation;
+    s.leftHandPosition = p.handLeftPosition;
+    s.leftHandRotation = p.handLeftRotation;
+    s.leftHandGripTrigger = p.handLeftPose.gripFlex;
+    s.leftHandIdTrigger = p.handLeftPose.indexFlex;
+    s.isLeftHandPointing = p.handLeftPose.isPointing;
+    s.areLeftHandThumbsUp = p.handLeftPose.isThumbUp;
 
-    if (leftHandHeldObject) {
+    if (leftHandHeldObj) {
       s.isLeftHandHoldingCube = true;
-      var network = leftHandHeldObject.GetComponent<NetworkInfo>();
+      var network = leftHandHeldObj.GetComponent<NetworkInfo>();
       s.leftHandCubeId = network.GetCubeId();
       s.leftHandAuthoritySequence = network.GetAuthoritySequence();
       s.leftHandOwnershipSequence = network.GetOwnershipSequence();
-      s.leftHandCubeLocalPosition = leftHandHeldObject.transform.localPosition;
-      s.leftHandCubeLocalRotation = leftHandHeldObject.transform.localRotation;
+      s.leftHandCubeLocalPosition = leftHandHeldObj.transform.localPosition;
+      s.leftHandCubeLocalRotation = leftHandHeldObj.transform.localRotation;
     } else {
       s.isLeftHandHoldingCube = false;
       s.leftHandCubeId = -1;
@@ -155,21 +155,21 @@ public struct AvatarState {
       s.leftHandCubeLocalRotation = identity;
     }
 
-    s.rightHandPosition = pose.handRightPosition;
-    s.rightHandRotation = pose.handRightRotation;
-    s.rightHandGripTrigger = pose.handRightPose.gripFlex;
-    s.rightHandIdTrigger = pose.handRightPose.indexFlex;
-    s.isRightHandPointing = pose.handRightPose.isPointing;
-    s.areRightHandThumbsUp = pose.handRightPose.isThumbUp;
+    s.rightHandPosition = p.handRightPosition;
+    s.rightHandRotation = p.handRightRotation;
+    s.rightHandGripTrigger = p.handRightPose.gripFlex;
+    s.rightHandIdTrigger = p.handRightPose.indexFlex;
+    s.isRightHandPointing = p.handRightPose.isPointing;
+    s.areRightHandThumbsUp = p.handRightPose.isThumbUp;
 
-    if (rightHandHeldObject) {
+    if (rightHandHeldObj) {
       s.isRightHandHoldingCube = true;
-      var network = rightHandHeldObject.GetComponent<NetworkInfo>();
+      var network = rightHandHeldObj.GetComponent<NetworkInfo>();
       s.rightHandCubeId = network.GetCubeId();
       s.rightHandAuthoritySequence = network.GetAuthoritySequence();
       s.rightHandOwnershipSequence = network.GetOwnershipSequence();
-      s.rightHandCubeLocalPosition = rightHandHeldObject.transform.localPosition;
-      s.rightHandCubeLocalRotation = rightHandHeldObject.transform.localRotation;
+      s.rightHandCubeLocalPosition = rightHandHeldObj.transform.localPosition;
+      s.rightHandCubeLocalRotation = rightHandHeldObj.transform.localRotation;
     } else {
       s.isRightHandHoldingCube = false;
       s.rightHandCubeId = -1;
@@ -178,85 +178,77 @@ public struct AvatarState {
       s.rightHandCubeLocalPosition = zero;
       s.rightHandCubeLocalRotation = identity;
     }
-    s.voiceAmplitude = pose.voiceAmplitude;
+    s.voiceAmplitude = p.voiceAmplitude;
   }
 
-  public static void ApplyPose(ref AvatarState s, int clientId, Pose pose, Context context) {
-    pose.headPosition = s.headPosition;
-    pose.headRotation = s.headRotation;
-    pose.handLeftPosition = s.leftHandPosition;
-    pose.handLeftRotation = s.leftHandRotation;
-    pose.handLeftPose.gripFlex = s.leftHandGripTrigger;
-    pose.handLeftPose.indexFlex = s.leftHandIdTrigger;
-    pose.handLeftPose.isPointing = s.isLeftHandPointing;
-    pose.handLeftPose.isThumbUp = s.areLeftHandThumbsUp;
-    pose.handRightPosition = s.rightHandPosition;
-    pose.handRightRotation = s.rightHandRotation;
-    pose.handRightPose.gripFlex = s.rightHandGripTrigger;
-    pose.handRightPose.indexFlex = s.rightHandIdTrigger;
-    pose.handRightPose.isPointing = s.isRightHandPointing;
-    pose.handRightPose.isThumbUp = s.areRightHandThumbsUp;
-    pose.voiceAmplitude = s.voiceAmplitude;
+  public static void ApplyPose(ref AvatarState s, int clientId, Pose p, Context context) {
+    p.headPosition = s.headPosition;
+    p.headRotation = s.headRotation;
+    p.handLeftPosition = s.leftHandPosition;
+    p.handLeftRotation = s.leftHandRotation;
+    p.handLeftPose.gripFlex = s.leftHandGripTrigger;
+    p.handLeftPose.indexFlex = s.leftHandIdTrigger;
+    p.handLeftPose.isPointing = s.isLeftHandPointing;
+    p.handLeftPose.isThumbUp = s.areLeftHandThumbsUp;
+    p.handRightPosition = s.rightHandPosition;
+    p.handRightRotation = s.rightHandRotation;
+    p.handRightPose.gripFlex = s.rightHandGripTrigger;
+    p.handRightPose.indexFlex = s.rightHandIdTrigger;
+    p.handRightPose.isPointing = s.isRightHandPointing;
+    p.handRightPose.isThumbUp = s.areRightHandThumbsUp;
+    p.voiceAmplitude = s.voiceAmplitude;
   }
 
   public static void UpdateLeftHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isLeftHandHoldingCube) return;
 
-    var cube = context.GetCube(s.leftHandCubeId);
-    var network = cube.GetComponent<NetworkInfo>();
-    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, network.GetOwnershipSequence())) return;
+    var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkInfo>();
+    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.GetOwnershipSequence())) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-    network.SetOwnershipSequence(s.leftHandOwnershipSequence);
-    network.SetAuthoritySequence(s.leftHandAuthoritySequence);
+    n.SetOwnershipSequence(s.leftHandOwnershipSequence);
+    n.SetAuthoritySequence(s.leftHandAuthoritySequence);
   }
 
   public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isRightHandHoldingCube) return;
 
-    var cube = context.GetCube(s.rightHandCubeId);
-    var network = cube.GetComponent<NetworkInfo>();
-    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, network.GetOwnershipSequence())) return;
+    var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkInfo>();
+    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.GetOwnershipSequence())) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-    network.SetOwnershipSequence(s.rightHandOwnershipSequence);
-    network.SetAuthoritySequence(s.rightHandAuthoritySequence);
+    n.SetOwnershipSequence(s.rightHandOwnershipSequence);
+    n.SetAuthoritySequence(s.rightHandAuthoritySequence);
   }
 
   public static void ApplyLeftHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
     Assert.IsTrue(clientId == s.clientId);
-
     if (!s.isLeftHandHoldingCube) return;
 
-    var cube = context.GetCube(s.leftHandCubeId);
-    var network = cube.GetComponent<NetworkInfo>();
+    var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkInfo>();
 
-    if (!network.IsHeldByRemotePlayer(avatar, avatar.GetLeftHand()))
-      network.AttachCubeToRemotePlayer(avatar, avatar.GetLeftHand(), s.clientId);
+    if (!n.IsHeldByRemotePlayer(avatar, avatar.GetLeftHand()))
+      n.AttachCubeToRemotePlayer(avatar, avatar.GetLeftHand(), s.clientId);
 
-    network.SetAuthoritySequence(s.leftHandAuthoritySequence);
-    network.SetOwnershipSequence(s.leftHandOwnershipSequence);
-    network.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
+    n.SetAuthoritySequence(s.leftHandAuthoritySequence);
+    n.SetOwnershipSequence(s.leftHandOwnershipSequence);
+    n.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
   }
 
   public static void ApplyRightHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
     Assert.IsTrue(clientId == s.clientId);
+    if (!s.isRightHandHoldingCube) return;
 
-    if (s.isRightHandHoldingCube) {
-      var cube = context.GetCube(s.rightHandCubeId);
-      var network = cube.GetComponent<NetworkInfo>();
+    var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkInfo>();
 
-      if (!network.IsHeldByRemotePlayer(avatar, avatar.GetRightHand())) {
-        network.AttachCubeToRemotePlayer(avatar, avatar.GetRightHand(), s.clientId);
-      }
+    if (!n.IsHeldByRemotePlayer(avatar, avatar.GetRightHand()))
+      n.AttachCubeToRemotePlayer(avatar, avatar.GetRightHand(), s.clientId);
 
-      network.SetAuthoritySequence(s.rightHandAuthoritySequence);
-      network.SetOwnershipSequence(s.rightHandOwnershipSequence);
-
-      network.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
-    }
+    n.SetAuthoritySequence(s.rightHandAuthoritySequence);
+    n.SetOwnershipSequence(s.rightHandOwnershipSequence);
+    n.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
   }
 
   public static void Quantize(ref AvatarState s, out AvatarStateQuantized q) {
