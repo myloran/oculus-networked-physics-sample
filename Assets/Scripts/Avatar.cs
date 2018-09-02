@@ -166,11 +166,11 @@ public class Avatar : OvrAvatarLocalDriver {
     var controller = (d.id == LeftHand) ? pose.controllerLeftPose : pose.controllerRightPose;
 
     CollectInput(ref hand, ref controller, ref d.input); //why this is needed?
+    UpdateGripFrame(ref d);
     RotateGrip(ref d);
-    UpdateZoom(ref d);
-    UpdateGrip(ref d);
+    ZoomGrip(ref d);
+    CheckState(ref d);
     UpdateState(ref d);
-    UpdateCurrentState(ref d);
     UpdateHeldObj(ref d);
   }
 
@@ -193,18 +193,18 @@ public class Avatar : OvrAvatarLocalDriver {
       angle);
   }
 
-  void UpdateZoom(ref HandData d) { //check for input first
+  void ZoomGrip(ref HandData d) { //check for input first
     if (!d.grip) return;
 
-    var obj = d.grip.transform;
+    var grip = d.grip.transform;
     var position = GetHandPosition(ref d);
-    var direction = obj.position - position;
+    var direction = grip.position - position;
 
     if (d.input.stick.y >= StickThreshold && Dot(direction, d.transform.forward) < ZoomMaximum)
-      obj.position += ZoomSpeed * deltaTime * d.transform.forward; //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
+      grip.position += ZoomSpeed * deltaTime * d.transform.forward; //zoom out: push out strictly along point direction. this lets objects grabbed up close always zoom out in a consistent direction
 
     else if (d.input.stick.y <= -StickThreshold && direction.magnitude > ZoomMinimum)
-      obj.position = position + direction.normalized * Max(direction.magnitude - ZoomSpeed * deltaTime, ZoomMinimum); //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
+      grip.position = position + direction.normalized * Max(direction.magnitude - ZoomSpeed * deltaTime, ZoomMinimum); //zoom in: sneaky trick, pull center of mass towards hand on zoom in!
   }
 
   public Vector3 GetHandPosition(ref HandData d) {
@@ -247,7 +247,7 @@ public class Avatar : OvrAvatarLocalDriver {
     }
   }
 
-  void UpdateGrip(ref HandData d) {
+  void UpdateGripFrame(ref HandData d) {
     if (d.input.handTrigger <= GripThreshold)
       d.inputFrame = 0;
 
@@ -285,7 +285,7 @@ public class Avatar : OvrAvatarLocalDriver {
     i.stick = controller.joystickPosition;
   }
 
-  void UpdateState(ref HandData d) {
+  void CheckState(ref HandData d) {
     if (d.state == Neutral) {
       if (DetectGrip(ref d)) return;
 
@@ -437,7 +437,7 @@ public class Avatar : OvrAvatarLocalDriver {
     d.state = state;
   }
 
-  void UpdateCurrentState(ref HandData d) {
+  void UpdateState(ref HandData d) {
     if (d.state == Pointing) {
       UpdateLine(ref d);
       ForcePointAnimation(ref d);
