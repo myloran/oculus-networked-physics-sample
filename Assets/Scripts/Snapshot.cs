@@ -222,9 +222,9 @@ public class Snapshot {
     z = Clamp(z, LocalPositionMinimum, LocalPositionMaximum);
   }
 
-  public static void GetState(Rigidbody rigidbody, CubeNetworkInfo network, ref CubeState s, ref Vector3 origin) {
+  public static void GetState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin) {
     s.isActive = !rigidbody.IsSleeping();
-    s.authorityId = network.GetAuthorityId();
+    s.authorityId = network.authorityId;
     s.authoritySequence = network.GetAuthoritySequence();
     s.ownershipSequence = network.GetOwnershipSequence();
 
@@ -246,7 +246,7 @@ public class Snapshot {
     ClampAngularVelocity(ref s.angularVelocityX, ref s.angularVelocityY, ref s.angularVelocityZ);
   }
 
-  public static void ApplyState(Rigidbody rigidbody, CubeNetworkInfo network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
+  public static void ApplyState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
     if (network.HasHolder())
       network.DetachCube();
 
@@ -256,7 +256,7 @@ public class Snapshot {
     if (!s.isActive && !rigidbody.IsSleeping())
         rigidbody.Sleep();
 
-    network.SetAuthorityId(s.authorityId);
+    network.authorityId = s.authorityId;
     network.SetAuthoritySequence(s.authoritySequence);
     network.SetOwnershipSequence(s.ownershipSequence);
 

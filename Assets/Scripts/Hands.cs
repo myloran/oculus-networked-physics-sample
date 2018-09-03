@@ -228,7 +228,7 @@ public class Hands : OvrAvatarLocalDriver {
 
     if (direction.magnitude > WarpDistance) {
       var rigidBody = h.grip.GetComponent<Rigidbody>();
-      var network = h.grip.GetComponent<CubeNetworkInfo>();
+      var network = h.grip.GetComponent<NetworkCube>();
 
       network.SmoothMove(position + direction.normalized * WarpDistance, rigidBody.rotation);
     }
@@ -256,7 +256,7 @@ public class Hands : OvrAvatarLocalDriver {
     d.prevGripPosition = d.grip.transform.position;
     d.prevGripRotation = d.grip.transform.rotation;
 
-    var network = d.grip.GetComponent<CubeNetworkInfo>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
+    var network = d.grip.GetComponent<NetworkCube>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
     network.SetInteractionFrame((long)context.GetSimulationFrame());
   }
 
@@ -310,8 +310,8 @@ public class Hands : OvrAvatarLocalDriver {
     if (d.input.handTrigger < GripThreshold) return false;
     if (d.point || d.pointFrame + PointStickyFrames < context.GetRenderFrame()) return false;
 
-    var network = d.point.GetComponent<CubeNetworkInfo>();
-    if (!network.CanGrabCube(d.inputFrame)) return false;
+    var network = d.point.GetComponent<NetworkCube>();
+    if (network.HasHolder() || d.inputFrame <= 0) return false;
 
     AttachToHand(ref d, d.point);
     Transition(ref d, Grip);
@@ -320,8 +320,8 @@ public class Hands : OvrAvatarLocalDriver {
   }
 
   void AttachToHand(ref HandData d, GameObject obj) {
-    var network = obj.GetComponent<CubeNetworkInfo>();
-    network.AttachCubeToLocalPlayer(this, d);
+    var network = obj.GetComponent<NetworkCube>();
+    network.AttachToLocalPlayer(this, d);
 
 #if DEBUG_AUTHORITY
         Debug.Log( "client " + context.GetClientIndex() + " grabbed cube " + network.GetCubeId() + " and set ownership sequence to " + network.GetOwnershipSequence() );
@@ -381,10 +381,10 @@ public class Hands : OvrAvatarLocalDriver {
 
   void WakeUpObjects(List<GameObject> objects) {
     foreach (var obj in objects) {
-      var network = obj.GetComponent<CubeNetworkInfo>();
+      var network = obj.GetComponent<NetworkCube>();
       context.ResetBuffer(network.cubeId);
 
-      if (network.GetAuthorityId() == 0)
+      if (network.authorityId == 0)
         context.TakeAuthority(network);
 
       obj.GetComponent<Rigidbody>().WakeUp();
@@ -394,7 +394,7 @@ public class Hands : OvrAvatarLocalDriver {
   void DetachFromHand(ref HandData d) {
     if (d.grip == null) return; //IMPORTANT: This happens when passing a cube from hand-to-hand
 
-    var network = d.grip.GetComponent<CubeNetworkInfo>();
+    var network = d.grip.GetComponent<NetworkCube>();
     network.DetachCube();
 
 #if DEBUG_AUTHORITY
@@ -463,7 +463,7 @@ public class Hands : OvrAvatarLocalDriver {
     if (obj.layer != cubesLayer && obj.layer != gripLayer)
       return false;
 
-    var network = obj.GetComponent<CubeNetworkInfo>();
+    var network = obj.GetComponent<NetworkCube>();
     if (!network) return false;
 
     return true;

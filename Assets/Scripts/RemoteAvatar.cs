@@ -76,7 +76,7 @@ public class RemoteAvatar : OvrAvatarDriver {
     line.endWidth = LineWidth;
   }
 
-  public void CubeDetached(ref Hand h) {
+  public void DetachCube(ref Hand h) {
     if (!h.grip) return;
 
     Destroy(h.point);
@@ -98,7 +98,7 @@ public class RemoteAvatar : OvrAvatarDriver {
   public void UpdateHand(ref Hand h) {
     if (!h.grip) return;
 
-    var network = h.grip.GetComponent<CubeNetworkInfo>(); //while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
+    var network = h.grip.GetComponent<NetworkCube>(); //while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
     network.SetInteractionFrame((long)context.GetSimulationFrame());
   }
 
