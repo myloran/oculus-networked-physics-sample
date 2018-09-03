@@ -12,7 +12,7 @@ public class Touching : MonoBehaviour {
   public Context context;
   public int cubeId;
 
-  public void Initialize(Context context, int cubeId) {
+  public void Init(Context context, int cubeId) {
     this.context = context;
     this.cubeId = cubeId;
   }

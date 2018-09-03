@@ -21,34 +21,6 @@ using static Snapshot;
 using static AuthoritySystem;
 
 public class Context : MonoBehaviour {
-  public GameObject[] 
-    remoteAvatar = new GameObject[MaxClients],
-    remoteLinePrefabs = new GameObject[MaxClients];
-
-  public Material[] authorityMaterials = new Material[MaxAuthority];
-  public GameObject cubePrefab;
-  ConnectionData[] serverData;
-  ConnectionData clientData;
-  Interactions interactions = new Interactions();
-  HashSet<int> visited = new HashSet<int>();
-  Snapshot snapshot = new Snapshot();
-  GameObject[] cubes = new GameObject[NumCubes];
-  Vector3[] cubePositions = new Vector3[NumCubes];
-  RingBuffer[] buffer = new RingBuffer[NumCubes * RingBufferSize];
-  ulong[] collisionFrames = new ulong[NumCubes];
-
-  ulong 
-    renderFrame = 0,
-    simulationFrame = 0;
-
-  int 
-    clientId,
-    authorityId,
-    layer;
-
-  bool isActive = true;
-  ushort resetSequence = 0;
-
   public struct Priority {
     public int cubeId;
     public float accumulator;
@@ -104,10 +76,89 @@ public class Context : MonoBehaviour {
     }
   };
 
+  public GameObject[] 
+    remoteAvatar = new GameObject[MaxClients],
+    remoteLinePrefabs = new GameObject[MaxClients];
+
+  public Material[] authorityMaterials = new Material[MaxAuthority];
+  public GameObject cubePrefab;
+  ConnectionData[] server;
+  GameObject[] cubes = new GameObject[NumCubes];
+  HashSet<int> visited = new HashSet<int>();
+  ConnectionData client;
+  Interactions interactions = new Interactions();
+  Snapshot snapshot = new Snapshot();
+  Vector3[] cubePositions = new Vector3[NumCubes];
+  RingBuffer[] buffer = new RingBuffer[NumCubes * RingBufferSize];
+  ulong[] collisionFrames = new ulong[NumCubes];
+
+  ulong 
+    renderFrame = 0,
+    simulationFrame = 0;
+
+  int 
+    clientId,
+    authorityId,
+    layer;
+
+  bool isActive = true;
+  ushort resetSequence = 0;
+
+  void Awake() {
+    IsTrue(cubePrefab);
+    layer = gameObject.layer;
+    InitAvatars();
+    InitCubePositions();
+    CreateCubes();
+  }
+
+  public void Update() {
+    if (!IsActive()) return;
+
+    ProcessInteractions();
+    BeginSample("UpdateAuthorityMaterials");
+    UpdateAuthorityMaterials();
+    EndSample();
+    renderFrame++;
+  }
+
+  public void LateUpdate() => SmoothCubes();
+
+  public void FixedUpdate() {
+    if (!IsActive()) return;
+
+    ProcessInteractions();
+    CaptureSnapshot(snapshot);
+    ApplySnapshot(snapshot, true, true);
+    AddStateToBuffer();
+    UpdateAvatars();
+    UpdateCubesAuthority();
+    simulationFrame++;
+  }
+
+  public void Reset() {
+    BeginSample("Reset");
+    IsTrue(IsActive());
+    CreateCubes();
+
+    if (IsServer()) {
+      for (int i = 1; i < MaxClients; ++i) {
+        var data = GetServerData(i);
+        data.sendBuffer.Reset();
+        data.receiveBuffer.Reset();
+      }
+    } else {
+      var data = GetClientData();
+      data.sendBuffer.Reset();
+      data.receiveBuffer.Reset();
+    }
+    EndSample();
+  }
+
   public ConnectionData GetClientData() {
     IsTrue(IsClient());
 
-    return clientData;
+    return client;
   }
 
   public ConnectionData GetServerData(int id) {
@@ -115,7 +166,7 @@ public class Context : MonoBehaviour {
     IsTrue(id >= 1);
     IsTrue(id <= MaxClients);
 
-    return serverData[id - 1];
+    return server[id - 1];
   }
 
   public void Init(int id) {
@@ -125,25 +176,25 @@ public class Context : MonoBehaviour {
     IsTrue(authorityId >= 0 && authorityId < MaxAuthority);
 
     if (id == 0) {      
-      clientData = null; //initialize as server
-      serverData = new ConnectionData[MaxClients - 1];
+      client = null; //initialize as server
+      server = new ConnectionData[MaxClients - 1];
 
-      for (int i = 0; i < serverData.Length; ++i) {
-        serverData[i] = new ConnectionData();
-        InitPriorities(serverData[i]);
+      for (int i = 0; i < server.Length; ++i) {
+        server[i] = new ConnectionData();
+        InitPriorities(server[i]);
       }
     } else {      
-      clientData = new ConnectionData(); //initialize as client
-      serverData = null;
-      InitPriorities(clientData);
+      client = new ConnectionData(); //initialize as client
+      server = null;
+      InitPriorities(client);
     }
   }
 
   public void Shutdown() {
     clientId = 0;
     authorityId = 0;
-    clientData = null;
-    serverData = null;
+    client = null;
+    server = null;
   }
 
   public void Activate() {
@@ -233,57 +284,6 @@ public class Context : MonoBehaviour {
     return true;
   }
 
-  void Awake() {
-    IsTrue(cubePrefab);
-    layer = gameObject.layer;
-    InitAvatars();
-    InitCubePositions();
-    CreateCubes();
-  }
-
-  public void FixedUpdate() {
-    if (!IsActive()) return;
-
-    ProcessInteractions();
-    CaptureSnapshot(snapshot);
-    ApplySnapshot(snapshot, true, true);
-    AddStateToBuffer();
-    UpdateAvatars();
-    UpdateCubesAuthority();
-    simulationFrame++;
-  }
-
-  public void Update() {
-    if (!IsActive()) return;
-
-    ProcessInteractions();
-    BeginSample("UpdateAuthorityMaterials");
-    UpdateAuthorityMaterials();
-    EndSample();
-    renderFrame++;
-  }
-
-  public void LateUpdate() => SmoothCubes();
-
-  public void Reset() {
-    BeginSample("Reset");
-    IsTrue(IsActive());
-    CreateCubes();
-
-    if (IsServer()) {
-      for (int i = 1; i < MaxClients; ++i) {
-        var data = GetServerData(i);
-        data.sendBuffer.Reset();
-        data.receiveBuffer.Reset();
-      }
-    } else {
-      var data = GetClientData();
-      data.sendBuffer.Reset();
-      data.receiveBuffer.Reset();
-    }
-    EndSample();
-  }
-
   void UpdateAuthorityMaterials() {
     for (int i = 0; i < NumCubes; i++) {
       var network = cubes[i].GetComponent<NetworkCube>();
@@ -297,13 +297,11 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public Vector3 GetOrigin() => gameObject.transform.position;
-
   void CreateCubes() {
     BeginSample("CreateCubes");
     for (int i = 0; i < NumCubes; i++) {
       if (!cubes[i]) {
-        cubes[i] = Instantiate(cubePrefab, cubePositions[i] + GetOrigin(), identity); //cube initial create
+        cubes[i] = Instantiate(cubePrefab, gameObject.transform.position + cubePositions[i], identity); //cube initial create
         cubes[i].layer = gameObject.layer;
         var rigidBody = cubes[i].GetComponent<Rigidbody>();
         var network = cubes[i].GetComponent<NetworkCube>();
@@ -317,7 +315,7 @@ public class Context : MonoBehaviour {
         if (rigidBody.IsSleeping())
           rigidBody.WakeUp();
 
-        rigidBody.position = cubePositions[i] + GetOrigin();
+        rigidBody.position = cubePositions[i] + gameObject.transform.position;
         rigidBody.rotation = identity;
         rigidBody.velocity = zero;
         rigidBody.angularVelocity = zero;
@@ -438,9 +436,9 @@ public class Context : MonoBehaviour {
     visited.Clear();
 
     for (int i = 0; i < NumCubes; ++i) {
-      var network = cubes[i].GetComponent<NetworkCube>();
-      if (network.authorityId != authorityId) continue;
-      if (network.HasHolder()) continue;
+      var cube = cubes[i].GetComponent<NetworkCube>();
+      if (cube.authorityId != authorityId) continue;
+      if (cube.HasHolder()) continue;
       if (cubes[i].GetComponent<Rigidbody>().IsSleeping()) continue;
 
       ProcessInteractions((ushort)i);

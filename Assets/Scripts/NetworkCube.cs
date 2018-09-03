@@ -43,28 +43,28 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
   public void Init(Context c, int id) {
     context = c;
     cubeId = id;
-    touching.GetComponent<Touching>().Initialize(c, id);
+    touching.GetComponent<Touching>().Init(c, id);
     smoothed.transform.parent = null;
   }
 
   public bool HasHolder() => holderId != Nobody;
   public bool SameHolder(RemoteAvatar avatar, RemoteAvatar.Hand hand) => remoteAvatar == avatar && remoteHand == hand;
 
-  public void LocalGrip(Hands hands, Hands.HandData h) {
+  public void LocalGrip(Hands hands, Hands.HandData d) {
     Release();
     localAvatar = hands;
-    localHand = h;
+    localHand = d;
     holderId = context.GetClientId();
     authorityId = context.GetAuthorityId();
     ownershipSequence++;
     authoritySequence = 0;
     touching.GetComponent<BoxCollider>().isTrigger = false;
     gameObject.GetComponent<Rigidbody>().isKinematic = true;
-    h.grip = gameObject;
+    d.grip = gameObject;
     gameObject.layer = context.GetGripLayer();
-    gameObject.transform.SetParent(h.transform, true);
-    h.supports = context.FindSupports(h.grip);
-    hands.AttachCube(ref h);
+    gameObject.transform.SetParent(d.transform, true);
+    d.supports = context.FindSupports(d.grip);
+    hands.AttachCube(ref d);
   }
 
   public void RemoteGrip(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientId) {
