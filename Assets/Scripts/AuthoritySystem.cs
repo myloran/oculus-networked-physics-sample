@@ -23,7 +23,7 @@ public struct AuthoritySystem {
    */
   public static bool ShouldApplyUpdate(Context context, int cubeId, ushort ownershipSequence, ushort authoritySequence, int authorityId, bool fromAvatar, int fromClientId, int toClientId) {
     var cube = context.GetCube(cubeId);
-    var network = cube.GetComponent<NetworkInfo>();
+    var network = cube.GetComponent<CubeNetworkInfo>();
     var localOwnershipSequence = network.GetOwnershipSequence();
     var localAuthoritySequence = network.GetAuthoritySequence();
     int localAuthorityId = network.GetAuthorityId();
@@ -48,11 +48,11 @@ public struct AuthoritySystem {
       //       server -> client
       // =============================      
       if (authorityId == toClientId + 1) { //ignore if the server says the cube is under authority of this client. the server is just confirming we have authority
-        if (!network.IsConfirmed()) {
+        if (!network.isConfirmed) {
 #if DEBUG_AUTHORITY
                     Debug.Log( "client " + fromClientIndex + " confirms client " + toClientIndex + " has authority over cube " + cubeId + " (" + ownershipSequence + "," + authoritySequence + ")" );
 #endif // #if DEBUG_AUTHORITY
-          network.SetConfirmed();
+          network.isConfirmed = true;
         }
         return false;
       }

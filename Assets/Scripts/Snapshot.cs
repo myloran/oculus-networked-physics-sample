@@ -222,7 +222,7 @@ public class Snapshot {
     z = Clamp(z, LocalPositionMinimum, LocalPositionMaximum);
   }
 
-  public static void GetState(Rigidbody rigidbody, NetworkInfo network, ref CubeState s, ref Vector3 origin) {
+  public static void GetState(Rigidbody rigidbody, CubeNetworkInfo network, ref CubeState s, ref Vector3 origin) {
     s.isActive = !rigidbody.IsSleeping();
     s.authorityId = network.GetAuthorityId();
     s.authoritySequence = network.GetAuthoritySequence();
@@ -246,8 +246,8 @@ public class Snapshot {
     ClampAngularVelocity(ref s.angularVelocityX, ref s.angularVelocityY, ref s.angularVelocityZ);
   }
 
-  public static void ApplyState(Rigidbody rigidbody, NetworkInfo network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
-    if (network.IsHeldByPlayer())
+  public static void ApplyState(Rigidbody rigidbody, CubeNetworkInfo network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
+    if (network.HasHolder())
       network.DetachCube();
 
     if (s.isActive && rigidbody.IsSleeping())

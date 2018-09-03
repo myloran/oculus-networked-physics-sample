@@ -140,8 +140,8 @@ public struct AvatarState {
 
     if (leftHandHeldObj) {
       s.isLeftHandHoldingCube = true;
-      var network = leftHandHeldObj.GetComponent<NetworkInfo>();
-      s.leftHandCubeId = network.GetCubeId();
+      var network = leftHandHeldObj.GetComponent<CubeNetworkInfo>();
+      s.leftHandCubeId = network.cubeId;
       s.leftHandAuthoritySequence = network.GetAuthoritySequence();
       s.leftHandOwnershipSequence = network.GetOwnershipSequence();
       s.leftHandCubeLocalPosition = leftHandHeldObj.transform.localPosition;
@@ -164,8 +164,8 @@ public struct AvatarState {
 
     if (rightHandHeldObj) {
       s.isRightHandHoldingCube = true;
-      var network = rightHandHeldObj.GetComponent<NetworkInfo>();
-      s.rightHandCubeId = network.GetCubeId();
+      var network = rightHandHeldObj.GetComponent<CubeNetworkInfo>();
+      s.rightHandCubeId = network.cubeId;
       s.rightHandAuthoritySequence = network.GetAuthoritySequence();
       s.rightHandOwnershipSequence = network.GetOwnershipSequence();
       s.rightHandCubeLocalPosition = rightHandHeldObj.transform.localPosition;
@@ -202,7 +202,7 @@ public struct AvatarState {
   public static void UpdateLeftHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isLeftHandHoldingCube) return;
 
-    var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkInfo>();
+    var n = context.GetCube(s.leftHandCubeId).GetComponent<CubeNetworkInfo>();
     if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.GetOwnershipSequence())) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
@@ -214,7 +214,7 @@ public struct AvatarState {
   public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isRightHandHoldingCube) return;
 
-    var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkInfo>();
+    var n = context.GetCube(s.rightHandCubeId).GetComponent<CubeNetworkInfo>();
     if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.GetOwnershipSequence())) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
@@ -227,7 +227,7 @@ public struct AvatarState {
     Assert.IsTrue(clientId == s.clientId);
     if (!s.isLeftHandHoldingCube) return;
 
-    var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkInfo>();
+    var n = context.GetCube(s.leftHandCubeId).GetComponent<CubeNetworkInfo>();
 
     if (!n.IsHeldByRemotePlayer(avatar, avatar.GetLeftHand()))
       n.AttachCubeToRemotePlayer(avatar, avatar.GetLeftHand(), s.clientId);
@@ -241,7 +241,7 @@ public struct AvatarState {
     Assert.IsTrue(clientId == s.clientId);
     if (!s.isRightHandHoldingCube) return;
 
-    var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkInfo>();
+    var n = context.GetCube(s.rightHandCubeId).GetComponent<CubeNetworkInfo>();
 
     if (!n.IsHeldByRemotePlayer(avatar, avatar.GetRightHand()))
       n.AttachCubeToRemotePlayer(avatar, avatar.GetRightHand(), s.clientId);

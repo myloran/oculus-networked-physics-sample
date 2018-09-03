@@ -184,7 +184,7 @@ public class Context : MonoBehaviour {
 
   public void ResetAuthority(int clientId) {
     for (int i = 0; i < NumCubes; ++i) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       if (network.GetAuthorityId() != clientId + 1) continue;
 
       Debug.Log("Returning cube " + i + " to default authority");
@@ -286,7 +286,7 @@ public class Context : MonoBehaviour {
 
   void UpdateAuthorityMaterials() {
     for (int i = 0; i < NumCubes; i++) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       var renderer = network.smoothed.GetComponent<Renderer>();
       int id = network.GetAuthorityId();
 
@@ -306,7 +306,7 @@ public class Context : MonoBehaviour {
         cubes[i] = Instantiate(cubePrefab, cubePositions[i] + GetOrigin(), identity); //cube initial create
         cubes[i].layer = gameObject.layer;
         var rigidBody = cubes[i].GetComponent<Rigidbody>();
-        var network = cubes[i].GetComponent<NetworkInfo>();
+        var network = cubes[i].GetComponent<CubeNetworkInfo>();
 
         rigidBody.maxDepenetrationVelocity = PushOutVelocity; //this is *extremely* important to reduce jitter in the remote view of large stacks of rigid bodies
         network.touching.layer = GetTouchingLayer();
@@ -323,7 +323,7 @@ public class Context : MonoBehaviour {
         rigidBody.angularVelocity = zero;
         ResetBuffer(i);
 
-        var network = cubes[i].GetComponent<NetworkInfo>();
+        var network = cubes[i].GetComponent<CubeNetworkInfo>();
         network.DetachCube();
         network.SetAuthorityId(0);
         network.SetAuthoritySequence(0);
@@ -331,8 +331,8 @@ public class Context : MonoBehaviour {
 
         var renderer = network.smoothed.GetComponent<Renderer>();
         renderer.material = authorityMaterials[0];
-        network.m_positionError = zero;
-        network.m_rotationError = identity;
+        network.positionLag = zero;
+        network.rotationLag = identity;
         cubes[i].transform.parent = null;
       }
     }
@@ -345,7 +345,7 @@ public class Context : MonoBehaviour {
     for (int i = 0; i < NumCubes; i++) {
       if (!cubes[i]) continue;
 
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       network.smoothed.GetComponent<Renderer>().enabled = show;
     }
   }
@@ -377,7 +377,7 @@ public class Context : MonoBehaviour {
     if (supports.Contains(obj)) return;
 
     supports.Add(obj);
-    int id = obj.GetComponent<NetworkInfo>().GetCubeId();
+    int id = obj.GetComponent<CubeNetworkInfo>().cubeId;
 
     for (int i = 0; i < NumCubes; ++i) {
       if (interactions.Get(id).interactions[i] == 0) continue;
@@ -399,7 +399,7 @@ public class Context : MonoBehaviour {
     return supports.ToList();
   }
 
-  public void TakeAuthority(NetworkInfo n) {
+  public void TakeAuthority(CubeNetworkInfo n) {
     IsTrue(n.GetAuthorityId() == 0);
 #if DEBUG_AUTHORITY
     Debug.Log( "client " + clientIndex + " took authority over cube " + n.GetCubeId() );
@@ -408,14 +408,14 @@ public class Context : MonoBehaviour {
     n.IncreaseAuthoritySequence();
 
     if (!IsServer())
-      n.ClearConfirmed();
+      n.isConfirmed = false;
     else
-      n.SetConfirmed();
+      n.isConfirmed = true;
   }
 
   void ProcessInteractions(int cubeId) {
     if (visited.Contains(cubeId)) {
-      IsTrue(cubes[cubeId].GetComponent<NetworkInfo>().GetAuthorityId() == authorityId);
+      IsTrue(cubes[cubeId].GetComponent<CubeNetworkInfo>().GetAuthorityId() == authorityId);
       return;
     }
 
@@ -425,7 +425,7 @@ public class Context : MonoBehaviour {
     for (int i = 0; i < NumCubes; ++i) {
       if (entry.interactions[i] == 0) continue;
 
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       if (network.GetAuthorityId() != 0) continue;
 
       TakeAuthority(network);
@@ -438,9 +438,9 @@ public class Context : MonoBehaviour {
     visited.Clear();
 
     for (int i = 0; i < NumCubes; ++i) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       if (network.GetAuthorityId() != authorityId) continue;
-      if (network.IsHeldByPlayer()) continue;
+      if (network.HasHolder()) continue;
       if (cubes[i].GetComponent<Rigidbody>().IsSleeping()) continue;
 
       ProcessInteractions((ushort)i);
@@ -467,9 +467,9 @@ public class Context : MonoBehaviour {
      * it has authority over that object.
      */
     for (int i = 0; i < NumCubes; ++i) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       if (network.GetAuthorityId() != clientId + 1) continue;
-      if (!network.IsConfirmed()) continue;
+      if (!network.isConfirmed) continue;
 
       if (!cubes[i].GetComponent<Rigidbody>().IsSleeping()
         || network.GetLastActiveFrame() + ReturnToDefaultAuthorityFrames >= simulationFrame
@@ -482,7 +482,7 @@ public class Context : MonoBehaviour {
       network.IncreaseAuthoritySequence();
 
       if (IsClient())
-        network.SetPendingCommit();
+        network.isPendingCommit = true;
     }
     EndSample();
   }
@@ -505,7 +505,7 @@ public class Context : MonoBehaviour {
 
   void SmoothCubes() {
     for (int i = 0; i < NumCubes; ++i)
-      cubes[i].GetComponent<NetworkInfo>().Smooth();
+      cubes[i].GetComponent<CubeNetworkInfo>().Smooth();
   }
 
   void UpdateCubePriority(ConnectionData d) {
@@ -513,14 +513,14 @@ public class Context : MonoBehaviour {
     var frame = (long)GetSimulationFrame();
 
     for (int i = 0; i < NumCubes; ++i) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       
-      if (network.IsHeldByPlayer()) { //don't send state updates held cubes. they are synchronized differently.
+      if (network.HasHolder()) { //don't send state updates held cubes. they are synchronized differently.
         d.priorities[i].accumulator = -1;
         continue;
       }
       
-      if (IsClient() && network.GetAuthorityId() == 0 && !network.IsPendingCommit()) { //only send white cubes from client -> server if they are pending commit after returning to default authority
+      if (IsClient() && network.GetAuthorityId() == 0 && !network.isPendingCommit) { //only send white cubes from client -> server if they are pending commit after returning to default authority
         d.priorities[i].accumulator = -1;
         continue;
       }
@@ -561,12 +561,12 @@ public class Context : MonoBehaviour {
     }
   }
 
-  void UpdatePendingCommit(NetworkInfo n, int authorityId, int fromClientId, int toClientId) {
-    if (n.IsPendingCommit() && authorityId != toClientId + 1) {
+  void UpdatePendingCommit(CubeNetworkInfo n, int authorityId, int fromClientId, int toClientId) {
+    if (n.isPendingCommit && authorityId != toClientId + 1) {
 #if DEBUG_AUTHORITY
       Debug.Log( "client " + toClientId + " sees update for cube " + n.GetCubeId() + " from client " + fromClientId + " with authority index (" + authorityId + ") and clears pending commit flag" );
 #endif // #if DEBUG_AUTHORITY
-      n.ClearPendingCommit();
+      n.isPendingCommit = false;
     }
   }
 
@@ -578,7 +578,7 @@ public class Context : MonoBehaviour {
         continue;
 
       var cube = cubes[cubeIds[i]];
-      var network = cube.GetComponent<NetworkInfo>();
+      var network = cube.GetComponent<CubeNetworkInfo>();
       var rigidBody = cube.GetComponent<Rigidbody>();
 
       UpdatePendingCommit(network, s[i].authorityId, fromClientId, toClientId);
@@ -595,7 +595,7 @@ public class Context : MonoBehaviour {
       if (s[i].isLeftHandHoldingCube && ShouldApplyUpdate(this, s[i].leftHandCubeId, s[i].leftHandOwnershipSequence, s[i].leftHandAuthoritySequence, s[i].clientId + 1, true, fromClientId, toClientId)
       ) {
         var cube = cubes[s[i].leftHandCubeId];
-        var network = cube.GetComponent<NetworkInfo>();
+        var network = cube.GetComponent<CubeNetworkInfo>();
 
         UpdatePendingCommit(network, s[i].clientId + 1, fromClientId, toClientId);
         avatar.ApplyLeftHandUpdate(ref s[i]);
@@ -604,7 +604,7 @@ public class Context : MonoBehaviour {
       if (s[i].isRightHandHoldingCube && ShouldApplyUpdate(this, s[i].rightHandCubeId, s[i].rightHandOwnershipSequence, s[i].rightHandAuthoritySequence, s[i].clientId + 1, true, fromClientId, toClientId)
       ) {
         var cube = cubes[s[i].rightHandCubeId];
-        var network = cube.GetComponent<NetworkInfo>();
+        var network = cube.GetComponent<CubeNetworkInfo>();
 
         UpdatePendingCommit(network, s[i].clientId + 1, fromClientId, toClientId);
         avatar.ApplyRightHandUpdate(ref s[i]);
@@ -651,7 +651,7 @@ public class Context : MonoBehaviour {
 
     for (int i = 0; i < NumCubes; i++) {
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
 
       if (rigidBody.IsSleeping()) {
         baseId += RingBufferSize;
@@ -687,7 +687,7 @@ public class Context : MonoBehaviour {
 
     for (int i = 0; i < NumCubes; i++) {
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
 
       GetState(rigidBody, network, ref s.states[i], ref origin);
     }
@@ -699,8 +699,8 @@ public class Context : MonoBehaviour {
     var origin = gameObject.transform.position;
 
     for (int i = 0; i < NumCubes; i++) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
-      if (skipHeldObjects && network.IsHeldByPlayer()) continue;
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
+      if (skipHeldObjects && network.HasHolder()) continue;
 
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
       if (skipSleepers && !s.states[i].isActive && rigidBody.IsSleeping()) continue;
@@ -817,7 +817,7 @@ public class Context : MonoBehaviour {
 
   public void TestSmoothing() {
     for (int i = 0; i < NumCubes; i++) {
-      var network = cubes[i].GetComponent<NetworkInfo>();
+      var network = cubes[i].GetComponent<CubeNetworkInfo>();
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
 
       network.SmoothMove(cubes[i].transform.position + new Vector3(0, 10, 0), identity);

@@ -217,29 +217,24 @@ public class Hands : OvrAvatarLocalDriver {
     return d.transform.TransformPoint(positions[d.id]);
   }
 
-  void UpdateSnapToHand(ref HandData d) {
-    if (d.input.indexTrigger < IndexThreshold
-      || d.input.indexPressFrame + IndexStickyFrames < context.GetRenderFrame()
+  void UpdateSnapToHand(ref HandData h) {
+    if (h.input.indexTrigger < IndexThreshold
+      || h.input.indexPressFrame + IndexStickyFrames < context.GetRenderFrame()
     ) return;
 
-    d.input.indexPressFrame = 0;
-    var position = GetHandPosition(ref d);
-    var direction = d.grip.transform.position - position; //warp to hand on index grip
-    var distance = direction.magnitude/*Mathf.Clamp(direction.magnitude, ZoomMinimum, WarpDistance)*/;
+    h.input.indexPressFrame = 0;    
+    var position = GetHandPosition(ref h); //warp to hand on index grip
+    var direction = h.grip.transform.position - position;
 
     if (direction.magnitude > WarpDistance) {
-      distance = WarpDistance;
+      var rigidBody = h.grip.GetComponent<Rigidbody>();
+      var network = h.grip.GetComponent<CubeNetworkInfo>();
 
-      if (distance < ZoomMinimum)
-        distance = ZoomMinimum;
-
-      var rigidBody = d.grip.GetComponent<Rigidbody>();
-      var network = d.grip.GetComponent<NetworkInfo>();
-      network.SmoothMove(position + direction, rigidBody.rotation);
+      network.SmoothMove(position + direction.normalized * WarpDistance, rigidBody.rotation);
     }
 
-    for (int i = 0; i < ThrowRingBufferSize; ++i) //clear the throw ring buffer
-      d.buffer[i].speed = 0.0f;
+    for (int i = 0; i < ThrowRingBufferSize; ++i)
+      h.buffer[i].speed = 0.0f;
   }
 
   void UpdateGripFrame(ref HandData d) {
@@ -261,7 +256,7 @@ public class Hands : OvrAvatarLocalDriver {
     d.prevGripPosition = d.grip.transform.position;
     d.prevGripRotation = d.grip.transform.rotation;
 
-    var network = d.grip.GetComponent<NetworkInfo>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
+    var network = d.grip.GetComponent<CubeNetworkInfo>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
     network.SetInteractionFrame((long)context.GetSimulationFrame());
   }
 
@@ -315,7 +310,7 @@ public class Hands : OvrAvatarLocalDriver {
     if (d.input.handTrigger < GripThreshold) return false;
     if (d.point || d.pointFrame + PointStickyFrames < context.GetRenderFrame()) return false;
 
-    var network = d.point.GetComponent<NetworkInfo>();
+    var network = d.point.GetComponent<CubeNetworkInfo>();
     if (!network.CanGrabCube(d.inputFrame)) return false;
 
     AttachToHand(ref d, d.point);
@@ -325,7 +320,7 @@ public class Hands : OvrAvatarLocalDriver {
   }
 
   void AttachToHand(ref HandData d, GameObject obj) {
-    var network = obj.GetComponent<NetworkInfo>();
+    var network = obj.GetComponent<CubeNetworkInfo>();
     network.AttachCubeToLocalPlayer(this, d);
 
 #if DEBUG_AUTHORITY
@@ -333,9 +328,9 @@ public class Hands : OvrAvatarLocalDriver {
 #endif // #if DEBUG_AUTHORITY
 
     if (!context.IsServer())
-      network.ClearConfirmed();
+      network.isConfirmed = false;
     else
-      network.SetConfirmed();
+      network.isConfirmed = true;
 
     for (int i = 0; i < ThrowRingBufferSize; ++i)
       d.buffer[i].speed = 0.0f;
@@ -386,8 +381,8 @@ public class Hands : OvrAvatarLocalDriver {
 
   void WakeUpObjects(List<GameObject> objects) {
     foreach (var obj in objects) {
-      var network = obj.GetComponent<NetworkInfo>();
-      context.ResetBuffer(network.GetCubeId());
+      var network = obj.GetComponent<CubeNetworkInfo>();
+      context.ResetBuffer(network.cubeId);
 
       if (network.GetAuthorityId() == 0)
         context.TakeAuthority(network);
@@ -399,7 +394,7 @@ public class Hands : OvrAvatarLocalDriver {
   void DetachFromHand(ref HandData d) {
     if (d.grip == null) return; //IMPORTANT: This happens when passing a cube from hand-to-hand
 
-    var network = d.grip.GetComponent<NetworkInfo>();
+    var network = d.grip.GetComponent<CubeNetworkInfo>();
     network.DetachCube();
 
 #if DEBUG_AUTHORITY
@@ -468,7 +463,7 @@ public class Hands : OvrAvatarLocalDriver {
     if (obj.layer != cubesLayer && obj.layer != gripLayer)
       return false;
 
-    var network = obj.GetComponent<NetworkInfo>();
+    var network = obj.GetComponent<CubeNetworkInfo>();
     if (!network) return false;
 
     return true;
