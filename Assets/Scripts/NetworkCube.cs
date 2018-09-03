@@ -138,15 +138,15 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
    * Local version of function to move with smoothing. Used for cubes held in remote avatar hands.
    */
   public void LocalSmoothMove(Vector3 localPosition, Quaternion localRotation) {
-    Assert.IsTrue(gameObject.transform.parent != null);
-    var oldPosition = gameObject.transform.position + positionLag;
-    var oldRotation = gameObject.transform.rotation * rotationLag;
-    var position = gameObject.transform.position;
-    var rotation = gameObject.transform.rotation;
-    gameObject.transform.localPosition = localPosition;
-    gameObject.transform.localRotation = localRotation;
-    positionLag = oldPosition - position;
-    rotationLag = oldRotation * Inverse(rotation);
+    var obj = gameObject.transform;
+    Assert.IsTrue(obj.parent != null);
+    var oldPosition = obj.position + positionLag;
+    var oldRotation = obj.rotation * rotationLag;
+
+    obj.localPosition = localPosition;
+    obj.localRotation = localRotation;
+    positionLag = oldPosition - obj.position;
+    rotationLag = oldRotation * Inverse(obj.rotation);
   }
 
   /*

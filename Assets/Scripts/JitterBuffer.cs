@@ -78,7 +78,7 @@ public class JitterBuffer
 
         JitterBufferEntry entry = sequenceBuffer.Entries[entryIndex];
 
-        if ( ReadStateUpdatePacket( packetData, out entry.packetHeader, out entry.numAvatarStates, ref entry.avatarStateQuantized, out entry.numStateUpdates, ref entry.cubeIds, ref entry.notChanged, ref entry.hasDelta, ref entry.perfectPrediction, ref entry.hasPredictionDelta, ref entry.baselineSequence, ref entry.cubeState, ref entry.cubeDelta, ref entry.predictionDelta ) )
+        if ( ReadUpdatePacket( packetData, out entry.packetHeader, out entry.numAvatarStates, ref entry.avatarStateQuantized, out entry.numStateUpdates, ref entry.cubeIds, ref entry.notChanged, ref entry.hasDelta, ref entry.perfectPrediction, ref entry.hasPredictionDelta, ref entry.baselineSequence, ref entry.cubeState, ref entry.cubeDelta, ref entry.predictionDelta ) )
         {
             for ( int i = 0; i < entry.numAvatarStates; ++i )
                 AvatarState.Unquantize( ref entry.avatarStateQuantized[i], out entry.avatarState[i] );
@@ -287,7 +287,7 @@ public class JitterBuffer
         return result;
     }
 
-    bool ReadStateUpdatePacket( byte[] packetData, out Network.PacketHeader packetHeader, out int numAvatarStates, ref AvatarStateQuantized[] avatarState, out int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta )
+    bool ReadUpdatePacket( byte[] packetData, out Network.PacketHeader packetHeader, out int numAvatarStates, ref AvatarStateQuantized[] avatarState, out int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta )
     {
         Profiler.BeginSample( "ReadStateUpdatePacket" );
 

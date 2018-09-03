@@ -284,12 +284,11 @@ public class Context : MonoBehaviour {
     for (int i = 0; i < NumCubes; i++) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       var renderer = cube.smoothed.GetComponent<Renderer>();
-      int id = cube.authorityId;
 
       renderer.material.Lerp(
         renderer.material, 
-        authorityMaterials[id], 
-        id != 0 ? 0.3f : 0.04f);
+        authorityMaterials[cube.authorityId],
+        cube.authorityId != 0 ? 0.3f : 0.04f);
     }
   }
 
