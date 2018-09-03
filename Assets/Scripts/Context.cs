@@ -359,12 +359,12 @@ public class Context : MonoBehaviour {
   }
 
   public void Collide(int cubeId1, int cubeId2, Collision collision) {
-    if (collision.relativeVelocity.sqrMagnitude > HighEnergyCollisionThreshold * HighEnergyCollisionThreshold) {
-      collisionFrames[cubeId1] = simulationFrame;
+    if (collision.relativeVelocity.sqrMagnitude <= HighEnergyCollisionThreshold * HighEnergyCollisionThreshold) return;
 
-      if (cubeId2 != -1)
-        collisionFrames[cubeId2] = simulationFrame;
-    }
+    collisionFrames[cubeId1] = simulationFrame;
+
+    if (cubeId2 != CollisionWithFloor)
+      collisionFrames[cubeId2] = simulationFrame;
   }
 
   public void StartTouching(int cubeId1, int cubeId2) 

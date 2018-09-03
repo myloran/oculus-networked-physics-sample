@@ -110,16 +110,14 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
    * for cubes that were recently in high energy collisions with other cubes, or the floor.
    */
   void OnCollisionEnter(Collision c) {
-    var obj = c.gameObject;
-    var network = obj.GetComponent<NetworkCube>();
+    var network = c.gameObject.GetComponent<NetworkCube>();
+    int id1 = cubeId;
 
-    int cubeId1 = cubeId;
-    int cubeId2 = CollisionWithFloor;                   // IMPORTANT: cube id of -1 represents a collision with the floor
+    int id2 = network == null
+      ? CollisionWithFloor
+      : network.cubeId;
 
-    if (network != null)
-      cubeId2 = network.cubeId;
-
-    context.Collide(cubeId1, cubeId2, c);
+    context.Collide(id1, id2, c);
   }
 
   /*

@@ -338,9 +338,7 @@ public class Hands : OvrAvatarLocalDriver {
   bool IsGripNear(ref HandData d) {
     if (!d.grip) return false;
 
-    var delta = d.grip.transform.position - d.transform.position;
-
-    return delta.magnitude <= GrabDistance;
+    return (d.grip.transform.position - d.transform.position).magnitude <= GrabDistance;
   }
 
   bool IsThrowing(ref HandData d) {
@@ -432,8 +430,7 @@ public class Hands : OvrAvatarLocalDriver {
       else
         ForcePointAnimation(ref d);
 
-      if (!d.grip) return;
-      if (d.grip.transform.position.y > 0.0f) return;
+      if (!d.grip || d.grip.transform.position.y > 0.0f) return;
 
       var position = d.grip.transform.position;
       position.y = 0.0f;
