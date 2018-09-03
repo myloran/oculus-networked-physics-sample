@@ -145,7 +145,7 @@ public class Common : MonoBehaviour {
   }
 
   protected void FixedUpdate() {
-    physicsTime += 1.0 / Constants.PhysicsFrameRate;
+    physicsTime += 1.0 / PhysicsFrameRate;
     frame++;
   }
 

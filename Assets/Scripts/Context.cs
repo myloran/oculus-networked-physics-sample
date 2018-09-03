@@ -20,6 +20,9 @@ using static Constants;
 using static Snapshot;
 using static AuthoritySystem;
 
+/// <summary>
+/// On it's own spreads authority, captures and applies snapshot
+/// </summary>
 public class Context : MonoBehaviour {
   public struct Priority {
     public int cubeId;
@@ -457,7 +460,6 @@ public class Context : MonoBehaviour {
       if (!cubes[i].GetComponent<Rigidbody>().IsSleeping()
         || network.activeFrame + ReturnToDefaultAuthorityFrames >= simulationFrame
       ) continue;
-
 #if DEBUG_AUTHORITY
       Debug.Log( "client " + clientId + " returns cube " + i + " to default authority. increases authority sequence (" + network.GetAuthoritySequence() + "->" + (ushort) (network.GetAuthoritySequence() + 1 ) + ") and sets pending commit flag" );
 #endif // #if DEBUG_AUTHORITY
