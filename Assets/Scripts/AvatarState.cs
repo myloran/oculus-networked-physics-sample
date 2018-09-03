@@ -202,7 +202,7 @@ public struct AvatarState {
   public static void UpdateLeftHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isLeftHandHoldingCube) return;
 
-    var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkCube>();
+    var n = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
     if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.ownershipSequence)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
@@ -214,7 +214,7 @@ public struct AvatarState {
   public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isRightHandHoldingCube) return;
 
-    var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkCube>();
+    var n = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
     if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.ownershipSequence)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
@@ -227,7 +227,7 @@ public struct AvatarState {
     Assert.IsTrue(clientId == s.clientId);
     if (!s.isLeftHandHoldingCube) return;
 
-    var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkCube>();
+    var n = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
 
     if (!n.SameHolder(avatar, avatar.GetLeftHand()))
       n.RemoteGrip(avatar, avatar.GetLeftHand(), s.clientId);
@@ -241,7 +241,7 @@ public struct AvatarState {
     Assert.IsTrue(clientId == s.clientId);
     if (!s.isRightHandHoldingCube) return;
 
-    var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkCube>();
+    var n = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
 
     if (!n.SameHolder(avatar, avatar.GetRightHand()))
       n.RemoteGrip(avatar, avatar.GetRightHand(), s.clientId);

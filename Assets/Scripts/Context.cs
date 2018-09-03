@@ -83,7 +83,7 @@ public class Context : MonoBehaviour {
   public Material[] authorityMaterials = new Material[MaxAuthority];
   public GameObject cubePrefab;
   ConnectionData[] server;
-  GameObject[] cubes = new GameObject[NumCubes];
+  public GameObject[] cubes = new GameObject[NumCubes];
   HashSet<int> visited = new HashSet<int>();
   ConnectionData client;
   Interactions Interactions = new Interactions();
@@ -92,7 +92,7 @@ public class Context : MonoBehaviour {
   RingBuffer[] buffer = new RingBuffer[NumCubes * RingBufferSize];
   ulong[] collisionFrames = new ulong[NumCubes];
 
-  ulong 
+  public ulong 
     renderFrame = 0,
     simulationFrame = 0;
 
@@ -102,7 +102,7 @@ public class Context : MonoBehaviour {
     layer;
 
   bool isActive = true;
-  ushort resetSequence = 0;
+  public ushort resetSequence = 0;
 
   void Awake() {
     IsTrue(cubePrefab);
@@ -249,12 +249,6 @@ public class Context : MonoBehaviour {
   }
 
   public GameObject GetAvatarHead(int id) => GetAvatar(id)?.GetHead();
-  public GameObject GetCube(int id) => cubes[id];
-  public void IncreaseResetSequence() => resetSequence++;
-  public void SetResetSequence(ushort sequence) => resetSequence = sequence;
-  public ushort GetResetSequence() => resetSequence;
-  public ulong GetRenderFrame() => renderFrame;
-  public ulong GetSimulationFrame() => simulationFrame;
 
   public bool GetAck(ConnectionData d, int cubeId, ref ushort sequence, ushort resetSequence, ref CubeState state) {
     if (!d.acks[cubeId].isAcked) return false;
@@ -499,7 +493,7 @@ public class Context : MonoBehaviour {
 
   void UpdateCubePriority(ConnectionData d) {
     IsTrue(snapshot != null);
-    var frame = (long)GetSimulationFrame();
+    var frame = (long)simulationFrame;
 
     for (int i = 0; i < NumCubes; ++i) {
       var network = cubes[i].GetComponent<NetworkCube>();

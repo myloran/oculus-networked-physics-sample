@@ -59,7 +59,7 @@ public struct CubeDelta {
 }
 
 public class Snapshot {
-  public CubeState[] states = new CubeState[Constants.NumCubes];
+  public CubeState[] states = new CubeState[NumCubes];
 
   public static void QuaternionToSmallestThree(Quaternion q, out uint largest, out uint rotationX, out uint rotationY, out uint rotationZ) { //QuaternionToSmallestThree
     const float min = -1.0f / 1.414214f;       // 1.0f / sqrt(2)

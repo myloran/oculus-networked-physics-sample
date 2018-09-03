@@ -151,7 +151,7 @@ public class Common : MonoBehaviour {
 
   protected void AddUpdatePacket(Context context, Context.ConnectionData d, byte[] packet) {
     long frame;
-    if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.GetResetSequence(), out frame) || !d.isFirstPacket)
+    if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.resetSequence, out frame) || !d.isFirstPacket)
       return;
 
     d.isFirstPacket = false;
@@ -167,17 +167,17 @@ public class Common : MonoBehaviour {
 
     if (fromClientIndex == 0) {
       //server -> client      
-      if (Util.SequenceGreaterThan(context.GetResetSequence(), entry.packetHeader.resetSequence)) return; //Ignore updates from before the last reset.
-      if (Util.SequenceGreaterThan(entry.packetHeader.resetSequence, context.GetResetSequence())) { //Reset if the server reset sequence is more recent than ours.
+      if (Util.SequenceGreaterThan(context.resetSequence, entry.packetHeader.resetSequence)) return; //Ignore updates from before the last reset.
+      if (Util.SequenceGreaterThan(entry.packetHeader.resetSequence, context.resetSequence)) { //Reset if the server reset sequence is more recent than ours.
         context.Reset();
-        context.SetResetSequence(entry.packetHeader.resetSequence);
+        context.resetSequence = entry.packetHeader.resetSequence;
       }
     } else {
       //client -> server      
-      if (context.GetResetSequence() != entry.packetHeader.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
+      if (context.resetSequence != entry.packetHeader.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
     }
 
-    AddPacket(ref data.receiveBuffer, entry.packetHeader.sequence, context.GetResetSequence(), entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState); //add the cube states to the receive delta buffer    
+    AddPacket(ref data.receiveBuffer, entry.packetHeader.sequence, context.resetSequence, entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState); //add the cube states to the receive delta buffer    
     context.ApplyCubeUpdates(entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState, fromClientIndex, toClientIndex, applySmoothing); //apply the state updates to cubes    
     data.connection.ProcessPacketHeader(ref entry.packetHeader); //process the packet header (handles acks)
   }
@@ -289,7 +289,7 @@ public class Common : MonoBehaviour {
             cubeDelta[i].absolute_position_y = cubeState[i].position_y;
             cubeDelta[i].absolute_position_z = cubeState[i].position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
-      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState)) {
+      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.resetSequence, ref baselineCubeState)) {
         if (Util.BaselineDifference(currentSequence, baselineSequence[i]) > MaxBaselineDifference) continue; //baseline is too far behind => send the cube state absolute.
         if (baselineCubeState.Equals(cubeState[i])) {
           notChanged[i] = true;
@@ -376,7 +376,7 @@ public class Common : MonoBehaviour {
       if (!hasDelta[i]) continue;
       if (!cubeState[i].isActive) continue;
 
-      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.GetResetSequence(), ref baselineCubeState)) {
+      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.resetSequence, ref baselineCubeState)) {
         if (Util.BaselineDifference(currentSequence, baselineSequence[i]) <= MaxBaselineDifference) continue; //baseline is too far behind. send the cube state absolute
         if (!baselineCubeState.isActive) continue; //no point predicting if the cube is at rest.
 
@@ -630,9 +630,9 @@ public class Common : MonoBehaviour {
       int[] packetCubeIds;
       CubeState[] packetCubeState;
 
-      if (data.sendBuffer.GetPacketData(acks[i], context.GetResetSequence(), out packetNumCubeStates, out packetCubeIds, out packetCubeState)) {
+      if (data.sendBuffer.GetPacketData(acks[i], context.resetSequence, out packetNumCubeStates, out packetCubeIds, out packetCubeState)) {
         for (int j = 0; j < packetNumCubeStates; ++j)
-          context.UpdateAck(data, packetCubeIds[j], acks[i], context.GetResetSequence(), ref packetCubeState[j]);
+          context.UpdateAck(data, packetCubeIds[j], acks[i], context.resetSequence, ref packetCubeState[j]);
       }
     }
     Profiler.EndSample();

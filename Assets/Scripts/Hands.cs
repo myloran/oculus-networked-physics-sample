@@ -219,7 +219,7 @@ public class Hands : OvrAvatarLocalDriver {
 
   void UpdateSnapToHand(ref HandData h) {
     if (h.input.indexTrigger < IndexThreshold
-      || h.input.indexPressFrame + IndexStickyFrames < context.GetRenderFrame()
+      || h.input.indexPressFrame + IndexStickyFrames < context.renderFrame
     ) return;
 
     h.input.indexPressFrame = 0;    
@@ -242,7 +242,7 @@ public class Hands : OvrAvatarLocalDriver {
       d.inputFrame = 0;
 
     else if (d.inputFrame == 0)
-      d.inputFrame = context.GetRenderFrame();
+      d.inputFrame = context.renderFrame;
   }
 
   void UpdateHeldObj(ref HandData d) {
@@ -257,7 +257,7 @@ public class Hands : OvrAvatarLocalDriver {
     d.prevGripRotation = d.grip.transform.rotation;
 
     var network = d.grip.GetComponent<NetworkCube>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
-    network.interactionFrame = (long)context.GetSimulationFrame();
+    network.interactionFrame = (long)context.simulationFrame;
   }
 
   void CollectInput(ref HandPose hand, ref ControllerPose controller, ref HandInput i) {
@@ -266,7 +266,7 @@ public class Hands : OvrAvatarLocalDriver {
     i.indexTrigger = hand.indexFlex;
 
     if (i.indexTrigger >= IndexThreshold && i.previousIndexTrigger < IndexThreshold)
-      i.indexPressFrame = context.GetRenderFrame();
+      i.indexPressFrame = context.renderFrame;
 
     i.isPointing = true;
     i.isPressingX = controller.button1IsDown;
@@ -307,7 +307,7 @@ public class Hands : OvrAvatarLocalDriver {
       return true;
     }
     if (d.input.handTrigger < GripThreshold) return false;
-    if (d.point || d.pointFrame + PointStickyFrames < context.GetRenderFrame()) return false;
+    if (d.point || d.pointFrame + PointStickyFrames < context.renderFrame) return false;
 
     var network = d.point.GetComponent<NetworkCube>();
     if (network.HasHolder() || d.inputFrame <= 0) return false;
@@ -437,7 +437,7 @@ public class Hands : OvrAvatarLocalDriver {
 
   void SetPointObject(ref HandData d, GameObject gameObject) {
     d.point = gameObject;
-    d.pointFrame = context.GetRenderFrame();
+    d.pointFrame = context.renderFrame;
   }
 
   void CreatePointingLine(ref HandData d) {
@@ -474,7 +474,7 @@ public class Hands : OvrAvatarLocalDriver {
 
     var finish = start + direction * RaycastDistance;
     
-    if (d.releaseFrame + PostReleaseDisableSelectFrames < context.GetRenderFrame()) { //don't allow any selection for a few frames after releasing an object      
+    if (d.releaseFrame + PostReleaseDisableSelectFrames < context.renderFrame) { //don't allow any selection for a few frames after releasing an object      
       var colliders = Physics.OverlapSphere(d.transform.position, GrabRadius, layerMask); //first select any object overlapping the hand
 
       if (colliders.Length > 0 && FilterPointObject(ref d, colliders[0].attachedRigidbody)) {
@@ -592,7 +592,7 @@ public class Hands : OvrAvatarLocalDriver {
 
     d.point = null;
     d.pointFrame = 0;
-    d.releaseFrame = context.GetRenderFrame();
+    d.releaseFrame = context.renderFrame;
   }
 
   public void ResetHand(ref HandData d) {

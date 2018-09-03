@@ -22,7 +22,7 @@ public struct AuthoritySystem {
    *  from the point of view of the server (client 0), wins.
    */
   public static bool ShouldApplyUpdate(Context context, int cubeId, ushort ownershipSequence, ushort authoritySequence, int authorityId, bool fromAvatar, int fromClientId, int toClientId) {
-    var cube = context.GetCube(cubeId);
+    var cube = context.cubes[cubeId];
     var network = cube.GetComponent<NetworkCube>();
     var localOwnershipSequence = network.ownershipSequence;
     var localAuthoritySequence = network.authoritySequence;
