@@ -39,7 +39,6 @@ public class Hands : OvrAvatarLocalDriver {
 
   public class HandData {
     public struct ThrowRingBufferEntry {
-      public bool valid; //is this really needed?
       public float speed;
     };
 
@@ -51,7 +50,7 @@ public class Hands : OvrAvatarLocalDriver {
       point,
       grip;
 
-    public ThrowRingBufferEntry[] throws = new ThrowRingBufferEntry[ThrowRingBufferSize];
+    public ThrowRingBufferEntry[] buffer = new ThrowRingBufferEntry[ThrowRingBufferSize];
     public HandInput input;
     public HandState state = Neutral;
 
@@ -219,18 +218,16 @@ public class Hands : OvrAvatarLocalDriver {
   }
 
   void UpdateSnapToHand(ref HandData d) {
-    Vector3 start, direction;
-    GetFingerInput(ref d, out start, out direction);
-
     if (d.input.indexTrigger < IndexThreshold
       || d.input.indexPressFrame + IndexStickyFrames < context.GetRenderFrame()
     ) return;
 
     d.input.indexPressFrame = 0;
-    var delta = d.grip.transform.position - start; //warp to hand on index grip
-    var distance = delta.magnitude;
+    var position = GetHandPosition(ref d);
+    var direction = d.grip.transform.position - position; //warp to hand on index grip
+    var distance = direction.magnitude/*Mathf.Clamp(direction.magnitude, ZoomMinimum, WarpDistance)*/;
 
-    if (distance > WarpDistance) {
+    if (direction.magnitude > WarpDistance) {
       distance = WarpDistance;
 
       if (distance < ZoomMinimum)
@@ -238,13 +235,11 @@ public class Hands : OvrAvatarLocalDriver {
 
       var rigidBody = d.grip.GetComponent<Rigidbody>();
       var network = d.grip.GetComponent<NetworkInfo>();
-      network.SmoothMove(start + delta, rigidBody.rotation);
+      network.SmoothMove(position + direction, rigidBody.rotation);
     }
 
-    for (int i = 0; i < ThrowRingBufferSize; ++i) { //clear the throw ring buffer
-      d.throws[i].valid = false;
-      d.throws[i].speed = 0.0f;
-    }
+    for (int i = 0; i < ThrowRingBufferSize; ++i) //clear the throw ring buffer
+      d.buffer[i].speed = 0.0f;
   }
 
   void UpdateGripFrame(ref HandData d) {
@@ -260,8 +255,7 @@ public class Hands : OvrAvatarLocalDriver {
     var diff = d.grip.transform.position - d.prevGripPosition;
     var speed = (float)Sqrt(diff.x * diff.x + diff.z * diff.z);
 
-    d.throws[id].valid = true;
-    d.throws[id].speed = speed * RenderFrameRate;
+    d.buffer[id].speed = speed * RenderFrameRate;
     d.prevHandPosition = d.transform.position; //track previous positions and rotations for hand and index finger so we can use this to determine linear and angular velocity at time of release
     d.prevHandRotation = d.transform.rotation;
     d.prevGripPosition = d.grip.transform.position;
@@ -343,13 +337,11 @@ public class Hands : OvrAvatarLocalDriver {
     else
       network.SetConfirmed();
 
-    for (int i = 0; i < ThrowRingBufferSize; ++i) {
-      d.throws[i].valid = false;
-      d.throws[i].speed = 0.0f;
-    }
+    for (int i = 0; i < ThrowRingBufferSize; ++i)
+      d.buffer[i].speed = 0.0f;
   }
 
-  bool IsCloseGrip(ref HandData d) {
+  bool IsGripNear(ref HandData d) {
     if (!d.grip) return false;
 
     var delta = d.grip.transform.position - d.transform.position;
@@ -362,9 +354,7 @@ public class Hands : OvrAvatarLocalDriver {
     var sum = 0.0f;
 
     for (int i = 0; i < ThrowRingBufferSize; ++i) {
-      if (d.throws[i].valid)
-        sum += d.throws[i].speed;
-
+      sum += d.buffer[i].speed;
       count++;
     }
     if (count == 0) return false;
@@ -377,7 +367,7 @@ public class Hands : OvrAvatarLocalDriver {
       r.velocity = zero;
       r.angularVelocity = zero;
 
-    } else if (IsCloseGrip(ref d) || IsThrowing(ref d)) {     
+    } else if (IsGripNear(ref d) || IsThrowing(ref d)) {     
       r.velocity = (d.grip.transform.position - d.prevGripPosition) * RenderFrameRate; //throw mode
       r.angularVelocity = CalculateAngularVelocity(d.prevGripRotation, d.grip.transform.rotation, 1.0f / RenderFrameRate, 0.001f);
 
@@ -443,7 +433,7 @@ public class Hands : OvrAvatarLocalDriver {
       ForcePointAnimation(ref d);
 
     } else if (d.state == Grip) {
-      if (IsCloseGrip(ref d))
+      if (IsGripNear(ref d))
         ForceGripAnimation(ref d);
       else
         ForcePointAnimation(ref d);
