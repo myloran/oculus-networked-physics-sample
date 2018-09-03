@@ -19,12 +19,6 @@ using static Host.ClientState;
 using static AvatarState;
 
 public class Host : Common {
-  public Context context;
-  Client[] clients = new Client[MaxClients];
-  byte[] buffer = new byte[MaxPacketSize];
-  bool isReadyToShutdown = false;
-  ulong roomId;                                     //the room id. valid once the host has created a room and enqueued it on the matchmaker.
-
   public enum ClientState {
     Disconnected,                                   //client is not connected
     Connecting,                                     //client is connecting (joined room, but NAT punched yet)
@@ -52,6 +46,12 @@ public class Host : Common {
       lastPacketReceived = 0.0;
     }
   };
+
+  public Context context;
+  Client[] clients = new Client[MaxClients];
+  byte[] buffer = new byte[MaxPacketSize];
+  bool isReadyToShutdown = false;
+  ulong roomId;                                     //the room id. valid once the host has created a room and enqueued it on the matchmaker.
 
   bool IsClientConnected(int id) {
     IsTrue(id >= 0);

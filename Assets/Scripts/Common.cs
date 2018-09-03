@@ -13,8 +13,8 @@ using UnityEngine.Profiling;
 using UnityEngine.Assertions;
 using Oculus.Platform;
 using Oculus.Platform.Models;
-using static Constants;
 using Network;
+using static Constants;
 
 public class Common : MonoBehaviour {
   protected class ClientsInfo {
@@ -43,17 +43,15 @@ public class Common : MonoBehaviour {
         if (areConnected[i] && userIds[i] == userId)
           return i;
       }
-
       return -1;
     }
 
     public void Print() {
       for (int i = 0; i < MaxClients; ++i) {
-        if (areConnected[i]) {
+        if (areConnected[i])
           Debug.Log(i + ": " + userNames[i] + " [" + userIds[i] + "]");
-        } else {
+        else
           Debug.Log(i + ": (not connected)");
-        }
       }
     }
   };
