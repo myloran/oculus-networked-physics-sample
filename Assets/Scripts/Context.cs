@@ -86,7 +86,7 @@ public class Context : MonoBehaviour {
   GameObject[] cubes = new GameObject[NumCubes];
   HashSet<int> visited = new HashSet<int>();
   ConnectionData client;
-  Interactions interactions = new Interactions();
+  Interactions Interactions = new Interactions();
   Snapshot snapshot = new Snapshot();
   Vector3[] cubePositions = new Vector3[NumCubes];
   RingBuffer[] buffer = new RingBuffer[NumCubes * RingBufferSize];
@@ -96,7 +96,7 @@ public class Context : MonoBehaviour {
     renderFrame = 0,
     simulationFrame = 0;
 
-  int 
+  public int 
     clientId,
     authorityId,
     layer;
@@ -113,9 +113,9 @@ public class Context : MonoBehaviour {
   }
 
   public void Update() {
-    if (!IsActive()) return;
+    if (!isActive) return;
 
-    ProcessInteractions();
+    SpreadAuthority();
     BeginSample("UpdateAuthorityMaterials");
     UpdateAuthorityMaterials();
     EndSample();
@@ -125,9 +125,9 @@ public class Context : MonoBehaviour {
   public void LateUpdate() => SmoothCubes();
 
   public void FixedUpdate() {
-    if (!IsActive()) return;
+    if (!isActive) return;
 
-    ProcessInteractions();
+    SpreadAuthority();
     CaptureSnapshot(snapshot);
     ApplySnapshot(snapshot, true, true);
     AddStateToBuffer();
@@ -138,7 +138,7 @@ public class Context : MonoBehaviour {
 
   public void Reset() {
     BeginSample("Reset");
-    IsTrue(IsActive());
+    IsTrue(isActive);
     CreateCubes();
 
     if (IsServer()) {
@@ -209,14 +209,10 @@ public class Context : MonoBehaviour {
     ShowContext(false);
   }
 
-  public bool IsActive() => isActive;
-  public bool IsServer() => IsActive() && clientId == 0;
-  public bool IsClient() => IsActive() && clientId != 0;
-  public int GetLayer() => layer;
+  public bool IsServer() => isActive && clientId == 0;
+  public bool IsClient() => isActive && clientId != 0;
   public int GetGripLayer() => layer + 1;
   public int GetTouchingLayer() => layer + 2;
-  public int GetClientId() => clientId;
-  public int GetAuthorityId() => authorityId;
 
   public RemoteAvatar GetAvatar(int id) {
     IsTrue(id >= 0);
@@ -286,9 +282,9 @@ public class Context : MonoBehaviour {
 
   void UpdateAuthorityMaterials() {
     for (int i = 0; i < NumCubes; i++) {
-      var network = cubes[i].GetComponent<NetworkCube>();
-      var renderer = network.smoothed.GetComponent<Renderer>();
-      int id = network.authorityId;
+      var cube = cubes[i].GetComponent<NetworkCube>();
+      var renderer = cube.smoothed.GetComponent<Renderer>();
+      int id = cube.authorityId;
 
       renderer.material.Lerp(
         renderer.material, 
@@ -366,10 +362,10 @@ public class Context : MonoBehaviour {
   }
 
   public void StartTouching(int cubeId1, int cubeId2) 
-    => interactions.Add((ushort)cubeId1, (ushort)cubeId2);
+    => Interactions.Add((ushort)cubeId1, (ushort)cubeId2);
 
   public void FinishTouching(int cubeId1, int cubeId2) 
-    => interactions.Remove((ushort)cubeId1, (ushort)cubeId2);
+    => Interactions.Remove((ushort)cubeId1, (ushort)cubeId2);
 
   public void FindSupports(GameObject obj, ref HashSet<GameObject> supports) {
     if (supports.Contains(obj)) return;
@@ -378,7 +374,7 @@ public class Context : MonoBehaviour {
     int id = obj.GetComponent<NetworkCube>().cubeId;
 
     for (int i = 0; i < NumCubes; ++i) {
-      if (interactions.Get(id).interactions[i] == 0) continue;
+      if (Interactions.Get(id).interactions[i] == 0) continue;
       if (cubes[i].layer != layer) continue;
       if (cubes[i].transform.position.y < obj.transform.position.y + SupportHeightThreshold) continue;
 
@@ -397,41 +393,37 @@ public class Context : MonoBehaviour {
     return supports.ToList();
   }
 
-  public void TakeAuthority(NetworkCube n) {
-    IsTrue(n.authorityId == 0);
+  public void TakeAuthority(NetworkCube cube) {
+    IsTrue(cube.authorityId == 0);
 #if DEBUG_AUTHORITY
     Debug.Log( "client " + clientIndex + " took authority over cube " + n.GetCubeId() );
 #endif // #if DEBUG_AUTHORITY
-    n.authorityId = authorityId;
-    n.authoritySequence++;
-
-    if (!IsServer())
-      n.isConfirmed = false;
-    else
-      n.isConfirmed = true;
+    cube.authorityId = authorityId;
+    cube.authoritySequence++;
+    cube.isConfirmed = IsServer();
   }
 
-  void ProcessInteractions(int cubeId) {
+  void SpreadAutority(int cubeId) {
     if (visited.Contains(cubeId)) {
       IsTrue(cubes[cubeId].GetComponent<NetworkCube>().authorityId == authorityId);
       return;
     }
 
     visited.Add(cubeId);
-    var entry = interactions.Get(cubeId);
+    var interactions = Interactions.Get(cubeId).interactions;
 
     for (int i = 0; i < NumCubes; ++i) {
-      if (entry.interactions[i] == 0) continue;
+      if (interactions[i] == 0) continue;
 
-      var network = cubes[i].GetComponent<NetworkCube>();
-      if (network.authorityId != 0) continue;
+      var cube = cubes[i].GetComponent<NetworkCube>();
+      if (cube.authorityId != 0) continue;
 
-      TakeAuthority(network);
-      ProcessInteractions(i);
+      TakeAuthority(cube);
+      SpreadAutority(i);
     }
   }
 
-  void ProcessInteractions() {
+  void SpreadAuthority() {
     BeginSample("ProcessInteractions");
     visited.Clear();
 
@@ -441,7 +433,7 @@ public class Context : MonoBehaviour {
       if (cube.HasHolder()) continue;
       if (cubes[i].GetComponent<Rigidbody>().IsSleeping()) continue;
 
-      ProcessInteractions((ushort)i);
+      SpreadAutority((ushort)i);
     }
     EndSample();
   }
@@ -487,7 +479,7 @@ public class Context : MonoBehaviour {
 
   public void UpdateCubePriority() {
     BeginSample("UpdateCubeAuthority");
-    IsTrue(IsActive());
+    IsTrue(isActive);
 
     if (IsServer()) {
       for (int i = 1; i < MaxClients; ++i) {

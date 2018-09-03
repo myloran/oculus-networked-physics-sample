@@ -54,8 +54,8 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     Release();
     localAvatar = hands;
     localHand = d;
-    holderId = context.GetClientId();
-    authorityId = context.GetAuthorityId();
+    holderId = context.clientId;
+    authorityId = context.authorityId;
     ownershipSequence++;
     authoritySequence = 0;
     touching.GetComponent<BoxCollider>().isTrigger = false;
@@ -68,7 +68,7 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
   }
 
   public void RemoteGrip(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientId) {
-    Assert.IsTrue(clientId != context.GetClientId());
+    Assert.IsTrue(clientId != context.clientId);
     Release();
     h.grip = gameObject;
     var rigidBody = gameObject.GetComponent<Rigidbody>();
@@ -128,10 +128,8 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     var oldPosition = rigidBody.position + positionLag; //oldSmoothedPosition
     var oldRotation = rigidBody.rotation * rotationLag; //oldSmoothedRotation
 
-    rigidBody.position = position;
-    rigidBody.rotation = rotation;
-    gameObject.transform.position = position;
-    gameObject.transform.rotation = rotation;
+    gameObject.transform.position = rigidBody.position = position;
+    gameObject.transform.rotation = rigidBody.rotation = rotation;
     positionLag = oldPosition - position;
     rotationLag = Inverse(rotation) * oldRotation;
   }
@@ -160,24 +158,20 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     smoothed.transform.rotation = gameObject.transform.rotation;
 #else // #if DISABLE_SMOOTHING
     const float epsilon = 0.000001f;
-    var positionSmooth = 0.95f;
-    var rotationSmooth = 0.95f;
-
-    if (gameObject.transform.parent != null) {      
-      positionSmooth = 0.7f; //tight smoothing while held for player "snap to hand"
-      rotationSmooth = 0.85f;
-    }
+    var positionSmooth = gameObject.transform.parent == null ? 0.95f : 0.7f; //tight smoothing while held for player "snap to hand"
+    var rotationSmooth = gameObject.transform.parent == null ? 0.05f : 0.15f;
 
     positionLag = positionLag.sqrMagnitude > epsilon
       ? positionLag * positionSmooth
       : zero;
 
-    if (Abs(rotationLag.x) > epsilon
+    var hasLag = Abs(rotationLag.x) > epsilon
       || Abs(rotationLag.y) > epsilon
-      || Abs(rotationLag.y) > epsilon 
-      || Abs(1.0f - rotationLag.w) > epsilon
-    )
-      rotationLag = Slerp(rotationLag, identity, 1.0f - rotationSmooth);
+      || Abs(rotationLag.y) > epsilon
+      || Abs(1.0f - rotationLag.w) > epsilon;
+
+    if (hasLag)
+      rotationLag = Slerp(rotationLag, identity, rotationSmooth);
     else
       rotationLag = identity;
 

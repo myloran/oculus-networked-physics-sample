@@ -502,7 +502,7 @@ public class Loopback: Common
         // Mirror the local avatar onto its remote avatar on the current context.
         AvatarState avatarState;
         localAvatar.GetComponent<Hands>().GetState( out avatarState );
-        currentContext.GetAvatar( currentContext.GetClientId() ).ApplyAvatarPose( ref avatarState );
+        currentContext.GetAvatar( currentContext.clientId).ApplyAvatarPose( ref avatarState );
 
         Profiler.EndSample();
     }

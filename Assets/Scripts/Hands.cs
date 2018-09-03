@@ -326,10 +326,7 @@ public class Hands : OvrAvatarLocalDriver {
         Debug.Log( "client " + context.GetClientIndex() + " grabbed cube " + network.GetCubeId() + " and set ownership sequence to " + network.GetOwnershipSequence() );
 #endif // #if DEBUG_AUTHORITY
 
-    if (!context.IsServer())
-      network.isConfirmed = false;
-    else
-      network.isConfirmed = true;
+    network.isConfirmed = context.IsServer();
 
     for (int i = 0; i < ThrowRingBufferSize; ++i)
       d.buffer[i].speed = 0.0f;
@@ -570,7 +567,7 @@ public class Hands : OvrAvatarLocalDriver {
       s = AvatarState.Default;
       return false;
     }
-    AvatarState.Initialize(out s, context.GetClientId(), pose, left.grip, right.grip);
+    AvatarState.Initialize(out s, context.clientId, pose, left.grip, right.grip);
 
     return true;
   }
