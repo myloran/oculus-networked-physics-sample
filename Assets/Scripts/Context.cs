@@ -188,10 +188,10 @@ public class Context : MonoBehaviour {
       if (network.authorityId != clientId + 1) continue;
 
       Debug.Log("Returning cube " + i + " to default authority");
-      network.DetachCube();
+      network.Release();
       network.authorityId = 0;
-      network.SetAuthoritySequence(0);
-      network.IncreaseOwnershipSequence();
+      network.authoritySequence = 0;
+      network.ownershipSequence++;
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
 
       if (rigidBody.IsSleeping())
@@ -324,10 +324,10 @@ public class Context : MonoBehaviour {
         ResetBuffer(i);
 
         var network = cubes[i].GetComponent<NetworkCube>();
-        network.DetachCube();
+        network.Release();
         network.authorityId = 0;
-        network.SetAuthoritySequence(0);
-        network.SetOwnershipSequence(0);
+        network.authoritySequence = 0;
+        network.ownershipSequence = 0;
 
         var renderer = network.smoothed.GetComponent<Renderer>();
         renderer.material = authorityMaterials[0];
@@ -405,7 +405,7 @@ public class Context : MonoBehaviour {
     Debug.Log( "client " + clientIndex + " took authority over cube " + n.GetCubeId() );
 #endif // #if DEBUG_AUTHORITY
     n.authorityId = authorityId;
-    n.IncreaseAuthoritySequence();
+    n.authoritySequence++;
 
     if (!IsServer())
       n.isConfirmed = false;
@@ -479,7 +479,7 @@ public class Context : MonoBehaviour {
       Debug.Log( "client " + clientId + " returns cube " + i + " to default authority. increases authority sequence (" + network.GetAuthoritySequence() + "->" + (ushort) (network.GetAuthoritySequence() + 1 ) + ") and sets pending commit flag" );
 #endif // #if DEBUG_AUTHORITY
       network.authorityId = 0;
-      network.IncreaseAuthoritySequence();
+      network.authoritySequence++;
 
       if (IsClient())
         network.isPendingCommit = true;
@@ -530,7 +530,7 @@ public class Context : MonoBehaviour {
       if (collisionFrames[i] + HighEnergyCollisionPriorityBoostNumFrames >= (ulong)frame) //higher priority for cubes that were recently in a high energy collision
         priority = 10.0f;
       
-      if (network.GetInteractionFrame() + ThrownObjectPriorityBoostNumFrames >= frame) //*extremely* high priority for cubes that were just thrown by a player
+      if (network.interactionFrame + ThrownObjectPriorityBoostNumFrames >= frame) //*extremely* high priority for cubes that were just thrown by a player
         priority = 1000000.0f;
 
       d.priorities[i].accumulator += priority;

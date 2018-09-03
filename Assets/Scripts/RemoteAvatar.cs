@@ -99,7 +99,7 @@ public class RemoteAvatar : OvrAvatarDriver {
     if (!h.grip) return;
 
     var network = h.grip.GetComponent<NetworkCube>(); //while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
-    network.SetInteractionFrame((long)context.GetSimulationFrame());
+    network.interactionFrame = (long)context.GetSimulationFrame();
   }
 
   public bool GetAvatarState(out AvatarState s) {

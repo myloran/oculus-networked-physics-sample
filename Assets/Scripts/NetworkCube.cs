@@ -47,37 +47,17 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     smoothed.transform.parent = null;
   }
 
-  public void IncreaseAuthoritySequence() => authoritySequence++;
-  public void IncreaseOwnershipSequence() => ownershipSequence++;
-  public void SetAuthoritySequence(ushort sequence) => authoritySequence = sequence;
-  public void SetOwnershipSequence(ushort sequence) => ownershipSequence = sequence;
-  public void ClearConfirmed() => isConfirmed = false;
-  public long GetInteractionFrame() => interactionFrame;
-  public void SetInteractionFrame(long frame) => interactionFrame = frame;
   public bool HasHolder() => holderId != Nobody;
-  public bool HasRemoteHolder(RemoteAvatar avatar, RemoteAvatar.Hand hand) => remoteAvatar == avatar && remoteHand == hand;
-  public ushort GetOwnershipSequence() => ownershipSequence;
-  public ushort GetAuthoritySequence() => authoritySequence;
+  public bool SameHolder(RemoteAvatar avatar, RemoteAvatar.Hand hand) => remoteAvatar == avatar && remoteHand == hand;
 
-  /*
-   * Return true if the local player can grab this cube
-   * This is true if:
-   *  1. No other player is currently grabbing that cube (common case)
-   *  2. The local player already grabbing the cube, and the time the cube was grabbed is older than the current input to grab this cube. This allows passing cubes from hand to hand.
-   */
-  public bool CanGrabCube(ulong frame) => !HasHolder() || frame > 0;
-
-  /*
-   * Attach cube to local player.
-   */
-  public void AttachToLocalPlayer(Hands hands, Hands.HandData h) {
-    DetachCube();
+  public void LocalGrip(Hands hands, Hands.HandData h) {
+    Release();
     localAvatar = hands;
     localHand = h;
     holderId = context.GetClientId();
     authorityId = context.GetAuthorityId();
-    IncreaseOwnershipSequence();
-    SetAuthoritySequence(0);
+    ownershipSequence++;
+    authoritySequence = 0;
     touching.GetComponent<BoxCollider>().isTrigger = false;
     gameObject.GetComponent<Rigidbody>().isKinematic = true;
     h.grip = gameObject;
@@ -87,9 +67,9 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     hands.AttachCube(ref h);
   }
 
-  public void AttachToRemotePlayer(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientId) {
+  public void RemoteGrip(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientId) {
     Assert.IsTrue(clientId != context.GetClientId());
-    DetachCube();
+    Release();
     h.grip = gameObject;
     var rigidBody = gameObject.GetComponent<Rigidbody>();
     rigidBody.isKinematic = true;
@@ -105,7 +85,7 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
   /*
    * Detach cube from any player who is holding it (local or remote).
    */
-  public void DetachCube() {
+  public void Release() {
     if (!HasHolder()) return;
 
     if (localAvatar) {

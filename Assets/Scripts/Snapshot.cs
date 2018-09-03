@@ -225,8 +225,8 @@ public class Snapshot {
   public static void GetState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin) {
     s.isActive = !rigidbody.IsSleeping();
     s.authorityId = network.authorityId;
-    s.authoritySequence = network.GetAuthoritySequence();
-    s.ownershipSequence = network.GetOwnershipSequence();
+    s.authoritySequence = network.authoritySequence;
+    s.ownershipSequence = network.ownershipSequence;
 
     var position = rigidbody.position - origin;
     s.positionX = (int)Math.Floor(position.x * UnitsPerMeter + 0.5f);
@@ -247,8 +247,7 @@ public class Snapshot {
   }
 
   public static void ApplyState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
-    if (network.HasHolder())
-      network.DetachCube();
+    network.Release();
 
     if (s.isActive && rigidbody.IsSleeping())
         rigidbody.WakeUp();
@@ -257,8 +256,8 @@ public class Snapshot {
         rigidbody.Sleep();
 
     network.authorityId = s.authorityId;
-    network.SetAuthoritySequence(s.authoritySequence);
-    network.SetOwnershipSequence(s.ownershipSequence);
+    network.authoritySequence = s.authoritySequence;
+    network.ownershipSequence = s.ownershipSequence;
 
     var position = new Vector3(s.positionX, s.positionY, s.positionZ) * 1.0f / UnitsPerMeter + origin;
     var rotation = SmallestThreeToQuaternion(s.rotationLargest, s.rotationX, s.rotationY, s.rotationZ);

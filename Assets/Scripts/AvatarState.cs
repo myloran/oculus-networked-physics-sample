@@ -142,8 +142,8 @@ public struct AvatarState {
       s.isLeftHandHoldingCube = true;
       var network = leftHandHeldObj.GetComponent<NetworkCube>();
       s.leftHandCubeId = network.cubeId;
-      s.leftHandAuthoritySequence = network.GetAuthoritySequence();
-      s.leftHandOwnershipSequence = network.GetOwnershipSequence();
+      s.leftHandAuthoritySequence = network.authoritySequence;
+      s.leftHandOwnershipSequence = network.ownershipSequence;
       s.leftHandCubeLocalPosition = leftHandHeldObj.transform.localPosition;
       s.leftHandCubeLocalRotation = leftHandHeldObj.transform.localRotation;
     } else {
@@ -166,8 +166,8 @@ public struct AvatarState {
       s.isRightHandHoldingCube = true;
       var network = rightHandHeldObj.GetComponent<NetworkCube>();
       s.rightHandCubeId = network.cubeId;
-      s.rightHandAuthoritySequence = network.GetAuthoritySequence();
-      s.rightHandOwnershipSequence = network.GetOwnershipSequence();
+      s.rightHandAuthoritySequence = network.authoritySequence;
+      s.rightHandOwnershipSequence = network.ownershipSequence;
       s.rightHandCubeLocalPosition = rightHandHeldObj.transform.localPosition;
       s.rightHandCubeLocalRotation = rightHandHeldObj.transform.localRotation;
     } else {
@@ -203,24 +203,24 @@ public struct AvatarState {
     if (!s.isLeftHandHoldingCube) return;
 
     var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkCube>();
-    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.GetOwnershipSequence())) return;
+    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.ownershipSequence)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-    n.SetOwnershipSequence(s.leftHandOwnershipSequence);
-    n.SetAuthoritySequence(s.leftHandAuthoritySequence);
+    n.ownershipSequence = s.leftHandOwnershipSequence;
+    n.authoritySequence = s.leftHandAuthoritySequence;
   }
 
   public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isRightHandHoldingCube) return;
 
     var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkCube>();
-    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.GetOwnershipSequence())) return;
+    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.ownershipSequence)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-    n.SetOwnershipSequence(s.rightHandOwnershipSequence);
-    n.SetAuthoritySequence(s.rightHandAuthoritySequence);
+    n.ownershipSequence = s.rightHandOwnershipSequence;
+    n.authoritySequence = s.rightHandAuthoritySequence;
   }
 
   public static void ApplyLeftHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
@@ -229,11 +229,11 @@ public struct AvatarState {
 
     var n = context.GetCube(s.leftHandCubeId).GetComponent<NetworkCube>();
 
-    if (!n.HasRemoteHolder(avatar, avatar.GetLeftHand()))
-      n.AttachToRemotePlayer(avatar, avatar.GetLeftHand(), s.clientId);
+    if (!n.SameHolder(avatar, avatar.GetLeftHand()))
+      n.RemoteGrip(avatar, avatar.GetLeftHand(), s.clientId);
 
-    n.SetAuthoritySequence(s.leftHandAuthoritySequence);
-    n.SetOwnershipSequence(s.leftHandOwnershipSequence);
+    n.authoritySequence = s.leftHandAuthoritySequence;
+    n.ownershipSequence = s.leftHandOwnershipSequence;
     n.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
   }
 
@@ -243,11 +243,11 @@ public struct AvatarState {
 
     var n = context.GetCube(s.rightHandCubeId).GetComponent<NetworkCube>();
 
-    if (!n.HasRemoteHolder(avatar, avatar.GetRightHand()))
-      n.AttachToRemotePlayer(avatar, avatar.GetRightHand(), s.clientId);
+    if (!n.SameHolder(avatar, avatar.GetRightHand()))
+      n.RemoteGrip(avatar, avatar.GetRightHand(), s.clientId);
 
-    n.SetAuthoritySequence(s.rightHandAuthoritySequence);
-    n.SetOwnershipSequence(s.rightHandOwnershipSequence);
+    n.authoritySequence = s.rightHandAuthoritySequence;
+    n.ownershipSequence = s.rightHandOwnershipSequence;
     n.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
   }
 
