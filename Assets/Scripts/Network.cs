@@ -26,29 +26,30 @@ namespace Network {
     public static uint SignedToUnsigned(int n) => (uint)((n << 1) ^ (n >> 31));
     public static int UnsignedToSigned(uint n) => (int)((n >> 1) ^ (-(n & 1)));
 
-    public static void GenerateAckBits<T>(SequenceBuffer<T> sequenceBuffer, out ushort ack, out uint ack_bits) {
-      ack = (ushort)(sequenceBuffer.GetSequence() - 1);
-      ack_bits = 0;
+    public static void GenerateAckBits<T>(SequenceBuffer<T> buffer, out ushort ack, out uint ackBits) {
+      ack = (ushort)(buffer.GetSequence() - 1);
+      ackBits = 0;
       uint mask = 1;
 
       for (int i = 0; i < 32; ++i) {
-        if (sequenceBuffer.Exists((ushort)(ack - i)))
-          ack_bits |= mask;
+        if (buffer.Exists((ushort)(ack - i)))
+          ackBits |= mask;
 
         mask <<= 1;
       }
     }
 
-    public static bool SequenceGreaterThan(ushort s1, ushort s2) 
-      => ((s1 > s2) && (s1 - s2 <= 32768)) 
-      || ((s1 < s2) && (s2 - s1 > 32768));
+    public static bool SequenceGreaterThan(ushort first, ushort second) 
+      => ((first > second) && (first-second <= 32768)) 
+      || ((first < second) && (second-first > 32768));
 
-    public static bool SequenceLessThan(ushort s1, ushort s2) => SequenceGreaterThan(s2, s1);
+    public static bool SequenceLessThan(ushort first, ushort second) => SequenceGreaterThan(second, first);
 
     public static int BaselineDifference(ushort current, ushort baseline) {
       if (current > baseline)
-        return current - baseline; else
-        return (ushort)((((uint)current) + 65536) - baseline);
+        return current - baseline;
+
+      return (ushort)(((uint)current) + 65536 - baseline);
     }
 
     public static uint SwapBytes(uint value) 
@@ -59,14 +60,16 @@ namespace Network {
 
     public static uint HostToNetwork(uint value) {
       if (IsLittleEndian)
-        return value; else
-        return SwapBytes(value);
+        return value; 
+
+      return SwapBytes(value);
     }
 
     public static uint NetworkToHost(uint value) {
       if (IsLittleEndian)
-        return value; else
-        return SwapBytes(value);
+        return value;
+
+      return SwapBytes(value);
     }
 
     public static int PopCount(uint value) {
@@ -93,87 +96,86 @@ namespace Network {
   }
 
   public class BitWriter {
-    uint[] m_data;
-    ulong m_scratch;
-    int m_numBits;
-    int m_numWords;
-    int m_bitsWritten;
-    int m_wordIndex;
-    int m_scratchBits;
+    uint[] data;
+    ulong scratch;
+    int bitCount;
+    int wordCount;
+    int bitsWritten;
+    int wordId;
+    int scratchBits;
 
     public void Start(uint[] data) {
       IsTrue(data != null);
-      m_data = data;
-      m_numWords = data.Length / 4;
-      m_numBits = m_numWords * 32;
-      m_bitsWritten = 0;
-      m_wordIndex = 0;
-      m_scratch = 0;
-      m_scratchBits = 0;
+      this.data = data;
+      wordCount = data.Length / 4;
+      bitCount = wordCount * 32;
+      bitsWritten = 0;
+      wordId = 0;
+      scratch = 0;
+      scratchBits = 0;
     }
 
-    public void WriteBits(uint value, int bits) {
+    public void Bits(uint value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 32);
-      IsTrue(m_bitsWritten + bits <= m_numBits);
+      IsTrue(bitsWritten + bits <= bitCount);
       value &= (uint)((((ulong)1) << bits) - 1);
-      m_scratch |= ((ulong)value) << m_scratchBits;
-      m_scratchBits += bits;
+      scratch |= ((ulong)value) << scratchBits;
+      scratchBits += bits;
 
-      if (m_scratchBits >= 32) {
-        IsTrue(m_wordIndex < m_numWords);
-        m_data[m_wordIndex] = HostToNetwork((uint)(m_scratch & 0xFFFFFFFF));
-        m_scratch >>= 32;
-        m_scratchBits -= 32;
-        m_wordIndex++;
+      if (scratchBits >= 32) {
+        IsTrue(wordId < wordCount);
+        data[wordId] = HostToNetwork((uint)(scratch & 0xFFFFFFFF));
+        scratch >>= 32;
+        scratchBits -= 32;
+        wordId++;
       }
-      m_bitsWritten += bits;
+      bitsWritten += bits;
     }
 
     public void WriteAlign() {
-      int remainderBits = m_bitsWritten % 8;
+      int remainderBits = bitsWritten % 8;
       if (remainderBits == 0) return;
 
-      uint zero = 0;
-      WriteBits(zero, 8 - remainderBits);
-      IsTrue((m_bitsWritten % 8) == 0);
+      Bits(0, 8 - remainderBits);
+      IsTrue((bitsWritten % 8) == 0);
     }
 
-    public void WriteBytes(byte[] data, int bytes) {
+    public void Bytes(byte[] data, int bytes) {
       IsTrue(GetAlignBits() == 0);
 
       for (int i = 0; i < bytes; ++i)
-        WriteBits(data[i], 8);
+        Bits(data[i], 8);
     }
 
     public void Finish() {
-      if (m_scratchBits == 0) return;
+      if (scratchBits == 0) return;
 
-      IsTrue(m_wordIndex < m_numWords);
-      m_data[m_wordIndex] = HostToNetwork((uint)(m_scratch & 0xFFFFFFFF));
-      m_scratch >>= 32;
-      m_scratchBits -= 32;
-      m_wordIndex++;
+      IsTrue(wordId < wordCount);
+      data[wordId] = HostToNetwork((uint)(scratch & 0xFFFFFFFF));
+      scratch >>= 32;
+      scratchBits -= 32;
+      wordId++;
     }
 
-    public int GetAlignBits() => (8 - (m_bitsWritten % 8)) % 8;
-    public int GetBitsWritten() => m_bitsWritten;
-    public int GetBitsAvailable() => m_numBits - m_bitsWritten;
+    public int GetAlignBits() => (8 - (bitsWritten % 8)) % 8;
+    public int GetBitsWritten() => bitsWritten;
+    public int GetBitsAvailable() => bitCount - bitsWritten;
 
     public byte[] GetData() {
-      int bytesWritten = GetBytesWritten();
-      var output = new byte[bytesWritten];
-      BlockCopy(m_data, 0, output, 0, bytesWritten);
+      int count = GetBytesWritten();
+      var output = new byte[count];
+      BlockCopy(data, 0, output, 0, count);
 
       return output;
     }
 
-    public int GetBytesWritten() => (m_bitsWritten + 7) / 8;
-    public int GetTotalBytes() => m_numWords * 4;
+    public int GetBytesWritten() => (bitsWritten + 7) / 8;
+    public int GetTotalBytes() => wordCount * 4;
   }
 
   public class BitReader {
-    uint[] Data;
+    uint[] data;
     ulong scratch;
     int bitCount;
     int wordCount;
@@ -181,16 +183,16 @@ namespace Network {
     int scratchBits;
     int wordId;
 
-    public void Start(byte[] data) {
-      int bytes = data.Length;
-      wordCount = (bytes + 3) / 4;
-      bitCount = bytes * 8;
+    public void Start(byte[] packet) {
+      int count = packet.Length;
+      wordCount = (count + 3) / 4;
+      bitCount = count * 8;
       bitsRead = 0;
       scratch = 0;
       scratchBits = 0;
       wordId = 0;
-      Data = new uint[wordCount];
-      BlockCopy(data, 0, Data, 0, bytes);
+      data = new uint[wordCount];
+      BlockCopy(packet, 0, data, 0, count);
     }
 
     public bool WouldOverflow(int bits) => bitsRead + bits > bitCount;
@@ -204,11 +206,12 @@ namespace Network {
 
       if (scratchBits < bits) {
         IsTrue(wordId < wordCount);
-        scratch |= ((ulong)(NetworkToHost(Data[wordId]))) << scratchBits;
+        scratch |= ((ulong)(NetworkToHost(data[wordId]))) << scratchBits;
         scratchBits += 32;
         wordId++;
       }
       IsTrue(scratchBits >= bits);
+
       var output = (uint)(scratch & ((((ulong)1) << bits) - 1));
       scratch >>= bits;
       scratchBits -= bits;
@@ -222,8 +225,7 @@ namespace Network {
 
       uint value = Bits(8 - remainderBits);
       IsTrue(bitsRead % 8 == 0);
-      if (value != 0) return false;
-      return true;
+      return value == 0;
     }
 
     public void Bytes(byte[] data, int bytes) {
@@ -243,7 +245,7 @@ namespace Network {
 
   public class WriteStream {
     BitWriter w = new BitWriter();
-    int m_error = STREAM_ERROR_NONE;
+    int error = STREAM_ERROR_NONE;
 
     public void Start(uint[] buffer) => w.Start(buffer);
 
@@ -253,7 +255,7 @@ namespace Network {
       IsTrue(value <= max);
       int bits = BitsRequired(min, max);
       var unsigned_value = (uint)(value - min);
-      w.WriteBits(unsigned_value, bits);
+      w.Bits(unsigned_value, bits);
     }
 
     public void Uint(uint value, uint min, uint max) {
@@ -262,28 +264,28 @@ namespace Network {
       IsTrue(value <= max);
       int bits = BitsRequired(min, max);
       var unsigned_value = value - min;
-      w.WriteBits(unsigned_value, bits);
+      w.Bits(unsigned_value, bits);
     }
 
     public void Bits(byte value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 8);
       IsTrue(bits == 8 || (value < (1 << bits)));
-      w.WriteBits(value, bits);
+      w.Bits(value, bits);
     }
 
     public void Bits(ushort value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 16);
       IsTrue(bits == 16 || (value < (1 << bits)));
-      w.WriteBits(value, bits);
+      w.Bits(value, bits);
     }
 
     public void Bits(uint value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 32);
       IsTrue(bits == 32 || (value < (1 << bits)));
-      w.WriteBits(value, bits);
+      w.Bits(value, bits);
     }
 
     public void Bits(ulong value, int bits) {
@@ -294,11 +296,10 @@ namespace Network {
       var loword = (uint)value;
       var hiword = (uint)(value >> 32);
 
-      if (bits <= 32) {
-        w.WriteBits(loword, bits);
-      } else {
-        w.WriteBits(loword, 32);
-        w.WriteBits(hiword, bits - 32);
+      if (bits <= 32) w.Bits(loword, bits);
+      else {
+        w.Bits(loword, 32);
+        w.Bits(hiword, bits - 32);
       }
     }
 
@@ -306,33 +307,33 @@ namespace Network {
       IsTrue(data != null);
       IsTrue(bytes >= 0);
       Align();
-      w.WriteBytes(data, bytes);
+      w.Bytes(data, bytes);
     }
 
     public void String(string s) {
       Align();
       IsTrue(s.Length <= MaxStringLength);
-      w.WriteBits((byte)s.Length, BitsRequired(0, MaxStringLength));
+      w.Bits((byte)s.Length, BitsRequired(0, MaxStringLength));
 
       for (int i = 0; i < s.Length; ++i)
-        w.WriteBits(s[i], 16);
+        w.Bits(s[i], 16);
     }
 
     public void Float(float f) {
       var bytes = GetBytes(f);
 
       for (int i = 0; i < 4; ++i)
-        w.WriteBits(bytes[i], 8);
+        w.Bits(bytes[i], 8);
     }
 
-    public void Bool(bool b) => w.WriteBits(b ? 1U : 0U, 1);
+    public void Bool(bool b) => w.Bits(b ? 1U : 0U, 1);
     public void Align() => w.WriteAlign();
     public void Finish() => w.Finish();
     public int GetAlignBits() => w.GetAlignBits();
     public byte[] GetData() => w.GetData();
     public int GetBytesProcessed() => w.GetBytesWritten();
     public int GetBitsProcessed() => w.GetBitsWritten();
-    public int GetError() => m_error;
+    public int GetError() => error;
   }
 
   public class ReadStream {
@@ -341,7 +342,7 @@ namespace Network {
     int error = STREAM_ERROR_NONE;
     byte[] floatBytes = new byte[4];
 
-    public void Start(byte[] data) => r.Start(data);
+    public void Start(byte[] packet) => r.Start(packet);
 
     public bool Int(out int value, int min, int max) {
       IsTrue(min < max);
@@ -353,8 +354,7 @@ namespace Network {
         throw new SerializeException();
       }
 
-      var unsigned_value = r.Bits(bits);
-      value = (int)(unsigned_value + min);
+      value = (int)(r.Bits(bits) + min);
       bitsRead += bits;
       return true;
     }
@@ -369,8 +369,7 @@ namespace Network {
         throw new SerializeException();
       }
 
-      var unsigned_value = r.Bits(bits);
-      value = unsigned_value + min;
+      value = r.Bits(bits) + min;
       bitsRead += bits;
       return true;
     }
@@ -385,8 +384,7 @@ namespace Network {
         throw new SerializeException();
       }
 
-      var read_value = (byte)r.Bits(bits);
-      value = read_value;
+      value = (byte)r.Bits(bits);
       bitsRead += bits;
       return true;
     }
@@ -401,8 +399,7 @@ namespace Network {
         throw new SerializeException();
       }
 
-      var read_value = (ushort)r.Bits(bits);
-      value = read_value;
+      value = (ushort)r.Bits(bits);
       bitsRead += bits;
       return true;
     }
@@ -417,8 +414,7 @@ namespace Network {
         throw new SerializeException();
       }
 
-      var read_value = r.Bits(bits);
-      value = read_value;
+      value = r.Bits(bits);
       bitsRead += bits;
       return true;
     }
@@ -433,9 +429,8 @@ namespace Network {
         throw new SerializeException();
       }
 
-      if (bits <= 32) {
-        value = r.Bits(bits);
-      } else {
+      if (bits <= 32) value = r.Bits(bits);
+      else {
         var loword = r.Bits(32);
         var hiword = r.Bits(bits - 32);
         value = loword | (((ulong)hiword) << 32);
@@ -474,12 +469,12 @@ namespace Network {
         throw new SerializeException();
       }
 
-      var stringData = new char[MaxStringLength];
+      var data = new char[MaxStringLength];
 
       for (int i = 0; i < length; ++i)
-        stringData[i] = (char)r.Bits(16);
+        data[i] = (char)r.Bits(16);
 
-      s = new string(stringData, 0, length);
+      s = new string(data, 0, length);
       return true;
     }
 
@@ -498,9 +493,9 @@ namespace Network {
     }
 
     public bool Align() {
-      int alignBits = r.GetAlignBits();
+      int bits = r.GetAlignBits();
 
-      if (r.WouldOverflow(alignBits)) {
+      if (r.WouldOverflow(bits)) {
         error = STREAM_ERROR_OVERFLOW;
         throw new SerializeException();
       }
@@ -510,17 +505,17 @@ namespace Network {
         throw new SerializeException();
       }
 
-      bitsRead += alignBits;
+      bitsRead += bits;
       return true;
     }
 
     public void Bool(out bool b) {
-      uint unsigned_value;
+      uint value;
 
-      if (!Bits(out unsigned_value, 1))
+      if (!Bits(out value, 1))
         throw new SerializeException();
 
-      b = (unsigned_value == 1) ? true : false;
+      b = (value == 1) ? true : false;
     }
 
     public void Finish() => r.Finish();
@@ -613,148 +608,149 @@ namespace Network {
   }
 
   public class SequenceBuffer<T> {
-    public T[] m_entries;
-    uint[] m_entry_sequence;
-    int m_size;
-    ushort m_sequence;
-    public T[] Entries { get { return m_entries; } }
+    public T[] entries;
+    uint[] entry_sequence;
+    int size;
+    ushort sequence;
+    public T[] Entries { get { return entries; } }
 
     public SequenceBuffer(int size) {
       IsTrue(size > 0);
-      m_size = size;
-      m_sequence = 0;
-      m_entry_sequence = new uint[size];
-      m_entries = new T[size];
+      this.size = size;
+      sequence = 0;
+      entry_sequence = new uint[size];
+      entries = new T[size];
       Reset();
     }
 
     public void Reset() {
-      m_sequence = 0;
+      sequence = 0;
 
-      for (int i = 0; i < m_size; ++i)
-        m_entry_sequence[i] = 0xFFFFFFFF;
+      for (int i = 0; i < size; ++i)
+        entry_sequence[i] = 0xFFFFFFFF;
     }
 
-    public int Insert(ushort sequence) {
-      if (SequenceGreaterThan((ushort)(sequence + 1), m_sequence)) {
-        RemoveEntries(m_sequence, sequence);
-        m_sequence = (ushort)(sequence + 1);
+    public int Insert(ushort newSequence) {
+      if (SequenceGreaterThan((ushort)(newSequence + 1), sequence)) {
+        RemoveEntries(sequence, newSequence);
+        sequence = (ushort)(newSequence + 1);
 
-      } else if (SequenceLessThan(sequence, (ushort)(m_sequence - m_size))) {
+      } else if (SequenceLessThan(newSequence, (ushort)(sequence - size))) {
         return -1;
       }
 
-      int index = sequence % m_size;
-      m_entry_sequence[index] = sequence;
+      int index = newSequence % size;
+      entry_sequence[index] = newSequence;
       return index;
     }
 
-    public void Remove(ushort sequence) => m_entry_sequence[sequence % m_size] = 0xFFFFFFFF;
-    public bool Available(ushort sequence) => m_entry_sequence[sequence % m_size] == 0xFFFFFFFF;
-    public bool Exists(ushort sequence) => m_entry_sequence[sequence % m_size] == (uint)sequence;
+    public void Remove(ushort sequence) => entry_sequence[sequence % size] = 0xFFFFFFFF;
+    public bool Available(ushort sequence) => entry_sequence[sequence % size] == 0xFFFFFFFF;
+    public bool Exists(ushort sequence) => entry_sequence[sequence % size] == (uint)sequence;
 
     public int Find(ushort sequence) {
-      int index = sequence % m_size;
+      int index = sequence % size;
 
-      if (m_entry_sequence[index] == sequence)
-        return index; else
-        return -1;
+      if (entry_sequence[index] == sequence)
+        return index;
+
+      return -1;
     }
 
-    public ushort GetSequence() => m_sequence;
-    public int GetSize() => m_size;
+    public ushort GetSequence() => sequence;
+    public int GetSize() => size;
 
-    public void RemoveEntries(ushort start_sequence, ushort finish_sequence) {
-      int finishSequenceInt = finish_sequence < start_sequence
-        ? finish_sequence + 65535
-        : finish_sequence;
+    public void RemoveEntries(ushort startSequence, ushort finishSequence) {
+      int finish = finishSequence < startSequence
+        ? finishSequence + 65535
+        : finishSequence;
 
-      for (int sequence = start_sequence; sequence <= finishSequenceInt; ++sequence)
-        m_entry_sequence[sequence % m_size] = 0xFFFFFFFF;
+      for (int sequence = startSequence; sequence <= finish; ++sequence)
+        entry_sequence[sequence % size] = 0xFFFFFFFF;
     }
   }
 
   public class SequenceBuffer32<T> where T : new() {
-    public T[] m_entries;
-    uint[] m_entry_sequence;
-    int m_size;
-    uint m_sequence;
+    public T[] entries;
+    uint[] entrySequence;
+    int size;
+    uint sequence;
 
-    public T[] Entries { get { return m_entries; } }
+    public T[] Entries { get { return entries; } }
 
     public SequenceBuffer32(int size) {
       IsTrue(size > 0);
-      m_size = size;
-      m_sequence = 0;
-      m_entry_sequence = new uint[size];
-      m_entries = new T[size];
+      this.size = size;
+      sequence = 0;
+      entrySequence = new uint[size];
+      entries = new T[size];
 
       for (int i = 0; i < size; ++i)
-        m_entries[i] = new T();
+        entries[i] = new T();
 
       Reset();
     }
 
     public void Reset() {
-      m_sequence = 0;
+      sequence = 0;
 
-      for (int i = 0; i < m_size; ++i)
-        m_entry_sequence[i] = 0xFFFFFFFF;
+      for (int i = 0; i < size; ++i)
+        entrySequence[i] = 0xFFFFFFFF;
     }
 
-    public int Insert(uint sequence) {
-      IsTrue(sequence != 0xFFFFFFFF);
+    public int Insert(uint newSequence) {
+      IsTrue(newSequence != 0xFFFFFFFF);
 
-      if (sequence + 1 > m_sequence) {
-        RemoveEntries(m_sequence, sequence);
-        m_sequence = sequence + 1;
+      if (newSequence + 1 > sequence) {
+        RemoveEntries(sequence, newSequence);
+        sequence = newSequence + 1;
 
-      } else if (sequence < m_sequence - m_size) {
+      } else if (newSequence < sequence - size) {
         return -1;
       }
 
-      int index = (int)(sequence % m_size);
-      m_entry_sequence[index] = sequence;
+      int index = (int)(newSequence % size);
+      entrySequence[index] = newSequence;
       return index;
     }
 
     public void Remove(uint sequence) {
       IsTrue(sequence != 0xFFFFFFFF);
-      m_entry_sequence[sequence % m_size] = 0xFFFFFFFF;
+      entrySequence[sequence % size] = 0xFFFFFFFF;
     }
 
     public bool Available(uint sequence) {
       IsTrue(sequence != 0xFFFFFFFF);
-      return m_entry_sequence[sequence % m_size] == 0xFFFFFFFF;
+      return entrySequence[sequence % size] == 0xFFFFFFFF;
     }
 
     public bool Exists(uint sequence) {
       IsTrue(sequence != 0xFFFFFFFF);
-      return m_entry_sequence[sequence % m_size] == sequence;
+      return entrySequence[sequence % size] == sequence;
     }
 
     public int Find(uint sequence) {
       IsTrue(sequence != 0xFFFFFFFF);
-      int index = (int)(sequence % m_size);
+      int index = (int)(sequence % size);
 
-      if (m_entry_sequence[index] == sequence)
+      if (entrySequence[index] == sequence)
         return index; else
         return -1;
     }
 
-    public uint GetSequence() => m_sequence;
-    public int GetSize() => m_size;
+    public uint GetSequence() => sequence;
+    public int GetSize() => size;
 
-    public void RemoveEntries(uint start_sequence, uint finish_sequence) {
-      IsTrue(start_sequence <= finish_sequence);
+    public void RemoveEntries(uint startSequence, uint finishSequence) {
+      IsTrue(startSequence <= finishSequence);
 
-      if (finish_sequence - start_sequence < m_size) {
-        for (uint sequence = start_sequence; sequence <= finish_sequence; ++sequence)
-          m_entry_sequence[sequence % m_size] = 0xFFFFFFFF;
+      if (finishSequence - startSequence < size) {
+        for (uint sequence = startSequence; sequence <= finishSequence; ++sequence)
+          entrySequence[sequence % size] = 0xFFFFFFFF;
 
       } else {
-        for (int i = 0; i < m_size; ++i)
-          m_entry_sequence[i] = 0xFFFFFFFF;
+        for (int i = 0; i < size; ++i)
+          entrySequence[i] = 0xFFFFFFFF;
       }
     }
   }
@@ -782,18 +778,18 @@ namespace Network {
     ushort sequence = 0;
     int ackCount = 0;
     ushort[] acks = new ushort[MaximumAcks];
-    SequenceBuffer<SentPacketData> m_sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
-    SequenceBuffer<ReceivedPacketData> m_receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
+    SequenceBuffer<SentPacketData> sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
+    SequenceBuffer<ReceivedPacketData> receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
 
     public void GeneratePacketHeader(out PacketHeader h) {
       h.sequence = sequence;
-      GenerateAckBits(m_receivedPackets, out h.ack, out h.ackBits);
+      GenerateAckBits(receivedPackets, out h.ack, out h.ackBits);
       h.frame = 0;
       h.resetSequence = 0;
       h.timeOffset = 0.0f;
-      int index = m_sentPackets.Insert(sequence);
+      int index = sentPackets.Insert(sequence);
       IsTrue(index != -1);
-      m_sentPackets.Entries[index].acked = false;
+      sentPackets.Entries[index].acked = false;
       sequence++;
     }
 
@@ -806,14 +802,13 @@ namespace Network {
           continue;
         }
 
-        var acked_sequence = (ushort)(h.ack - i);
-        int index = m_sentPackets.Find(acked_sequence);
+        var ackedSequence = (ushort)(h.ack - i);
+        int index = sentPackets.Find(ackedSequence);
 
-        if (index != -1 && !m_sentPackets.Entries[index].acked) {
-          PacketAcked(acked_sequence);
-          m_sentPackets.Entries[index].acked = true;
+        if (index != -1 && !sentPackets.Entries[index].acked) {
+          PacketAcked(ackedSequence);
+          sentPackets.Entries[index].acked = true;
         }
-        
         h.ackBits >>= 1;
       }
     }
@@ -828,11 +823,11 @@ namespace Network {
     public void Reset() {
       sequence = 0;
       ackCount = 0;
-      m_sentPackets.Reset();
-      m_receivedPackets.Reset();
+      sentPackets.Reset();
+      receivedPackets.Reset();
     }
 
-    void PacketReceived(ushort sequence) => m_receivedPackets.Insert(sequence);
+    void PacketReceived(ushort sequence) => receivedPackets.Insert(sequence);
 
     void PacketAcked(ushort sequence) {
       if (ackCount == MaximumAcks - 1) return;
@@ -843,70 +838,70 @@ namespace Network {
 
   public class Simulator {
     Random random = new Random();
-    float m_latency;                                // latency in milliseconds
-    float m_jitter;                                 // jitter in milliseconds +/-
-    float m_packetLoss;                             // packet loss percentage
-    float m_duplicate;                              // duplicate packet percentage
-    double m_time;                                  // current time from last call to advance time. initially 0.0
-    int m_insertIndex;                              // current index in the packet entry array. new packets are inserted here.
-    int m_receiveIndex;                             // current receive index. packets entries are walked until this wraps back around to m_insertInsdex.
+    float latency;                                // latency in milliseconds
+    float jitter;                                 // jitter in milliseconds +/-
+    float packetLoss;                             // packet loss percentage
+    float duplicate;                              // duplicate packet percentage
+    double time;                                  // current time from last call to advance time. initially 0.0
+    int insertId;                              // current index in the packet entry array. new packets are inserted here.
+    int receiveId;                             // current receive index. packets entries are walked until this wraps back around to m_insertInsdex.
 
     struct PacketEntry {
       public int from;                            // address this packet is from
       public int to;                              // address this packet is sent to
       public double deliveryTime;                 // delivery time for this packet
-      public byte[] packetData;                   // packet data
+      public byte[] packet;                   // packet data
     };
 
-    PacketEntry[] m_packetEntries;                  // packet entries
+    PacketEntry[] packetEntries;                  // packet entries
 
     public Simulator() {
-      m_packetEntries = new PacketEntry[4 * 1024];
+      packetEntries = new PacketEntry[4 * 1024];
     }
 
-    public void SetLatency(float ms) => m_latency = ms;
-    public void SetJitter(float ms) => m_jitter = ms;
-    public void SetPacketLoss(float percent) => m_packetLoss = percent;
-    public void SetDuplicate(float percent) => m_duplicate = percent;
+    public void SetLatency(float ms) => latency = ms;
+    public void SetJitter(float ms) => jitter = ms;
+    public void SetPacketLoss(float percent) => packetLoss = percent;
+    public void SetDuplicate(float percent) => duplicate = percent;
     public float RandomFloat(float min, float max) => (float)random.NextDouble() * (max - min) + min;
 
-    public void SendPacket(int from, int to, byte[] packetData) {
-      if (RandomFloat(0.0f, 100.0f) <= m_packetLoss) return;
+    public void SendPacket(int from, int to, byte[] packet) {
+      if (RandomFloat(0.0f, 100.0f) <= packetLoss) return;
 
-      var delay = m_latency / 1000.0;
+      var delay = latency / 1000.0;
 
-      if (m_jitter > 0)
-        delay += RandomFloat(0, +m_jitter) / 1000.0;
+      if (jitter > 0)
+        delay += RandomFloat(0, jitter) / 1000.0;
 
-      m_packetEntries[m_insertIndex].from = from;
-      m_packetEntries[m_insertIndex].to = to;
-      m_packetEntries[m_insertIndex].packetData = packetData;
-      m_packetEntries[m_insertIndex].deliveryTime = m_time + delay;
-      m_insertIndex = (m_insertIndex + 1) % m_packetEntries.Length;
+      packetEntries[insertId].from = from;
+      packetEntries[insertId].to = to;
+      packetEntries[insertId].packet = packet;
+      packetEntries[insertId].deliveryTime = time + delay;
+      insertId = (insertId + 1) % packetEntries.Length;
 
-      if (RandomFloat(0.0f, 100.0f) > m_duplicate) return;
+      if (RandomFloat(0.0f, 100.0f) > duplicate) return;
 
-      var duplicatePacketData = new byte[packetData.Length];
-      BlockCopy(packetData, 0, duplicatePacketData, 0, packetData.Length);
-      m_packetEntries[m_insertIndex].from = from;
-      m_packetEntries[m_insertIndex].to = to;
-      m_packetEntries[m_insertIndex].packetData = packetData;
-      m_packetEntries[m_insertIndex].deliveryTime = m_time + delay + RandomFloat(0.0f, +1.0f);
-      m_insertIndex = (m_insertIndex + 1) % m_packetEntries.Length;
+      var duplicates = new byte[packet.Length];
+      BlockCopy(packet, 0, duplicates, 0, packet.Length);
+      packetEntries[insertId].from = from;
+      packetEntries[insertId].to = to;
+      packetEntries[insertId].packet = packet;
+      packetEntries[insertId].deliveryTime = time + delay + RandomFloat(0.0f, +1.0f);
+      insertId = (insertId + 1) % packetEntries.Length;
     }
 
     public byte[] ReceivePacket(out int from, out int to) {
-      while (m_receiveIndex != m_insertIndex) {
-        if (m_packetEntries[m_receiveIndex].packetData == null && m_packetEntries[m_receiveIndex].deliveryTime > m_time) {
-          m_receiveIndex = (m_receiveIndex + 1) % m_packetEntries.Length;
+      while (receiveId != insertId) {
+        if (packetEntries[receiveId].packet == null && packetEntries[receiveId].deliveryTime > time) {
+          receiveId = (receiveId + 1) % packetEntries.Length;
           continue;
         }
 
-        var packet = m_packetEntries[m_receiveIndex].packetData;
-        from = m_packetEntries[m_receiveIndex].from;
-        to = m_packetEntries[m_receiveIndex].to;
-        m_packetEntries[m_receiveIndex].packetData = null;
-        m_receiveIndex = (m_receiveIndex + 1) % m_packetEntries.Length;
+        var packet = packetEntries[receiveId].packet;
+        from = packetEntries[receiveId].from;
+        to = packetEntries[receiveId].to;
+        packetEntries[receiveId].packet = null;
+        receiveId = (receiveId + 1) % packetEntries.Length;
         return packet;
       }
 
@@ -915,9 +910,9 @@ namespace Network {
       return null;
     }
 
-    public void AdvanceTime(double time) {
-      m_time = time;
-      m_receiveIndex = (m_insertIndex + 1) % m_packetEntries.Length;
+    public void AdvanceTime(double newTime) {
+      time = newTime;
+      receiveId = (insertId + 1) % packetEntries.Length;
     }
   }
 }

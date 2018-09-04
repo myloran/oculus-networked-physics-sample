@@ -31,13 +31,13 @@ public static class Tests
         Assert.IsTrue( writer.GetBytesWritten() == 0 );
         Assert.IsTrue( writer.GetBitsAvailable() == BufferSize * 8 );
 
-        writer.WriteBits( 0, 1 );
-        writer.WriteBits( 1, 1 );
-        writer.WriteBits( 10, 8 );
-        writer.WriteBits( 255, 8 );
-        writer.WriteBits( 1000, 10 );
-        writer.WriteBits( 50000, 16 );
-        writer.WriteBits( 9999999, 32 );
+        writer.Bits( 0, 1 );
+        writer.Bits( 1, 1 );
+        writer.Bits( 10, 8 );
+        writer.Bits( 255, 8 );
+        writer.Bits( 1000, 10 );
+        writer.Bits( 50000, 16 );
+        writer.Bits( 9999999, 32 );
 
         writer.Finish();
 
