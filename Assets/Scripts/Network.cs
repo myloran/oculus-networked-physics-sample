@@ -247,7 +247,7 @@ namespace Network {
 
     public void Start(uint[] buffer) => m_writer.Start(buffer);
 
-    public void SerializeSignedInteger(int value, int min, int max) {
+    public void WriteSignedInteger(int value, int min, int max) {
       IsTrue(min < max);
       IsTrue(value >= min);
       IsTrue(value <= max);
@@ -256,7 +256,7 @@ namespace Network {
       m_writer.WriteBits(unsigned_value, bits);
     }
 
-    public void SerializeUnsignedInteger(uint value, uint min, uint max) {
+    public void WriteUnsignedInteger(uint value, uint min, uint max) {
       IsTrue(min < max);
       IsTrue(value >= min);
       IsTrue(value <= max);
@@ -265,28 +265,28 @@ namespace Network {
       m_writer.WriteBits(unsigned_value, bits);
     }
 
-    public void SerializeBits(byte value, int bits) {
+    public void WriteBits(byte value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 8);
       IsTrue(bits == 8 || (value < (1 << bits)));
       m_writer.WriteBits(value, bits);
     }
 
-    public void SerializeBits(ushort value, int bits) {
+    public void WriteBits(ushort value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 16);
       IsTrue(bits == 16 || (value < (1 << bits)));
       m_writer.WriteBits(value, bits);
     }
 
-    public void SerializeBits(uint value, int bits) {
+    public void WriteBits(uint value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 32);
       IsTrue(bits == 32 || (value < (1 << bits)));
       m_writer.WriteBits(value, bits);
     }
 
-    public void SerializeBits(ulong value, int bits) {
+    public void WriteBits(ulong value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 64);
       IsTrue(bits == 64 || (value < (1UL << bits)));
@@ -302,15 +302,15 @@ namespace Network {
       }
     }
 
-    public void SerializeBytes(byte[] data, int bytes) {
+    public void WriteBytes(byte[] data, int bytes) {
       IsTrue(data != null);
       IsTrue(bytes >= 0);
-      SerializeAlign();
+      WriteAlign();
       m_writer.WriteBytes(data, bytes);
     }
 
-    public void SerializeString(string s) {
-      SerializeAlign();
+    public void WriteString(string s) {
+      WriteAlign();
       IsTrue(s.Length <= MaxStringLength);
       m_writer.WriteBits((byte)s.Length, BitsRequired(0, MaxStringLength));
 
@@ -318,14 +318,15 @@ namespace Network {
         m_writer.WriteBits(s[i], 16);
     }
 
-    public void SerializeFloat(float f) {
+    public void WriteFloat(float f) {
       var bytes = GetBytes(f);
 
       for (int i = 0; i < 4; ++i)
         m_writer.WriteBits(bytes[i], 8);
     }
 
-    public void SerializeAlign() => m_writer.WriteAlign();
+    public void WriteBool(bool b) => m_writer.WriteBits(b ? 1U : 0U, 1);
+    public void WriteAlign() => m_writer.WriteAlign();
     public void Finish() => m_writer.Finish();
     public int GetAlignBits() => m_writer.GetAlignBits();
     public byte[] GetData() => m_writer.GetData();
@@ -524,34 +525,32 @@ namespace Network {
   }
 
   public class Serializer {
-    public void write_bool(WriteStream stream, bool value) {
-      var unsigned_value = (value == true) ? 1U : 0U;
-      stream.SerializeBits(unsigned_value, 1);
-    }
+    public void write_bool(WriteStream stream, bool value) 
+      => stream.WriteBits((value == true) ? 1U : 0U, 1);
 
     public void write_int(WriteStream stream, int value, int min, int max) 
-      => stream.SerializeSignedInteger(value, min, max);
+      => stream.WriteSignedInteger(value, min, max);
 
     public void write_uint(WriteStream stream, uint value, uint min, uint max)
-      => stream.SerializeUnsignedInteger(value, min, max);
+      => stream.WriteUnsignedInteger(value, min, max);
 
     public void write_bits(WriteStream stream, byte value, int bits)
-      => stream.SerializeBits(value, bits);    
+      => stream.WriteBits(value, bits);    
 
     public void write_bits(WriteStream stream, ushort value, int bits)
-      => stream.SerializeBits(value, bits);
+      => stream.WriteBits(value, bits);
 
     public void write_bits(WriteStream stream, uint value, int bits)
-      => stream.SerializeBits(value, bits);
+      => stream.WriteBits(value, bits);
 
     public void write_bits(WriteStream stream, ulong value, int bits)
-      => stream.SerializeBits(value, bits);
+      => stream.WriteBits(value, bits);
 
     public void write_string(WriteStream stream, string value)
-      => stream.SerializeString(value);
+      => stream.WriteString(value);
 
     public void write_float(WriteStream stream, float value)
-      => stream.SerializeFloat(value);
+      => stream.WriteFloat(value);
 
     public void read_bool(ReadStream stream, out bool value) {
       uint unsigned_value;

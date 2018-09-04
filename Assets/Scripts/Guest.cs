@@ -415,7 +415,7 @@ public class Guest : Common {
   public void ProcessServerInfoPacket(byte[] packet) {
     Profiler.BeginSample("ProcessServerInfoPacket");
 
-    if (ReadServerPacket(packet, packetServerInfo.areConnected, packetServerInfo.userIds, packetServerInfo.userNames)) {
+    if (ReadClientsPacket(packet, packetServerInfo.areConnected, packetServerInfo.userIds, packetServerInfo.userNames)) {
       Debug.Log("Received server info:");
       packetServerInfo.Print();      
 

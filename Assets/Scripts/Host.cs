@@ -405,7 +405,7 @@ public class Host : Common {
         info.userNames[i] = "";
       }
     }
-    WriteServerPacket(info.areConnected, info.userIds, info.userNames);
+    WriteClientsPacket(info.areConnected, info.userIds, info.userNames);
 
     return writeStream.GetData();
   }

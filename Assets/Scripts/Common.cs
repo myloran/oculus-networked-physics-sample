@@ -182,16 +182,13 @@ public class Common : MonoBehaviour {
     data.connection.ProcessPacketHeader(ref entry.packetHeader); //process the packet header (handles acks)
   }
 
-  protected bool WriteServerPacket(bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+  protected bool WriteClientsPacket(bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
     Profiler.BeginSample("WriteServerInfoPacket");
-
     writeStream.Start(packetBuffer);
-
-    bool result = true;
+    var result = true;
 
     try {
-      serializer.WriteServerInfoPacket(writeStream, clientConnected, clientUserId, clientUserName);
-
+      serializer.WriteClientsPacket(writeStream, clientConnected, clientUserId, clientUserName);
       writeStream.Finish();
     } catch (SerializeException) {
       Debug.Log("error: failed to write server info packet");
@@ -202,13 +199,13 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected bool ReadServerPacket(byte[] packetData, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+  protected bool ReadClientsPacket(byte[] packetData, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
     Profiler.BeginSample("ReadServerInfoPacket");
     readStream.Start(packetData);
     var result = true;
 
     try {
-      serializer.ReadServerPacket(readStream, clientConnected, clientUserId, clientUserName);
+      serializer.ReadClientsPacket(readStream, clientConnected, clientUserId, clientUserName);
     } catch (SerializeException) {
       Debug.Log("error: failed to read server info packet");
       result = false;
