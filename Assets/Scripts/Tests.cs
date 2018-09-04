@@ -65,13 +65,13 @@ public static class Tests
         Assert.IsTrue( reader.GetBitsRead() == 0 );
         Assert.IsTrue( reader.GetBitsRemaining() == bytesWritten * 8 );
 
-        uint a = reader.ReadBits( 1 );
-        uint b = reader.ReadBits( 1 );
-        uint c = reader.ReadBits( 8 );
-        uint d = reader.ReadBits( 8 );
-        uint e = reader.ReadBits( 10 );
-        uint f = reader.ReadBits( 16 );
-        uint g = reader.ReadBits( 32 );
+        uint a = reader.Bits( 1 );
+        uint b = reader.Bits( 1 );
+        uint c = reader.Bits( 8 );
+        uint d = reader.Bits( 8 );
+        uint e = reader.Bits( 10 );
+        uint f = reader.Bits( 16 );
+        uint g = reader.Bits( 32 );
 
         reader.Finish();
 

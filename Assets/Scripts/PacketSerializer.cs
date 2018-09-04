@@ -19,234 +19,234 @@ public class PacketSerializer : Network.Serializer {
     StateUpdate = 0,                    // most recent state of the world, delta encoded relative to most recent state per-object acked by the client. sent 90 times per-second.
   };
 
-  public void WriteClientsPacket(WriteStream w, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
-    w.WriteBits((byte)ServerInfo, 8);
+  public void WriteClientsPacket(WriteStream w, bool[] areConnected, ulong[] userIds, string[] userNames) {
+    w.Bits((byte)ServerInfo, 8);
 
     for (int i = 0; i < MaxClients; ++i) {
-      w.WriteBool(clientConnected[i]);
-      if (!clientConnected[i]) continue;
+      w.Bool(areConnected[i]);
+      if (!areConnected[i]) continue;
 
-      w.WriteBits(clientUserId[i], 64);
-      w.WriteString(clientUserName[i]);
+      w.Bits(userIds[i], 64);
+      w.String(userNames[i]);
     }
   }
 
-  public void ReadClientsPacket(ReadStream r, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+  public void ReadClientsPacket(ReadStream r, bool[] areConnected, ulong[] userIds, string[] userNames) {
     byte packetType = 0;
-    read_bits(r, out packetType, 8);
+    r.Bits(out packetType, 8);
     Debug.Assert(packetType == (byte)ServerInfo);
 
     for (int i = 0; i < MaxClients; ++i) {
-      read_bool(r, out clientConnected[i]);
-      if (!clientConnected[i]) continue;
+      r.Bool(out areConnected[i]);
+      if (!areConnected[i]) continue;
 
-      read_bits(r, out clientUserId[i], 64);
-      read_string(r, out clientUserName[i]);
+      r.Bits(out userIds[i], 64);
+      r.String(out userNames[i]);
     }
   }
 
-  public void WriteUpdatePacket(WriteStream w, ref PacketHeader header, int numAvatarStates, AvatarStateQuantized[] avatarState, int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta
+  public void WriteUpdatePacket(WriteStream w, ref PacketHeader header, int avatarCount, AvatarStateQuantized[] avatarState, int cubeCount, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] arePerfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta
   ) {
-    write_bits(w, (byte)StateUpdate, 8);
-    write_bits(w, header.sequence, 16);
-    write_bits(w, header.ack, 16);
-    write_bits(w, header.ack_bits, 32);
-    write_bits(w, header.frameNumber, 32);
-    write_bits(w, header.resetSequence, 16);
-    write_float(w, header.timeOffset);
-    write_int(w, numAvatarStates, 0, MaxClients);
+    w.Bits((byte)StateUpdate, 8);
+    w.Bits(header.sequence, 16);
+    w.Bits(header.ack, 16);
+    w.Bits(header.ackBits, 32);
+    w.Bits(header.frame, 32);
+    w.Bits(header.resetSequence, 16);
+    w.Float(header.timeOffset);
+    w.Int(avatarCount, 0, MaxClients);
 
-    for (int i = 0; i < numAvatarStates; ++i)
-      write_avatar_state(w, ref avatarState[i]);
+    for (int i = 0; i < avatarCount; ++i)
+      WriteAvatar(w, ref avatarState[i]);
 
-    write_int(w, numStateUpdates, 0, MaxStateUpdates);
+    w.Int(cubeCount, 0, MaxStateUpdates);
 
-    for (int i = 0; i < numStateUpdates; ++i) {
-      write_int(w, cubeIds[i], 0, NumCubes - 1);
+    for (int i = 0; i < cubeCount; ++i) {
+      w.Int(cubeIds[i], 0, NumCubes - 1);
 #if DEBUG_DELTA_COMPRESSION
       write_int( stream, cubeDelta[i].absolute_position_x, PositionMinimumXZ, PositionMaximumXZ );
       write_int( stream, cubeDelta[i].absolute_position_y, PositionMinimumY, PositionMaximumY );
       write_int( stream, cubeDelta[i].absolute_position_z, PositionMinimumXZ, PositionMaximumXZ );
 #endif // #if DEBUG_DELTA_COMPRESSION
-      write_int(w, cubeState[i].authorityId, 0, MaxAuthority - 1);
-      write_bits(w, cubeState[i].authoritySequence, 16);
-      write_bits(w, cubeState[i].ownershipSequence, 16);
-      write_bool(w, notChanged[i]);
+      w.Int(cubeState[i].authorityId, 0, MaxAuthority - 1);
+      w.Bits(cubeState[i].authoritySequence, 16);
+      w.Bits(cubeState[i].ownershipSequence, 16);
+      w.Bool(notChanged[i]);
 
       if (notChanged[i]) {
-        write_bits(w, baselineSequence[i], 16);
+        w.Bits(baselineSequence[i], 16);
         continue;
       }
 
-      write_bool(w, perfectPrediction[i]);
+      w.Bool(arePerfectPrediction[i]);
 
-      if (perfectPrediction[i]) {
-        write_bits(w, baselineSequence[i], 16);
-        write_bits(w, cubeState[i].rotationLargest, 2);
-        write_bits(w, cubeState[i].rotationX, RotationBits);
-        write_bits(w, cubeState[i].rotationY, RotationBits);
-        write_bits(w, cubeState[i].rotationZ, RotationBits);
+      if (arePerfectPrediction[i]) {
+        w.Bits(baselineSequence[i], 16);
+        w.Bits(cubeState[i].rotationLargest, 2);
+        w.Bits(cubeState[i].rotationX, RotationBits);
+        w.Bits(cubeState[i].rotationY, RotationBits);
+        w.Bits(cubeState[i].rotationZ, RotationBits);
         continue;
       }
 
-      write_bool(w, hasPredictionDelta[i]);
+      w.Bool(hasPredictionDelta[i]);
 
       if (hasPredictionDelta[i]) {
-        write_bits(w, baselineSequence[i], 16);
-        write_bool(w, cubeState[i].isActive);
-        write_linear_velocity_delta(w, predictionDelta[i].linearVelocityX, predictionDelta[i].linearVelocityY, predictionDelta[i].linearVelocityZ);
-        write_angular_velocity_delta(w, predictionDelta[i].angularVelocityX, predictionDelta[i].angularVelocityY, predictionDelta[i].angularVelocityZ);
-        write_position_delta(w, predictionDelta[i].positionX, predictionDelta[i].positionY, predictionDelta[i].positionZ);
-        write_bits(w, cubeState[i].rotationLargest, 2);
-        write_bits(w, cubeState[i].rotationX, RotationBits);
-        write_bits(w, cubeState[i].rotationY, RotationBits);
-        write_bits(w, cubeState[i].rotationZ, RotationBits);
+        w.Bits(baselineSequence[i], 16);
+        w.Bool(cubeState[i].isActive);
+        WriteLinearVelocityDelta(w, predictionDelta[i].linearVelocityX, predictionDelta[i].linearVelocityY, predictionDelta[i].linearVelocityZ);
+        WriteAngularVelocityDelta(w, predictionDelta[i].angularVelocityX, predictionDelta[i].angularVelocityY, predictionDelta[i].angularVelocityZ);
+        WritePositionDelta(w, predictionDelta[i].positionX, predictionDelta[i].positionY, predictionDelta[i].positionZ);
+        w.Bits(cubeState[i].rotationLargest, 2);
+        w.Bits(cubeState[i].rotationX, RotationBits);
+        w.Bits(cubeState[i].rotationY, RotationBits);
+        w.Bits(cubeState[i].rotationZ, RotationBits);
         continue;
       }
 
-      write_bool(w, hasDelta[i]);
+      w.Bool(hasDelta[i]);
 
       if (hasDelta[i]) {
-        write_bits(w, baselineSequence[i], 16);
-        write_bool(w, cubeState[i].isActive);
-        write_linear_velocity_delta(w, cubeDelta[i].linearVelocityX, cubeDelta[i].linearVelocityY, cubeDelta[i].linearVelocityZ);
-        write_angular_velocity_delta(w, cubeDelta[i].angularVelocityX, cubeDelta[i].angularVelocityY, cubeDelta[i].angularVelocityZ);
-        write_position_delta(w, cubeDelta[i].positionX, cubeDelta[i].positionY, cubeDelta[i].positionZ);
-        write_bits(w, cubeState[i].rotationLargest, 2);
-        write_bits(w, cubeState[i].rotationX, RotationBits);
-        write_bits(w, cubeState[i].rotationY, RotationBits);
-        write_bits(w, cubeState[i].rotationZ, RotationBits);
+        w.Bits(baselineSequence[i], 16);
+        w.Bool(cubeState[i].isActive);
+        WriteLinearVelocityDelta(w, cubeDelta[i].linearVelocityX, cubeDelta[i].linearVelocityY, cubeDelta[i].linearVelocityZ);
+        WriteAngularVelocityDelta(w, cubeDelta[i].angularVelocityX, cubeDelta[i].angularVelocityY, cubeDelta[i].angularVelocityZ);
+        WritePositionDelta(w, cubeDelta[i].positionX, cubeDelta[i].positionY, cubeDelta[i].positionZ);
+        w.Bits(cubeState[i].rotationLargest, 2);
+        w.Bits(cubeState[i].rotationX, RotationBits);
+        w.Bits(cubeState[i].rotationY, RotationBits);
+        w.Bits(cubeState[i].rotationZ, RotationBits);
         continue;
       } 
 
-      write_bool(w, cubeState[i].isActive);
-      write_int(w, cubeState[i].positionX, PositionMinimumXZ, PositionMaximumXZ);
-      write_int(w, cubeState[i].positionY, PositionMinimumY, PositionMaximumY);
-      write_int(w, cubeState[i].positionZ, PositionMinimumXZ, PositionMaximumXZ);
-      write_bits(w, cubeState[i].rotationLargest, 2);
-      write_bits(w, cubeState[i].rotationX, RotationBits);
-      write_bits(w, cubeState[i].rotationY, RotationBits);
-      write_bits(w, cubeState[i].rotationZ, RotationBits);
+      w.Bool(cubeState[i].isActive);
+      w.Int(cubeState[i].positionX, PositionMinimumXZ, PositionMaximumXZ);
+      w.Int(cubeState[i].positionY, PositionMinimumY, PositionMaximumY);
+      w.Int(cubeState[i].positionZ, PositionMinimumXZ, PositionMaximumXZ);
+      w.Bits(cubeState[i].rotationLargest, 2);
+      w.Bits(cubeState[i].rotationX, RotationBits);
+      w.Bits(cubeState[i].rotationY, RotationBits);
+      w.Bits(cubeState[i].rotationZ, RotationBits);
 
       if (!cubeState[i].isActive) continue;
 
-      write_int(w, cubeState[i].linearVelocityX, LinearVelocityMinimum, LinearVelocityMaximum);
-      write_int(w, cubeState[i].linearVelocityY, LinearVelocityMinimum, LinearVelocityMaximum);
-      write_int(w, cubeState[i].linearVelocityZ, LinearVelocityMinimum, LinearVelocityMaximum);
-      write_int(w, cubeState[i].angularVelocityX, AngularVelocityMinimum, AngularVelocityMaximum);
-      write_int(w, cubeState[i].angularVelocityY, AngularVelocityMinimum, AngularVelocityMaximum);
-      write_int(w, cubeState[i].angularVelocityZ, AngularVelocityMinimum, AngularVelocityMaximum);
+      w.Int(cubeState[i].linearVelocityX, LinearVelocityMinimum, LinearVelocityMaximum);
+      w.Int(cubeState[i].linearVelocityY, LinearVelocityMinimum, LinearVelocityMaximum);
+      w.Int(cubeState[i].linearVelocityZ, LinearVelocityMinimum, LinearVelocityMaximum);
+      w.Int(cubeState[i].angularVelocityX, AngularVelocityMinimum, AngularVelocityMaximum);
+      w.Int(cubeState[i].angularVelocityY, AngularVelocityMinimum, AngularVelocityMaximum);
+      w.Int(cubeState[i].angularVelocityZ, AngularVelocityMinimum, AngularVelocityMaximum);
     }
   }
 
   public void ReadStateUpdatePacketHeader(ReadStream r, out PacketHeader header) {
     byte packetType = 0;
-    read_bits(r, out packetType, 8);
+    r.Bits(out packetType, 8);
     Debug.Assert(packetType == (byte)StateUpdate);
-    read_bits(r, out header.sequence, 16);
-    read_bits(r, out header.ack, 16);
-    read_bits(r, out header.ack_bits, 32);
-    read_bits(r, out header.frameNumber, 32);
-    read_bits(r, out header.resetSequence, 16);
+    r.Bits(out header.sequence, 16);
+    r.Bits(out header.ack, 16);
+    r.Bits(out header.ackBits, 32);
+    r.Bits(out header.frame, 32);
+    r.Bits(out header.resetSequence, 16);
     read_float(r, out header.timeOffset);
   }
 
   public void ReadUpdatePacket(ReadStream r, out PacketHeader header, out int numAvatarStates, AvatarStateQuantized[] avatarState, out int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta
   ) {
     byte packetType = 0;
-    read_bits(r, out packetType, 8);
+    r.Bits(out packetType, 8);
     Debug.Assert(packetType == (byte)StateUpdate);
-    read_bits(r, out header.sequence, 16);
-    read_bits(r, out header.ack, 16);
-    read_bits(r, out header.ack_bits, 32);
-    read_bits(r, out header.frameNumber, 32);
-    read_bits(r, out header.resetSequence, 16);
-    read_float(r, out header.timeOffset);
-    read_int(r, out numAvatarStates, 0, MaxClients);
+    r.Bits(out header.sequence, 16);
+    r.Bits(out header.ack, 16);
+    r.Bits(out header.ackBits, 32);
+    r.Bits(out header.frame, 32);
+    r.Bits(out header.resetSequence, 16);
+    r.Float(out header.timeOffset);
+    r.Int(out numAvatarStates, 0, MaxClients);
 
     for (int i = 0; i < numAvatarStates; ++i)
-      read_avatar_state(r, out avatarState[i]);
+      ReadAvatar(r, out avatarState[i]);
 
-    read_int(r, out numStateUpdates, 0, MaxStateUpdates);
+    r.Int(out numStateUpdates, 0, MaxStateUpdates);
 
     for (int i = 0; i < numStateUpdates; ++i) {
       hasDelta[i] = false;
       perfectPrediction[i] = false;
       hasPredictionDelta[i] = false;
-      read_int(r, out cubeIds[i], 0, NumCubes - 1);
+      r.Int(out cubeIds[i], 0, NumCubes - 1);
 #if DEBUG_DELTA_COMPRESSION
       read_int( stream, out cubeDelta[i].absolute_position_x, PositionMinimumXZ, PositionMaximumXZ );
       read_int( stream, out cubeDelta[i].absolute_position_y, PositionMinimumY, PositionMaximumY );
       read_int( stream, out cubeDelta[i].absolute_position_z, PositionMinimumXZ, PositionMaximumXZ );
 #endif // #if DEBUG_DELTA_COMPRESSION
-      read_int(r, out cubeState[i].authorityId, 0, MaxAuthority - 1);
-      read_bits(r, out cubeState[i].authoritySequence, 16);
-      read_bits(r, out cubeState[i].ownershipSequence, 16);
-      read_bool(r, out notChanged[i]);
+      r.Int(out cubeState[i].authorityId, 0, MaxAuthority - 1);
+      r.Bits(out cubeState[i].authoritySequence, 16);
+      r.Bits(out cubeState[i].ownershipSequence, 16);
+      r.Bool(out notChanged[i]);
 
       if (notChanged[i]) {
-        read_bits(r, out baselineSequence[i], 16);
+        r.Bits(out baselineSequence[i], 16);
         continue;
       }
 
-      read_bool(r, out perfectPrediction[i]);
+      r.Bool(out perfectPrediction[i]);
 
       if (perfectPrediction[i]) {
-        read_bits(r, out baselineSequence[i], 16);
-        read_bits(r, out cubeState[i].rotationLargest, 2);
-        read_bits(r, out cubeState[i].rotationX, RotationBits);
-        read_bits(r, out cubeState[i].rotationY, RotationBits);
-        read_bits(r, out cubeState[i].rotationZ, RotationBits);
+        r.Bits(out baselineSequence[i], 16);
+        r.Bits(out cubeState[i].rotationLargest, 2);
+        r.Bits(out cubeState[i].rotationX, RotationBits);
+        r.Bits(out cubeState[i].rotationY, RotationBits);
+        r.Bits(out cubeState[i].rotationZ, RotationBits);
         cubeState[i].isActive = true;
         continue;
       }
 
-      read_bool(r, out hasPredictionDelta[i]);
+      r.Bool(out hasPredictionDelta[i]);
 
       if (hasPredictionDelta[i]) {
-        read_bits(r, out baselineSequence[i], 16);
-        read_bool(r, out cubeState[i].isActive);
-        read_linear_velocity_delta(r, out predictionDelta[i].linearVelocityX, out predictionDelta[i].linearVelocityY, out predictionDelta[i].linearVelocityZ);
-        read_angular_velocity_delta(r, out predictionDelta[i].angularVelocityX, out predictionDelta[i].angularVelocityY, out predictionDelta[i].angularVelocityZ);
-        read_position_delta(r, out predictionDelta[i].positionX, out predictionDelta[i].positionY, out predictionDelta[i].positionZ);
-        read_bits(r, out cubeState[i].rotationLargest, 2);
-        read_bits(r, out cubeState[i].rotationX, RotationBits);
-        read_bits(r, out cubeState[i].rotationY, RotationBits);
-        read_bits(r, out cubeState[i].rotationZ, RotationBits);
+        r.Bits(out baselineSequence[i], 16);
+        r.Bool(out cubeState[i].isActive);
+        ReadLinearVelocityDelta(r, out predictionDelta[i].linearVelocityX, out predictionDelta[i].linearVelocityY, out predictionDelta[i].linearVelocityZ);
+        ReadAngularVelocityDelta(r, out predictionDelta[i].angularVelocityX, out predictionDelta[i].angularVelocityY, out predictionDelta[i].angularVelocityZ);
+        ReadPositionDelta(r, out predictionDelta[i].positionX, out predictionDelta[i].positionY, out predictionDelta[i].positionZ);
+        r.Bits(out cubeState[i].rotationLargest, 2);
+        r.Bits(out cubeState[i].rotationX, RotationBits);
+        r.Bits(out cubeState[i].rotationY, RotationBits);
+        r.Bits(out cubeState[i].rotationZ, RotationBits);
         continue;
       }
 
-      read_bool(r, out hasDelta[i]);
+      r.Bool(out hasDelta[i]);
 
       if (hasDelta[i]) {
-        read_bits(r, out baselineSequence[i], 16);
-        read_bool(r, out cubeState[i].isActive);
-        read_linear_velocity_delta(r, out cubeDelta[i].linearVelocityX, out cubeDelta[i].linearVelocityY, out cubeDelta[i].linearVelocityZ);
-        read_angular_velocity_delta(r, out cubeDelta[i].angularVelocityX, out cubeDelta[i].angularVelocityY, out cubeDelta[i].angularVelocityZ);
-        read_position_delta(r, out cubeDelta[i].positionX, out cubeDelta[i].positionY, out cubeDelta[i].positionZ);
-        read_bits(r, out cubeState[i].rotationLargest, 2);
-        read_bits(r, out cubeState[i].rotationX, RotationBits);
-        read_bits(r, out cubeState[i].rotationY, RotationBits);
-        read_bits(r, out cubeState[i].rotationZ, RotationBits);
+        r.Bits(out baselineSequence[i], 16);
+        r.Bool(out cubeState[i].isActive);
+        ReadLinearVelocityDelta(r, out cubeDelta[i].linearVelocityX, out cubeDelta[i].linearVelocityY, out cubeDelta[i].linearVelocityZ);
+        ReadAngularVelocityDelta(r, out cubeDelta[i].angularVelocityX, out cubeDelta[i].angularVelocityY, out cubeDelta[i].angularVelocityZ);
+        ReadPositionDelta(r, out cubeDelta[i].positionX, out cubeDelta[i].positionY, out cubeDelta[i].positionZ);
+        r.Bits(out cubeState[i].rotationLargest, 2);
+        r.Bits(out cubeState[i].rotationX, RotationBits);
+        r.Bits(out cubeState[i].rotationY, RotationBits);
+        r.Bits(out cubeState[i].rotationZ, RotationBits);
         continue;
       }
 
-      read_bool(r, out cubeState[i].isActive);
-      read_int(r, out cubeState[i].positionX, PositionMinimumXZ, PositionMaximumXZ);
-      read_int(r, out cubeState[i].positionY, PositionMinimumY, PositionMaximumY);
-      read_int(r, out cubeState[i].positionZ, PositionMinimumXZ, PositionMaximumXZ);
-      read_bits(r, out cubeState[i].rotationLargest, 2);
-      read_bits(r, out cubeState[i].rotationX, RotationBits);
-      read_bits(r, out cubeState[i].rotationY, RotationBits);
-      read_bits(r, out cubeState[i].rotationZ, RotationBits);
+      r.Bool(out cubeState[i].isActive);
+      r.Int(out cubeState[i].positionX, PositionMinimumXZ, PositionMaximumXZ);
+      r.Int(out cubeState[i].positionY, PositionMinimumY, PositionMaximumY);
+      r.Int(out cubeState[i].positionZ, PositionMinimumXZ, PositionMaximumXZ);
+      r.Bits(out cubeState[i].rotationLargest, 2);
+      r.Bits(out cubeState[i].rotationX, RotationBits);
+      r.Bits(out cubeState[i].rotationY, RotationBits);
+      r.Bits(out cubeState[i].rotationZ, RotationBits);
 
       if (cubeState[i].isActive) {
-        read_int(r, out cubeState[i].linearVelocityX, LinearVelocityMinimum, LinearVelocityMaximum);
-        read_int(r, out cubeState[i].linearVelocityY, LinearVelocityMinimum, LinearVelocityMaximum);
-        read_int(r, out cubeState[i].linearVelocityZ, LinearVelocityMinimum, LinearVelocityMaximum);
-        read_int(r, out cubeState[i].angularVelocityX, AngularVelocityMinimum, AngularVelocityMaximum);
-        read_int(r, out cubeState[i].angularVelocityY, AngularVelocityMinimum, AngularVelocityMaximum);
-        read_int(r, out cubeState[i].angularVelocityZ, AngularVelocityMinimum, AngularVelocityMaximum);
+        r.Int(out cubeState[i].linearVelocityX, LinearVelocityMinimum, LinearVelocityMaximum);
+        r.Int(out cubeState[i].linearVelocityY, LinearVelocityMinimum, LinearVelocityMaximum);
+        r.Int(out cubeState[i].linearVelocityZ, LinearVelocityMinimum, LinearVelocityMaximum);
+        r.Int(out cubeState[i].angularVelocityX, AngularVelocityMinimum, AngularVelocityMaximum);
+        r.Int(out cubeState[i].angularVelocityY, AngularVelocityMinimum, AngularVelocityMaximum);
+        r.Int(out cubeState[i].angularVelocityZ, AngularVelocityMinimum, AngularVelocityMaximum);
         continue;
       } 
       
@@ -259,501 +259,500 @@ public class PacketSerializer : Network.Serializer {
     }
   }
 
-  void write_position_delta(WriteStream w, int delta_x, int delta_y, int delta_z) {
-    Assert.IsTrue(delta_x >= -PositionDeltaMax);
-    Assert.IsTrue(delta_x <= +PositionDeltaMax);
-    Assert.IsTrue(delta_y >= -PositionDeltaMax);
-    Assert.IsTrue(delta_y <= +PositionDeltaMax);
-    Assert.IsTrue(delta_z >= -PositionDeltaMax);
-    Assert.IsTrue(delta_z <= +PositionDeltaMax);
-    var unsigned_x = SignedToUnsigned(delta_x);
-    var unsigned_y = SignedToUnsigned(delta_y);
-    var unsigned_z = SignedToUnsigned(delta_z);
-    var small_x = unsigned_x <= PositionDeltaSmallThreshold;
-    var small_y = unsigned_y <= PositionDeltaSmallThreshold;
-    var small_z = unsigned_z <= PositionDeltaSmallThreshold;
-    var all_small = small_x && small_y && small_z;
-    write_bool(w, all_small);
+  void WritePositionDelta(WriteStream w, int deltaX, int deltaY, int deltaZ) {
+    Assert.IsTrue(deltaX >= -PositionDeltaMax);
+    Assert.IsTrue(deltaX <= PositionDeltaMax);
+    Assert.IsTrue(deltaY >= -PositionDeltaMax);
+    Assert.IsTrue(deltaY <= PositionDeltaMax);
+    Assert.IsTrue(deltaZ >= -PositionDeltaMax);
+    Assert.IsTrue(deltaZ <= PositionDeltaMax);
+    var unsignedX = SignedToUnsigned(deltaX);
+    var unsignedY = SignedToUnsigned(deltaY);
+    var unsignedZ = SignedToUnsigned(deltaZ);
+    var isSmallX = unsignedX <= PositionDeltaSmallThreshold;
+    var isSmallY = unsignedY <= PositionDeltaSmallThreshold;
+    var isSmallZ = unsignedZ <= PositionDeltaSmallThreshold;
+    var isAllSmall = isSmallX && isSmallY && isSmallZ;
+    w.Bool(isAllSmall);
 
-    if (all_small) {
-      write_bits(w, unsigned_x, PositionDeltaSmallBits);
-      write_bits(w, unsigned_y, PositionDeltaSmallBits);
-      write_bits(w, unsigned_z, PositionDeltaSmallBits);
+    if (isAllSmall) {
+      w.Bits(unsignedX, PositionDeltaSmallBits);
+      w.Bits(unsignedY, PositionDeltaSmallBits);
+      w.Bits(unsignedZ, PositionDeltaSmallBits);
       return;
     }
 
-    write_bool(w, small_x);
+    w.Bool(isSmallX);
 
-    if (small_x) write_bits(w, unsigned_x, PositionDeltaSmallBits);
+    if (isSmallX) w.Bits(unsignedX, PositionDeltaSmallBits);
     else {
-      unsigned_x -= PositionDeltaSmallThreshold;
-      var medium_x = unsigned_x < PositionDeltaMediumThreshold;
-      write_bool(w, medium_x);
+      unsignedX -= PositionDeltaSmallThreshold;
+      var isMediumX = unsignedX < PositionDeltaMediumThreshold;
+      w.Bool(isMediumX);
 
-      if (medium_x)
-        write_bits(w, unsigned_x, PositionDeltaMediumBits); else
-        write_int(w, delta_x, -PositionDeltaMax, +PositionDeltaMax);
+      if (isMediumX)
+        w.Bits(unsignedX, PositionDeltaMediumBits); else
+        w.Int(deltaX, -PositionDeltaMax, +PositionDeltaMax);
     }
 
-    write_bool(w, small_y);
+    w.Bool(isSmallY);
 
-    if (small_y) write_bits(w, unsigned_y, PositionDeltaSmallBits);
+    if (isSmallY) w.Bits(unsignedY, PositionDeltaSmallBits);
     else {
-      unsigned_y -= PositionDeltaSmallThreshold;
-      var medium_y = unsigned_y < PositionDeltaMediumThreshold;
-      write_bool(w, medium_y);
+      unsignedY -= PositionDeltaSmallThreshold;
+      var isMediumY = unsignedY < PositionDeltaMediumThreshold;
+      w.Bool(isMediumY);
 
-      if (medium_y)
-        write_bits(w, unsigned_y, PositionDeltaMediumBits); else
-        write_int(w, delta_y, -PositionDeltaMax, +PositionDeltaMax);
+      if (isMediumY)
+        w.Bits(unsignedY, PositionDeltaMediumBits); else
+        w.Int(deltaY, -PositionDeltaMax, +PositionDeltaMax);
     }
 
-    write_bool(w, small_z);
+    w.Bool(isSmallZ);
 
-    if (small_z) write_bits(w, unsigned_z, PositionDeltaSmallBits);
+    if (isSmallZ) w.Bits(unsignedZ, PositionDeltaSmallBits);
     else {
-      unsigned_z -= PositionDeltaSmallThreshold;
-      var medium_z = unsigned_z < PositionDeltaMediumThreshold;
-      write_bool(w, medium_z);
+      unsignedZ -= PositionDeltaSmallThreshold;
+      var isMediumZ = unsignedZ < PositionDeltaMediumThreshold;
+      w.Bool(isMediumZ);
 
-      if (medium_z)
-        write_bits(w, unsigned_z, PositionDeltaMediumBits); else
-        write_int(w, delta_z, -PositionDeltaMax, +PositionDeltaMax);
+      if (isMediumZ)
+        w.Bits(unsignedZ, PositionDeltaMediumBits); else
+        w.Int(deltaZ, -PositionDeltaMax, +PositionDeltaMax);
     }
   }
 
-  void read_position_delta(ReadStream r, out int delta_x, out int delta_y, out int delta_z) {
-    bool all_small;
-    read_bool(r, out all_small);
-    uint unsigned_x;
-    uint unsigned_y;
-    uint unsigned_z;
+  void ReadPositionDelta(ReadStream r, out int deltaX, out int deltaY, out int deltaZ) {
+    bool isAllSmall;
+    r.Bool(out isAllSmall);
+    uint unsignedX;
+    uint unsignedY;
+    uint unsignedZ;
 
-    if (all_small) {
-      read_bits(r, out unsigned_x, PositionDeltaSmallBits);
-      read_bits(r, out unsigned_y, PositionDeltaSmallBits);
-      read_bits(r, out unsigned_z, PositionDeltaSmallBits);
-      delta_x = UnsignedToSigned(unsigned_x);
-      delta_y = UnsignedToSigned(unsigned_y);
-      delta_z = UnsignedToSigned(unsigned_z);
+    if (isAllSmall) {
+      r.Bits(out unsignedX, PositionDeltaSmallBits);
+      r.Bits(out unsignedY, PositionDeltaSmallBits);
+      r.Bits(out unsignedZ, PositionDeltaSmallBits);
+      deltaX = UnsignedToSigned(unsignedX);
+      deltaY = UnsignedToSigned(unsignedY);
+      deltaZ = UnsignedToSigned(unsignedZ);
       return;
     }
 
-    bool small_x;
-    read_bool(r, out small_x);
+    bool isSmallX;
+    r.Bool(out isSmallX);
 
-    if (small_x) {
-      read_bits(r, out unsigned_x, PositionDeltaSmallBits);
-      delta_x = UnsignedToSigned(unsigned_x);
+    if (isSmallX) {
+      r.Bits(out unsignedX, PositionDeltaSmallBits);
+      deltaX = UnsignedToSigned(unsignedX);
     } else {
-      bool medium_x;
-      read_bool(r, out medium_x);
+      bool isMediumX;
+      r.Bool(out isMediumX);
 
-      if (medium_x) {
-        read_bits(r, out unsigned_x, PositionDeltaMediumBits);
-        delta_x = UnsignedToSigned(unsigned_x + PositionDeltaSmallThreshold);
+      if (isMediumX) {
+        r.Bits(out unsignedX, PositionDeltaMediumBits);
+        deltaX = UnsignedToSigned(unsignedX + PositionDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_x, -PositionDeltaMax, +PositionDeltaMax);
+      else r.Int(out deltaX, -PositionDeltaMax, +PositionDeltaMax);
     }
 
-    bool small_y;
-    read_bool(r, out small_y);
+    bool isSmallY;
+    r.Bool(out isSmallY);
 
-    if (small_y) {
-      read_bits(r, out unsigned_y, PositionDeltaSmallBits);
-      delta_y = UnsignedToSigned(unsigned_y);
+    if (isSmallY) {
+      r.Bits(out unsignedY, PositionDeltaSmallBits);
+      deltaY = UnsignedToSigned(unsignedY);
     } else {
-      bool medium_y;
-      read_bool(r, out medium_y);
+      bool isMediumY;
+      r.Bool(out isMediumY);
 
-      if (medium_y) {
-        read_bits(r, out unsigned_y, PositionDeltaMediumBits);
-        delta_y = UnsignedToSigned(unsigned_y + PositionDeltaSmallThreshold);
+      if (isMediumY) {
+        r.Bits(out unsignedY, PositionDeltaMediumBits);
+        deltaY = UnsignedToSigned(unsignedY + PositionDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_y, -PositionDeltaMax, +PositionDeltaMax);
+      else r.Int(out deltaY, -PositionDeltaMax, +PositionDeltaMax);
     }
 
-    bool small_z;
-    read_bool(r, out small_z);
+    bool isSmallZ;
+    r.Bool(out isSmallZ);
 
-    if (small_z) {
-      read_bits(r, out unsigned_z, PositionDeltaSmallBits);
-      delta_z = UnsignedToSigned(unsigned_z);
+    if (isSmallZ) {
+      r.Bits(out unsignedZ, PositionDeltaSmallBits);
+      deltaZ = UnsignedToSigned(unsignedZ);
     } else {
-      bool medium_z;
-      read_bool(r, out medium_z);
+      bool isMediumZ;
+      r.Bool(out isMediumZ);
 
-      if (medium_z) {
-        read_bits(r, out unsigned_z, PositionDeltaMediumBits);
-        delta_z = UnsignedToSigned(unsigned_z + PositionDeltaSmallThreshold);
+      if (isMediumZ) {
+        r.Bits(out unsignedZ, PositionDeltaMediumBits);
+        deltaZ = UnsignedToSigned(unsignedZ + PositionDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_z, -PositionDeltaMax, +PositionDeltaMax);
+      else r.Int(out deltaZ, -PositionDeltaMax, +PositionDeltaMax);
     }
   }
 
-  void write_linear_velocity_delta(WriteStream w, int delta_x, int delta_y, int delta_z) {
-    Assert.IsTrue(delta_x >= -LinearVelocityDeltaMax);
-    Assert.IsTrue(delta_x <= +LinearVelocityDeltaMax);
-    Assert.IsTrue(delta_y >= -LinearVelocityDeltaMax);
-    Assert.IsTrue(delta_y <= +LinearVelocityDeltaMax);
-    Assert.IsTrue(delta_z >= -LinearVelocityDeltaMax);
-    Assert.IsTrue(delta_z <= +LinearVelocityDeltaMax);
-    var unsigned_x = SignedToUnsigned(delta_x);
-    var unsigned_y = SignedToUnsigned(delta_y);
-    var unsigned_z = SignedToUnsigned(delta_z);
-    var small_x = unsigned_x <= LinearVelocityDeltaSmallThreshold;
-    var small_y = unsigned_y <= LinearVelocityDeltaSmallThreshold;
-    var small_z = unsigned_z <= LinearVelocityDeltaSmallThreshold;
-    var all_small = small_x && small_y && small_z;
-    write_bool(w, all_small);
+  void WriteLinearVelocityDelta(WriteStream w, int deltaX, int deltaY, int deltaZ) {
+    Assert.IsTrue(deltaX >= -LinearVelocityDeltaMax);
+    Assert.IsTrue(deltaX <= +LinearVelocityDeltaMax);
+    Assert.IsTrue(deltaY >= -LinearVelocityDeltaMax);
+    Assert.IsTrue(deltaY <= +LinearVelocityDeltaMax);
+    Assert.IsTrue(deltaZ >= -LinearVelocityDeltaMax);
+    Assert.IsTrue(deltaZ <= +LinearVelocityDeltaMax);
+    var unsignedX = SignedToUnsigned(deltaX);
+    var unsignedY = SignedToUnsigned(deltaY);
+    var unsignedZ = SignedToUnsigned(deltaZ);
+    var isSmallX = unsignedX <= LinearVelocityDeltaSmallThreshold;
+    var isSmallY = unsignedY <= LinearVelocityDeltaSmallThreshold;
+    var isSmallZ = unsignedZ <= LinearVelocityDeltaSmallThreshold;
+    var isAllSmall = isSmallX && isSmallY && isSmallZ;
+    w.Bool(isAllSmall);
 
-    if (all_small) {
-      write_bits(w, unsigned_x, LinearVelocityDeltaSmallBits);
-      write_bits(w, unsigned_y, LinearVelocityDeltaSmallBits);
-      write_bits(w, unsigned_z, LinearVelocityDeltaSmallBits);
+    if (isAllSmall) {
+      w.Bits(unsignedX, LinearVelocityDeltaSmallBits);
+      w.Bits(unsignedY, LinearVelocityDeltaSmallBits);
+      w.Bits(unsignedZ, LinearVelocityDeltaSmallBits);
       return;
     }
 
-    write_bool(w, small_x);
+    w.Bool(isSmallX);
 
-    if (small_x) write_bits(w, unsigned_x, LinearVelocityDeltaSmallBits); 
+    if (isSmallX) w.Bits(unsignedX, LinearVelocityDeltaSmallBits); 
     else {
-      unsigned_x -= LinearVelocityDeltaSmallThreshold;
-      var medium_x = unsigned_x < LinearVelocityDeltaMediumThreshold;
-      write_bool(w, medium_x);
+      unsignedX -= LinearVelocityDeltaSmallThreshold;
+      var isMediumX = unsignedX < LinearVelocityDeltaMediumThreshold;
+      w.Bool(isMediumX);
 
-      if (medium_x)
-        write_bits(w, unsigned_x, LinearVelocityDeltaMediumBits); else
-        write_int(w, delta_x, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
+      if (isMediumX)
+        w.Bits(unsignedX, LinearVelocityDeltaMediumBits); else
+        w.Int(deltaX, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
     }
 
-    write_bool(w, small_y);
+    w.Bool(isSmallY);
 
-    if (small_y) write_bits(w, unsigned_y, LinearVelocityDeltaSmallBits);
+    if (isSmallY) w.Bits(unsignedY, LinearVelocityDeltaSmallBits);
     else {
-      unsigned_y -= LinearVelocityDeltaSmallThreshold;
-      var medium_y = unsigned_y < LinearVelocityDeltaMediumThreshold;
-      write_bool(w, medium_y);
+      unsignedY -= LinearVelocityDeltaSmallThreshold;
+      var isMediumY = unsignedY < LinearVelocityDeltaMediumThreshold;
+      w.Bool(isMediumY);
 
-      if (medium_y)
-        write_bits(w, unsigned_y, LinearVelocityDeltaMediumBits); else
-        write_int(w, delta_y, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
+      if (isMediumY)
+        w.Bits(unsignedY, LinearVelocityDeltaMediumBits); else
+        w.Int(deltaY, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
     }
 
-    write_bool(w, small_z);
+    w.Bool(isSmallZ);
 
-    if (small_z) write_bits(w, unsigned_z, LinearVelocityDeltaSmallBits);
+    if (isSmallZ) w.Bits(unsignedZ, LinearVelocityDeltaSmallBits);
     else {
-      unsigned_z -= LinearVelocityDeltaSmallThreshold;
-      var medium_z = unsigned_z < LinearVelocityDeltaMediumThreshold;
-      write_bool(w, medium_z);
+      unsignedZ -= LinearVelocityDeltaSmallThreshold;
+      var isMediumZ = unsignedZ < LinearVelocityDeltaMediumThreshold;
+      w.Bool(isMediumZ);
 
-      if (medium_z)
-        write_bits(w, unsigned_z, LinearVelocityDeltaMediumBits); else
-        write_int(w, delta_z, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
+      if (isMediumZ)
+        w.Bits(unsignedZ, LinearVelocityDeltaMediumBits); else
+        w.Int(deltaZ, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
     }
   }
 
-  void read_linear_velocity_delta(ReadStream r, out int delta_x, out int delta_y, out int delta_z) {
-    bool all_small;
-    read_bool(r, out all_small);
-    uint unsigned_x;
-    uint unsigned_y;
-    uint unsigned_z;
+  void ReadLinearVelocityDelta(ReadStream r, out int deltaX, out int deltaY, out int deltaZ) {
+    bool isAllSmall;
+    r.Bool(out isAllSmall);
+    uint unsignedX;
+    uint unsignedY;
+    uint unsignedZ;
 
-    if (all_small) {
-      read_bits(r, out unsigned_x, LinearVelocityDeltaSmallBits);
-      read_bits(r, out unsigned_y, LinearVelocityDeltaSmallBits);
-      read_bits(r, out unsigned_z, LinearVelocityDeltaSmallBits);
+    if (isAllSmall) {
+      r.Bits(out unsignedX, LinearVelocityDeltaSmallBits);
+      r.Bits(out unsignedY, LinearVelocityDeltaSmallBits);
+      r.Bits(out unsignedZ, LinearVelocityDeltaSmallBits);
 
-      delta_x = UnsignedToSigned(unsigned_x);
-      delta_y = UnsignedToSigned(unsigned_y);
-      delta_z = UnsignedToSigned(unsigned_z);
+      deltaX = UnsignedToSigned(unsignedX);
+      deltaY = UnsignedToSigned(unsignedY);
+      deltaZ = UnsignedToSigned(unsignedZ);
       return;
     }
 
-    bool small_x;
-    read_bool(r, out small_x);
+    bool isSmallX;
+    r.Bool(out isSmallX);
 
-    if (small_x) {
-      read_bits(r, out unsigned_x, LinearVelocityDeltaSmallBits);
-      delta_x = UnsignedToSigned(unsigned_x);
+    if (isSmallX) {
+      r.Bits(out unsignedX, LinearVelocityDeltaSmallBits);
+      deltaX = UnsignedToSigned(unsignedX);
     } else {
-      bool medium_x;
-      read_bool(r, out medium_x);
+      bool isMediumX;
+      r.Bool(out isMediumX);
 
-      if (medium_x) {
-        read_bits(r, out unsigned_x, LinearVelocityDeltaMediumBits);
-        delta_x = UnsignedToSigned(unsigned_x + LinearVelocityDeltaSmallThreshold);
+      if (isMediumX) {
+        r.Bits(out unsignedX, LinearVelocityDeltaMediumBits);
+        deltaX = UnsignedToSigned(unsignedX + LinearVelocityDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_x, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
+      else r.Int(out deltaX, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
     }
 
-    bool small_y;
-    read_bool(r, out small_y);
+    bool isSmallY;
+    r.Bool(out isSmallY);
 
-    if (small_y) {
-      read_bits(r, out unsigned_y, LinearVelocityDeltaSmallBits);
-      delta_y = UnsignedToSigned(unsigned_y);
+    if (isSmallY) {
+      r.Bits(out unsignedY, LinearVelocityDeltaSmallBits);
+      deltaY = UnsignedToSigned(unsignedY);
     } else {
-      bool medium_y;
-      read_bool(r, out medium_y);
+      bool isMediumY;
+      r.Bool(out isMediumY);
 
-      if (medium_y) {
-        read_bits(r, out unsigned_y, LinearVelocityDeltaMediumBits);
-        delta_y = UnsignedToSigned(unsigned_y + LinearVelocityDeltaSmallThreshold);
+      if (isMediumY) {
+        r.Bits(out unsignedY, LinearVelocityDeltaMediumBits);
+        deltaY = UnsignedToSigned(unsignedY + LinearVelocityDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_y, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
+      else r.Int(out deltaY, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
     }
 
-    bool small_z;
-    read_bool(r, out small_z);
+    bool isSmallZ;
+    r.Bool(out isSmallZ);
 
-    if (small_z) {
-      read_bits(r, out unsigned_z, LinearVelocityDeltaSmallBits);
-      delta_z = UnsignedToSigned(unsigned_z);
+    if (isSmallZ) {
+      r.Bits(out unsignedZ, LinearVelocityDeltaSmallBits);
+      deltaZ = UnsignedToSigned(unsignedZ);
     } else {
-      bool medium_z;
-      read_bool(r, out medium_z);
+      bool isMediumZ;
+      r.Bool(out isMediumZ);
 
-      if (medium_z) {
-        read_bits(r, out unsigned_z, LinearVelocityDeltaMediumBits);
-        delta_z = UnsignedToSigned(unsigned_z + LinearVelocityDeltaSmallThreshold);
+      if (isMediumZ) {
+        r.Bits(out unsignedZ, LinearVelocityDeltaMediumBits);
+        deltaZ = UnsignedToSigned(unsignedZ + LinearVelocityDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_z, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
+      else r.Int(out deltaZ, -LinearVelocityDeltaMax, +LinearVelocityDeltaMax);
     }
   }
 
-  void write_angular_velocity_delta(WriteStream w, int delta_x, int delta_y, int delta_z) {
-    Assert.IsTrue(delta_x >= -AngularVelocityDeltaMax);
-    Assert.IsTrue(delta_x <= +AngularVelocityDeltaMax);
-    Assert.IsTrue(delta_y >= -AngularVelocityDeltaMax);
-    Assert.IsTrue(delta_y <= +AngularVelocityDeltaMax);
-    Assert.IsTrue(delta_z >= -AngularVelocityDeltaMax);
-    Assert.IsTrue(delta_z <= +AngularVelocityDeltaMax);
-    var unsigned_x = SignedToUnsigned(delta_x);
-    var unsigned_y = SignedToUnsigned(delta_y);
-    var unsigned_z = SignedToUnsigned(delta_z);
-    var small_x = unsigned_x <= AngularVelocityDeltaSmallThreshold;
-    var small_y = unsigned_y <= AngularVelocityDeltaSmallThreshold;
-    var small_z = unsigned_z <= AngularVelocityDeltaSmallThreshold;
-    var all_small = small_x && small_y && small_z;
-    write_bool(w, all_small);
+  void WriteAngularVelocityDelta(WriteStream w, int deltaX, int deltaY, int deltaZ) {
+    Assert.IsTrue(deltaX >= -AngularVelocityDeltaMax);
+    Assert.IsTrue(deltaX <= +AngularVelocityDeltaMax);
+    Assert.IsTrue(deltaY >= -AngularVelocityDeltaMax);
+    Assert.IsTrue(deltaY <= +AngularVelocityDeltaMax);
+    Assert.IsTrue(deltaZ >= -AngularVelocityDeltaMax);
+    Assert.IsTrue(deltaZ <= +AngularVelocityDeltaMax);
+    var unsignedX = SignedToUnsigned(deltaX);
+    var unsignedY = SignedToUnsigned(deltaY);
+    var unsignedZ = SignedToUnsigned(deltaZ);
+    var isSmallX = unsignedX <= AngularVelocityDeltaSmallThreshold;
+    var isSmallY = unsignedY <= AngularVelocityDeltaSmallThreshold;
+    var isSmallZ = unsignedZ <= AngularVelocityDeltaSmallThreshold;
+    var isAllSmall = isSmallX && isSmallY && isSmallZ;
+    w.Bool(isAllSmall);
 
-    if (all_small) {
-      write_bits(w, unsigned_x, AngularVelocityDeltaSmallBits);
-      write_bits(w, unsigned_y, AngularVelocityDeltaSmallBits);
-      write_bits(w, unsigned_z, AngularVelocityDeltaSmallBits);
+    if (isAllSmall) {
+      w.Bits(unsignedX, AngularVelocityDeltaSmallBits);
+      w.Bits(unsignedY, AngularVelocityDeltaSmallBits);
+      w.Bits(unsignedZ, AngularVelocityDeltaSmallBits);
       return;
     }
 
-    write_bool(w, small_x);
+    w.Bool(isSmallX);
 
-    if (small_x) write_bits(w, unsigned_x, AngularVelocityDeltaSmallBits);
+    if (isSmallX) w.Bits(unsignedX, AngularVelocityDeltaSmallBits);
     else {
-      unsigned_x -= AngularVelocityDeltaSmallThreshold;
-      var medium_x = unsigned_x < AngularVelocityDeltaMediumThreshold;
-      write_bool(w, medium_x);
+      unsignedX -= AngularVelocityDeltaSmallThreshold;
+      var isMediumX = unsignedX < AngularVelocityDeltaMediumThreshold;
+      w.Bool(isMediumX);
 
-      if (medium_x)
-        write_bits(w, unsigned_x, AngularVelocityDeltaMediumBits); else
-        write_int(w, delta_x, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
+      if (isMediumX)
+        w.Bits(unsignedX, AngularVelocityDeltaMediumBits); else
+        w.Int(deltaX, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
     }
 
-    write_bool(w, small_y);
+    w.Bool(isSmallY);
 
-    if (small_y) write_bits(w, unsigned_y, AngularVelocityDeltaSmallBits);
+    if (isSmallY) w.Bits(unsignedY, AngularVelocityDeltaSmallBits);
     else {
-      unsigned_y -= AngularVelocityDeltaSmallThreshold;
-      var medium_y = unsigned_y < AngularVelocityDeltaMediumThreshold;
-      write_bool(w, medium_y);
+      unsignedY -= AngularVelocityDeltaSmallThreshold;
+      var isMediumY = unsignedY < AngularVelocityDeltaMediumThreshold;
+      w.Bool(isMediumY);
 
-      if (medium_y)
-        write_bits(w, unsigned_y, AngularVelocityDeltaMediumBits); else
-        write_int(w, delta_y, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
+      if (isMediumY)
+        w.Bits(unsignedY, AngularVelocityDeltaMediumBits); else
+        w.Int(deltaY, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
     }
 
-    write_bool(w, small_z);
+    w.Bool(isSmallZ);
 
-    if (small_z) write_bits(w, unsigned_z, AngularVelocityDeltaSmallBits);
+    if (isSmallZ) w.Bits(unsignedZ, AngularVelocityDeltaSmallBits);
     else {
-      unsigned_z -= AngularVelocityDeltaSmallThreshold;
-      var medium_z = unsigned_z < AngularVelocityDeltaMediumThreshold;
-      write_bool(w, medium_z);
+      unsignedZ -= AngularVelocityDeltaSmallThreshold;
+      var isMediumZ = unsignedZ < AngularVelocityDeltaMediumThreshold;
+      w.Bool(isMediumZ);
 
-      if (medium_z)
-        write_bits(w, unsigned_z, AngularVelocityDeltaMediumBits); else
-        write_int(w, delta_z, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
+      if (isMediumZ)
+        w.Bits(unsignedZ, AngularVelocityDeltaMediumBits); else
+        w.Int(deltaZ, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
     }
   }
 
-  void read_angular_velocity_delta(ReadStream r, out int delta_x, out int delta_y, out int delta_z) {
-    bool all_small;
-    read_bool(r, out all_small);
-    uint unsigned_x;
-    uint unsigned_y;
-    uint unsigned_z;
+  void ReadAngularVelocityDelta(ReadStream r, out int deltaX, out int deltaY, out int deltaZ) {
+    bool isAllSmall;
+    r.Bool(out isAllSmall);
+    uint unsignedX;
+    uint unsignedY;
+    uint unsignedZ;
 
-    if (all_small) {
-      read_bits(r, out unsigned_x, AngularVelocityDeltaSmallBits);
-      read_bits(r, out unsigned_y, AngularVelocityDeltaSmallBits);
-      read_bits(r, out unsigned_z, AngularVelocityDeltaSmallBits);
-      delta_x = UnsignedToSigned(unsigned_x);
-      delta_y = UnsignedToSigned(unsigned_y);
-      delta_z = UnsignedToSigned(unsigned_z);
+    if (isAllSmall) {
+      r.Bits(out unsignedX, AngularVelocityDeltaSmallBits);
+      r.Bits(out unsignedY, AngularVelocityDeltaSmallBits);
+      r.Bits(out unsignedZ, AngularVelocityDeltaSmallBits);
+      deltaX = UnsignedToSigned(unsignedX);
+      deltaY = UnsignedToSigned(unsignedY);
+      deltaZ = UnsignedToSigned(unsignedZ);
       return;
     }
 
-    bool small_x;
-    read_bool(r, out small_x);
+    bool isSmallX;
+    r.Bool(out isSmallX);
 
-    if (small_x) {
-      read_bits(r, out unsigned_x, AngularVelocityDeltaSmallBits);
-      delta_x = UnsignedToSigned(unsigned_x);
+    if (isSmallX) {
+      r.Bits(out unsignedX, AngularVelocityDeltaSmallBits);
+      deltaX = UnsignedToSigned(unsignedX);
     } else {
-      bool medium_x;
-      read_bool(r, out medium_x);
+      bool isMediumX;
+      r.Bool(out isMediumX);
 
-      if (medium_x) {
-        read_bits(r, out unsigned_x, AngularVelocityDeltaMediumBits);
-        delta_x = UnsignedToSigned(unsigned_x + AngularVelocityDeltaSmallThreshold);
+      if (isMediumX) {
+        r.Bits(out unsignedX, AngularVelocityDeltaMediumBits);
+        deltaX = UnsignedToSigned(unsignedX + AngularVelocityDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_x, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
+      else r.Int(out deltaX, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
     }
 
-    bool small_y;
-    read_bool(r, out small_y);
+    bool isSmallY;
+    r.Bool(out isSmallY);
 
-    if (small_y) {
-      read_bits(r, out unsigned_y, AngularVelocityDeltaSmallBits);
-      delta_y = UnsignedToSigned(unsigned_y);
+    if (isSmallY) {
+      r.Bits(out unsignedY, AngularVelocityDeltaSmallBits);
+      deltaY = UnsignedToSigned(unsignedY);
     } else {
-      bool medium_y;
-      read_bool(r, out medium_y);
+      bool isMediumY;
+      r.Bool(out isMediumY);
 
-      if (medium_y) {
-        read_bits(r, out unsigned_y, AngularVelocityDeltaMediumBits);
-        delta_y = UnsignedToSigned(unsigned_y + AngularVelocityDeltaSmallThreshold);
+      if (isMediumY) {
+        r.Bits(out unsignedY, AngularVelocityDeltaMediumBits);
+        deltaY = UnsignedToSigned(unsignedY + AngularVelocityDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_y, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
+      else r.Int(out deltaY, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
     }
 
-    bool small_z;
-    read_bool(r, out small_z);
+    bool isSmallZ;
+    r.Bool(out isSmallZ);
 
-    if (small_z) {
-      read_bits(r, out unsigned_z, AngularVelocityDeltaSmallBits);
-      delta_z = UnsignedToSigned(unsigned_z);
+    if (isSmallZ) {
+      r.Bits(out unsignedZ, AngularVelocityDeltaSmallBits);
+      deltaZ = UnsignedToSigned(unsignedZ);
     } else {
-      bool medium_z;
-      read_bool(r, out medium_z);
+      bool isMediumZ;
+      r.Bool(out isMediumZ);
 
-      if (medium_z) {
-        read_bits(r, out unsigned_z, AngularVelocityDeltaMediumBits);
-        delta_z = UnsignedToSigned(unsigned_z + AngularVelocityDeltaSmallThreshold);
+      if (isMediumZ) {
+        r.Bits(out unsignedZ, AngularVelocityDeltaMediumBits);
+        deltaZ = UnsignedToSigned(unsignedZ + AngularVelocityDeltaSmallThreshold);
       } 
-      else read_int(r, out delta_z, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
+      else r.Int(out deltaZ, -AngularVelocityDeltaMax, +AngularVelocityDeltaMax);
     }
   }
 
-  void write_avatar_state(WriteStream w, ref AvatarStateQuantized s) {
-    write_int(w, s.clientId, 0, MaxClients - 1);
-    write_int(w, s.headPositionX, PositionMinimumXZ, PositionMaximumXZ);
-    write_int(w, s.headPositionY, PositionMinimumY, PositionMaximumY);
-    write_int(w, s.headPositionZ, PositionMinimumXZ, PositionMaximumXZ);
-    write_bits(w, s.headRotationLargest, 2);
-    write_bits(w, s.headRotationX, RotationBits);
-    write_bits(w, s.headRotationY, RotationBits);
-    write_bits(w, s.headRotationZ, RotationBits);
-    write_int(w, s.leftHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
-    write_int(w, s.leftHandPositionY, PositionMinimumY, PositionMaximumY);
-    write_int(w, s.leftHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
-    write_bits(w, s.leftHandRotationLargest, 2);
-    write_bits(w, s.leftHandRotationX, RotationBits);
-    write_bits(w, s.leftHandRotationY, RotationBits);
-    write_bits(w, s.leftHandRotationZ, RotationBits);
-    write_int(w, s.leftHandGripTrigger, TriggerMinimum, TriggerMaximum);
-    write_int(w, s.leftHandIdTrigger, TriggerMinimum, TriggerMaximum);
-    write_bool(w, s.isLeftHandPointing);
-    write_bool(w, s.areLeftHandThumbsUp);
-    write_bool(w, s.isLeftHandHoldingCube);
+  void WriteAvatar(WriteStream w, ref AvatarStateQuantized s) {
+    w.Int(s.clientId, 0, MaxClients - 1);
+    w.Int(s.headPositionX, PositionMinimumXZ, PositionMaximumXZ);
+    w.Int(s.headPositionY, PositionMinimumY, PositionMaximumY);
+    w.Int(s.headPositionZ, PositionMinimumXZ, PositionMaximumXZ);
+    w.Bits(s.headRotationLargest, 2);
+    w.Bits(s.headRotationX, RotationBits);
+    w.Bits(s.headRotationY, RotationBits);
+    w.Bits(s.headRotationZ, RotationBits);
+    w.Int(s.leftHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
+    w.Int(s.leftHandPositionY, PositionMinimumY, PositionMaximumY);
+    w.Int(s.leftHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
+    w.Bits(s.leftHandRotationLargest, 2);
+    w.Bits(s.leftHandRotationX, RotationBits);
+    w.Bits(s.leftHandRotationY, RotationBits);
+    w.Bits(s.leftHandRotationZ, RotationBits);
+    w.Int(s.leftHandGripTrigger, TriggerMinimum, TriggerMaximum);
+    w.Int(s.leftHandIdTrigger, TriggerMinimum, TriggerMaximum);
+    w.Bool(s.isLeftHandPointing);
+    w.Bool(s.areLeftHandThumbsUp);
+    w.Bool(s.isLeftHandHoldingCube);
 
     if (s.isLeftHandHoldingCube) {
-      write_int(w, s.leftHandCubeId, 0, NumCubes - 1);
-      write_bits(w, s.leftHandAuthoritySequence, 16);
-      write_bits(w, s.leftHandOwnershipSequence, 16);
-      write_int(w, s.leftHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
-      write_int(w, s.leftHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
-      write_int(w, s.leftHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
-      write_bits(w, s.leftHandCubeLocalRotationLargest, 2);
-      write_bits(w, s.leftHandCubeLocalRotationX, RotationBits);
-      write_bits(w, s.leftHandCubeLocalRotationY, RotationBits);
-      write_bits(w, s.leftHandCubeLocalRotationZ, RotationBits);
+      w.Int(s.leftHandCubeId, 0, NumCubes - 1);
+      w.Bits(s.leftHandAuthoritySequence, 16);
+      w.Bits(s.leftHandOwnershipSequence, 16);
+      w.Int(s.leftHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
+      w.Int(s.leftHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
+      w.Int(s.leftHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
+      w.Bits(s.leftHandCubeLocalRotationLargest, 2);
+      w.Bits(s.leftHandCubeLocalRotationX, RotationBits);
+      w.Bits(s.leftHandCubeLocalRotationY, RotationBits);
+      w.Bits(s.leftHandCubeLocalRotationZ, RotationBits);
     }
 
-    write_int(w, s.rightHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
-    write_int(w, s.rightHandPositionY, PositionMinimumY, PositionMaximumY);
-    write_int(w, s.rightHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
-    write_bits(w, s.rightHandRotationLargest, 2);
-    write_bits(w, s.rightHandRotationX, RotationBits);
-    write_bits(w, s.rightHandRotationY, RotationBits);
-    write_bits(w, s.rightHandRotationZ, RotationBits);
-    write_int(w, s.rightHandGripTrigger, TriggerMinimum, TriggerMaximum);
-    write_int(w, s.rightHandIndexTrigger, TriggerMinimum, TriggerMaximum);
-    write_bool(w, s.isRightHandPointing);
-    write_bool(w, s.areRightHandThumbsUp);
-    write_bool(w, s.isRightHandHoldingCube);
+    w.Int(s.rightHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
+    w.Int(s.rightHandPositionY, PositionMinimumY, PositionMaximumY);
+    w.Int(s.rightHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
+    w.Bits(s.rightHandRotationLargest, 2);
+    w.Bits(s.rightHandRotationX, RotationBits);
+    w.Bits(s.rightHandRotationY, RotationBits);
+    w.Bits(s.rightHandRotationZ, RotationBits);
+    w.Int(s.rightHandGripTrigger, TriggerMinimum, TriggerMaximum);
+    w.Int(s.rightHandIndexTrigger, TriggerMinimum, TriggerMaximum);
+    w.Bool(s.isRightHandPointing);
+    w.Bool(s.areRightHandThumbsUp);
+    w.Bool(s.isRightHandHoldingCube);
 
     if (s.isRightHandHoldingCube) {
-      write_int(w, s.rightHandCubeId, 0, NumCubes - 1);
-      write_bits(w, s.rightHandAuthoritySequence, 16);
-      write_bits(w, s.rightHandOwnershipSequence, 16);
-      write_int(w, s.rightHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
-      write_int(w, s.rightHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
-      write_int(w, s.rightHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
-      write_bits(w, s.rightHandCubeLocalRotationLargest, 2);
-      write_bits(w, s.rightHandCubeLocalRotationX, RotationBits);
-      write_bits(w, s.rightHandCubeLocalRotationY, RotationBits);
-      write_bits(w, s.rightHandCubeLocalRotationZ, RotationBits);
+      w.Int(s.rightHandCubeId, 0, NumCubes - 1);
+      w.Bits(s.rightHandAuthoritySequence, 16);
+      w.Bits(s.rightHandOwnershipSequence, 16);
+      w.Int(s.rightHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
+      w.Int(s.rightHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
+      w.Int(s.rightHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
+      w.Bits(s.rightHandCubeLocalRotationLargest, 2);
+      w.Bits(s.rightHandCubeLocalRotationX, RotationBits);
+      w.Bits(s.rightHandCubeLocalRotationY, RotationBits);
+      w.Bits(s.rightHandCubeLocalRotationZ, RotationBits);
     }
-    write_int(w, s.voiceAmplitude, VoiceMinimum, VoiceMaximum);
+    w.Int(s.voiceAmplitude, VoiceMinimum, VoiceMaximum);
   }
 
-  void read_avatar_state(ReadStream s, out AvatarStateQuantized a) {
-    read_int(s, out a.clientId, 0, MaxClients - 1);
-    read_int(s, out a.headPositionX, PositionMinimumXZ, PositionMaximumXZ);
-    read_int(s, out a.headPositionY, PositionMinimumY, PositionMaximumY);
-    read_int(s, out a.headPositionZ, PositionMinimumXZ, PositionMaximumXZ);
-    read_bits(s, out a.headRotationLargest, 2);
-    read_bits(s, out a.headRotationX, RotationBits);
-    read_bits(s, out a.headRotationY, RotationBits);
-    read_bits(s, out a.headRotationZ, RotationBits);
-    read_int(s, out a.leftHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
-    read_int(s, out a.leftHandPositionY, PositionMinimumY, PositionMaximumY);
-    read_int(s, out a.leftHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
-    read_bits(s, out a.leftHandRotationLargest, 2);
-    read_bits(s, out a.leftHandRotationX, RotationBits);
-    read_bits(s, out a.leftHandRotationY, RotationBits);
-    read_bits(s, out a.leftHandRotationZ, RotationBits);
-    read_int(s, out a.leftHandGripTrigger, TriggerMinimum, TriggerMaximum);
-    read_int(s, out a.leftHandIdTrigger, TriggerMinimum, TriggerMaximum);
-    read_bool(s, out a.isLeftHandPointing);
-    read_bool(s, out a.areLeftHandThumbsUp);
-    read_bool(s, out a.isLeftHandHoldingCube);
+  void ReadAvatar(ReadStream s, out AvatarStateQuantized a) {
+    s.Int(out a.clientId, 0, MaxClients - 1);
+    s.Int(out a.headPositionX, PositionMinimumXZ, PositionMaximumXZ);
+    s.Int(out a.headPositionY, PositionMinimumY, PositionMaximumY);
+    s.Int(out a.headPositionZ, PositionMinimumXZ, PositionMaximumXZ);
+    s.Bits(out a.headRotationLargest, 2);
+    s.Bits(out a.headRotationX, RotationBits);
+    s.Bits(out a.headRotationY, RotationBits);
+    s.Bits(out a.headRotationZ, RotationBits);
+    s.Int(out a.leftHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
+    s.Int(out a.leftHandPositionY, PositionMinimumY, PositionMaximumY);
+    s.Int(out a.leftHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
+    s.Bits(out a.leftHandRotationLargest, 2);
+    s.Bits(out a.leftHandRotationX, RotationBits);
+    s.Bits(out a.leftHandRotationY, RotationBits);
+    s.Bits(out a.leftHandRotationZ, RotationBits);
+    s.Int(out a.leftHandGripTrigger, TriggerMinimum, TriggerMaximum);
+    s.Int(out a.leftHandIdTrigger, TriggerMinimum, TriggerMaximum);
+    s.Bool(out a.isLeftHandPointing);
+    s.Bool(out a.areLeftHandThumbsUp);
+    s.Bool(out a.isLeftHandHoldingCube);
 
     if (a.isLeftHandHoldingCube) {
-      read_int(s, out a.leftHandCubeId, 0, NumCubes - 1);
-      read_bits(s, out a.leftHandAuthoritySequence, 16);
-      read_bits(s, out a.leftHandOwnershipSequence, 16);
+      s.Int(out a.leftHandCubeId, 0, NumCubes - 1);
+      s.Bits(out a.leftHandAuthoritySequence, 16);
+      s.Bits(out a.leftHandOwnershipSequence, 16);
+      s.Int(out a.leftHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
+      s.Int(out a.leftHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
+      s.Int(out a.leftHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
+      s.Bits(out a.leftHandCubeLocalRotationLargest, 2);
+      s.Bits(out a.leftHandCubeLocalRotationX, RotationBits);
+      s.Bits(out a.leftHandCubeLocalRotationY, RotationBits);
+      s.Bits(out a.leftHandCubeLocalRotationZ, RotationBits);
 
-      read_int(s, out a.leftHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
-      read_int(s, out a.leftHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
-      read_int(s, out a.leftHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
-
-      read_bits(s, out a.leftHandCubeLocalRotationLargest, 2);
-      read_bits(s, out a.leftHandCubeLocalRotationX, RotationBits);
-      read_bits(s, out a.leftHandCubeLocalRotationY, RotationBits);
-      read_bits(s, out a.leftHandCubeLocalRotationZ, RotationBits);
     } else {
       a.leftHandCubeId = 0;
       a.leftHandAuthoritySequence = 0;
@@ -767,30 +766,31 @@ public class PacketSerializer : Network.Serializer {
       a.leftHandCubeLocalRotationZ = 0;
     }
 
-    read_int(s, out a.rightHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
-    read_int(s, out a.rightHandPositionY, PositionMinimumY, PositionMaximumY);
-    read_int(s, out a.rightHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
-    read_bits(s, out a.rightHandRotationLargest, 2);
-    read_bits(s, out a.rightHandRotationX, RotationBits);
-    read_bits(s, out a.rightHandRotationY, RotationBits);
-    read_bits(s, out a.rightHandRotationZ, RotationBits);
-    read_int(s, out a.rightHandGripTrigger, TriggerMinimum, TriggerMaximum);
-    read_int(s, out a.rightHandIndexTrigger, TriggerMinimum, TriggerMaximum);
-    read_bool(s, out a.isRightHandPointing);
-    read_bool(s, out a.areRightHandThumbsUp);
-    read_bool(s, out a.isRightHandHoldingCube);
+    s.Int(out a.rightHandPositionX, PositionMinimumXZ, PositionMaximumXZ);
+    s.Int(out a.rightHandPositionY, PositionMinimumY, PositionMaximumY);
+    s.Int(out a.rightHandPositionZ, PositionMinimumXZ, PositionMaximumXZ);
+    s.Bits(out a.rightHandRotationLargest, 2);
+    s.Bits(out a.rightHandRotationX, RotationBits);
+    s.Bits(out a.rightHandRotationY, RotationBits);
+    s.Bits(out a.rightHandRotationZ, RotationBits);
+    s.Int(out a.rightHandGripTrigger, TriggerMinimum, TriggerMaximum);
+    s.Int(out a.rightHandIndexTrigger, TriggerMinimum, TriggerMaximum);
+    s.Bool(out a.isRightHandPointing);
+    s.Bool(out a.areRightHandThumbsUp);
+    s.Bool(out a.isRightHandHoldingCube);
 
     if (a.isRightHandHoldingCube) {
-      read_int(s, out a.rightHandCubeId, 0, NumCubes - 1);
-      read_bits(s, out a.rightHandAuthoritySequence, 16);
-      read_bits(s, out a.rightHandOwnershipSequence, 16);
-      read_int(s, out a.rightHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
-      read_int(s, out a.rightHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
-      read_int(s, out a.rightHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
-      read_bits(s, out a.rightHandCubeLocalRotationLargest, 2);
-      read_bits(s, out a.rightHandCubeLocalRotationX, RotationBits);
-      read_bits(s, out a.rightHandCubeLocalRotationY, RotationBits);
-      read_bits(s, out a.rightHandCubeLocalRotationZ, RotationBits);
+      s.Int(out a.rightHandCubeId, 0, NumCubes - 1);
+      s.Bits(out a.rightHandAuthoritySequence, 16);
+      s.Bits(out a.rightHandOwnershipSequence, 16);
+      s.Int(out a.rightHandCubeLocalPositionX, LocalPositionMinimum, LocalPositionMaximum);
+      s.Int(out a.rightHandCubeLocalPositionY, LocalPositionMinimum, LocalPositionMaximum);
+      s.Int(out a.rightHandCubeLocalPositionZ, LocalPositionMinimum, LocalPositionMaximum);
+      s.Bits(out a.rightHandCubeLocalRotationLargest, 2);
+      s.Bits(out a.rightHandCubeLocalRotationX, RotationBits);
+      s.Bits(out a.rightHandCubeLocalRotationY, RotationBits);
+      s.Bits(out a.rightHandCubeLocalRotationZ, RotationBits);
+
     } else {
       a.rightHandCubeId = 0;
       a.rightHandAuthoritySequence = 0;
@@ -803,6 +803,6 @@ public class PacketSerializer : Network.Serializer {
       a.rightHandCubeLocalRotationY = 0;
       a.rightHandCubeLocalRotationZ = 0;
     }
-    read_int(s, out a.voiceAmplitude, VoiceMinimum, VoiceMaximum);
+    s.Int(out a.voiceAmplitude, VoiceMinimum, VoiceMaximum);
   }
 }

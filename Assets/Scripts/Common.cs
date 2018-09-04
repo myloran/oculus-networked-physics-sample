@@ -182,13 +182,13 @@ public class Common : MonoBehaviour {
     data.connection.ProcessPacketHeader(ref entry.packetHeader); //process the packet header (handles acks)
   }
 
-  protected bool WriteClientsPacket(bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+  protected bool WriteClientsPacket(bool[] areConnected, ulong[] userIds, string[] userNames) {
     Profiler.BeginSample("WriteServerInfoPacket");
     writeStream.Start(packetBuffer);
     var result = true;
 
     try {
-      serializer.WriteClientsPacket(writeStream, clientConnected, clientUserId, clientUserName);
+      serializer.WriteClientsPacket(writeStream, areConnected, userIds, userNames);
       writeStream.Finish();
     } catch (SerializeException) {
       Debug.Log("error: failed to write server info packet");
@@ -246,8 +246,8 @@ public class Common : MonoBehaviour {
       Debug.Log("error: failed to read state update packet");
       packetHeader.sequence = 0;
       packetHeader.ack = 0;
-      packetHeader.ack_bits = 0;
-      packetHeader.frameNumber = 0;
+      packetHeader.ackBits = 0;
+      packetHeader.frame = 0;
       packetHeader.resetSequence = 0;
       packetHeader.timeOffset = 0.0f;
       numAvatarStates = 0;

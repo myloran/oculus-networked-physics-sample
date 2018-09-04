@@ -348,7 +348,7 @@ public class Loopback: Common
 
         writePacketHeader.timeOffset = avatarSampleTimeOffset;
 
-        writePacketHeader.frameNumber = (uint) frame;
+        writePacketHeader.frame = (uint) frame;
 
         writePacketHeader.resetSequence = context.resetSequence;
 

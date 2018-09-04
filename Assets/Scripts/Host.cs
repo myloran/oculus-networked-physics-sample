@@ -418,7 +418,7 @@ public class Host : Common {
     PacketHeader header;
     d.connection.GeneratePacketHeader(out header);
     header.resetSequence = context.resetSequence;
-    header.frameNumber = (uint)frame;
+    header.frame = (uint)frame;
     header.timeOffset = timeOffset;
 
     DetermineNotChangedAndDeltas(context, d, header.sequence, count, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubes, ref cubeDeltas);
@@ -432,7 +432,7 @@ public class Host : Common {
         localAvatar.GetComponent<Hands>().GetState(out avatars[id]); //grab state from the local avatar.
         Quantize(ref avatars[id], out avatarsQuantized[id]);
         id++;
-      } else {        
+      } else {
         var avatar = context.GetAvatar(i); //grab state from a remote avatar.
         if (!avatar) continue;
 

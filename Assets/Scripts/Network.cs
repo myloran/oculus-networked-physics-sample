@@ -173,120 +173,120 @@ namespace Network {
   }
 
   public class BitReader {
-    uint[] m_data;
-    ulong m_scratch;
-    int m_numBits;
-    int m_numWords;
-    int m_bitsRead;
-    int m_scratchBits;
-    int m_wordIndex;
+    uint[] Data;
+    ulong scratch;
+    int bitCount;
+    int wordCount;
+    int bitsRead;
+    int scratchBits;
+    int wordId;
 
     public void Start(byte[] data) {
       int bytes = data.Length;
-      m_numWords = (bytes + 3) / 4;
-      m_numBits = bytes * 8;
-      m_bitsRead = 0;
-      m_scratch = 0;
-      m_scratchBits = 0;
-      m_wordIndex = 0;
-      m_data = new uint[m_numWords];
-      BlockCopy(data, 0, m_data, 0, bytes);
+      wordCount = (bytes + 3) / 4;
+      bitCount = bytes * 8;
+      bitsRead = 0;
+      scratch = 0;
+      scratchBits = 0;
+      wordId = 0;
+      Data = new uint[wordCount];
+      BlockCopy(data, 0, Data, 0, bytes);
     }
 
-    public bool WouldOverflow(int bits) => m_bitsRead + bits > m_numBits;
+    public bool WouldOverflow(int bits) => bitsRead + bits > bitCount;
 
-    public uint ReadBits(int bits) {
+    public uint Bits(int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 32);
-      IsTrue(m_bitsRead + bits <= m_numBits);
-      m_bitsRead += bits;
-      IsTrue(m_scratchBits >= 0 && m_scratchBits <= 64);
+      IsTrue(bitsRead + bits <= bitCount);
+      bitsRead += bits;
+      IsTrue(scratchBits >= 0 && scratchBits <= 64);
 
-      if (m_scratchBits < bits) {
-        IsTrue(m_wordIndex < m_numWords);
-        m_scratch |= ((ulong)(NetworkToHost(m_data[m_wordIndex]))) << m_scratchBits;
-        m_scratchBits += 32;
-        m_wordIndex++;
+      if (scratchBits < bits) {
+        IsTrue(wordId < wordCount);
+        scratch |= ((ulong)(NetworkToHost(Data[wordId]))) << scratchBits;
+        scratchBits += 32;
+        wordId++;
       }
-      IsTrue(m_scratchBits >= bits);
-      var output = (uint)(m_scratch & ((((ulong)1) << bits) - 1));
-      m_scratch >>= bits;
-      m_scratchBits -= bits;
+      IsTrue(scratchBits >= bits);
+      var output = (uint)(scratch & ((((ulong)1) << bits) - 1));
+      scratch >>= bits;
+      scratchBits -= bits;
 
       return output;
     }
 
-    public bool ReadAlign() {
-      int remainderBits = m_bitsRead % 8;
+    public bool Align() {
+      int remainderBits = bitsRead % 8;
       if (remainderBits == 0) return true;
 
-      uint value = ReadBits(8 - remainderBits);
-      IsTrue(m_bitsRead % 8 == 0);
+      uint value = Bits(8 - remainderBits);
+      IsTrue(bitsRead % 8 == 0);
       if (value != 0) return false;
       return true;
     }
 
-    public void ReadBytes(byte[] data, int bytes) {
+    public void Bytes(byte[] data, int bytes) {
       IsTrue(GetAlignBits() == 0);
 
       for (int i = 0; i < bytes; ++i)
-        data[i] = (byte)ReadBits(8);
+        data[i] = (byte)Bits(8);
     }
 
     public void Finish() { /* ...*/}
-    public int GetAlignBits() => (8 - m_bitsRead % 8) % 8;
-    public int GetBitsRead() => m_bitsRead;
-    public int GetBytesRead() => m_wordIndex * 4;
-    public int GetBitsRemaining() => m_numBits - m_bitsRead;
+    public int GetAlignBits() => (8 - bitsRead % 8) % 8;
+    public int GetBitsRead() => bitsRead;
+    public int GetBytesRead() => wordId * 4;
+    public int GetBitsRemaining() => bitCount - bitsRead;
     public int GetBytesRemaining() => GetBitsRemaining() / 8;
   }
 
   public class WriteStream {
-    BitWriter m_writer = new BitWriter();
+    BitWriter w = new BitWriter();
     int m_error = STREAM_ERROR_NONE;
 
-    public void Start(uint[] buffer) => m_writer.Start(buffer);
+    public void Start(uint[] buffer) => w.Start(buffer);
 
-    public void WriteSignedInteger(int value, int min, int max) {
+    public void Int(int value, int min, int max) {
       IsTrue(min < max);
       IsTrue(value >= min);
       IsTrue(value <= max);
       int bits = BitsRequired(min, max);
       var unsigned_value = (uint)(value - min);
-      m_writer.WriteBits(unsigned_value, bits);
+      w.WriteBits(unsigned_value, bits);
     }
 
-    public void WriteUnsignedInteger(uint value, uint min, uint max) {
+    public void Uint(uint value, uint min, uint max) {
       IsTrue(min < max);
       IsTrue(value >= min);
       IsTrue(value <= max);
       int bits = BitsRequired(min, max);
       var unsigned_value = value - min;
-      m_writer.WriteBits(unsigned_value, bits);
+      w.WriteBits(unsigned_value, bits);
     }
 
-    public void WriteBits(byte value, int bits) {
+    public void Bits(byte value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 8);
       IsTrue(bits == 8 || (value < (1 << bits)));
-      m_writer.WriteBits(value, bits);
+      w.WriteBits(value, bits);
     }
 
-    public void WriteBits(ushort value, int bits) {
+    public void Bits(ushort value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 16);
       IsTrue(bits == 16 || (value < (1 << bits)));
-      m_writer.WriteBits(value, bits);
+      w.WriteBits(value, bits);
     }
 
-    public void WriteBits(uint value, int bits) {
+    public void Bits(uint value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 32);
       IsTrue(bits == 32 || (value < (1 << bits)));
-      m_writer.WriteBits(value, bits);
+      w.WriteBits(value, bits);
     }
 
-    public void WriteBits(ulong value, int bits) {
+    public void Bits(ulong value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 64);
       IsTrue(bits == 64 || (value < (1UL << bits)));
@@ -295,229 +295,239 @@ namespace Network {
       var hiword = (uint)(value >> 32);
 
       if (bits <= 32) {
-        m_writer.WriteBits(loword, bits);
+        w.WriteBits(loword, bits);
       } else {
-        m_writer.WriteBits(loword, 32);
-        m_writer.WriteBits(hiword, bits - 32);
+        w.WriteBits(loword, 32);
+        w.WriteBits(hiword, bits - 32);
       }
     }
 
-    public void WriteBytes(byte[] data, int bytes) {
+    public void Bytes(byte[] data, int bytes) {
       IsTrue(data != null);
       IsTrue(bytes >= 0);
-      WriteAlign();
-      m_writer.WriteBytes(data, bytes);
+      Align();
+      w.WriteBytes(data, bytes);
     }
 
-    public void WriteString(string s) {
-      WriteAlign();
+    public void String(string s) {
+      Align();
       IsTrue(s.Length <= MaxStringLength);
-      m_writer.WriteBits((byte)s.Length, BitsRequired(0, MaxStringLength));
+      w.WriteBits((byte)s.Length, BitsRequired(0, MaxStringLength));
 
       for (int i = 0; i < s.Length; ++i)
-        m_writer.WriteBits(s[i], 16);
+        w.WriteBits(s[i], 16);
     }
 
-    public void WriteFloat(float f) {
+    public void Float(float f) {
       var bytes = GetBytes(f);
 
       for (int i = 0; i < 4; ++i)
-        m_writer.WriteBits(bytes[i], 8);
+        w.WriteBits(bytes[i], 8);
     }
 
-    public void WriteBool(bool b) => m_writer.WriteBits(b ? 1U : 0U, 1);
-    public void WriteAlign() => m_writer.WriteAlign();
-    public void Finish() => m_writer.Finish();
-    public int GetAlignBits() => m_writer.GetAlignBits();
-    public byte[] GetData() => m_writer.GetData();
-    public int GetBytesProcessed() => m_writer.GetBytesWritten();
-    public int GetBitsProcessed() => m_writer.GetBitsWritten();
+    public void Bool(bool b) => w.WriteBits(b ? 1U : 0U, 1);
+    public void Align() => w.WriteAlign();
+    public void Finish() => w.Finish();
+    public int GetAlignBits() => w.GetAlignBits();
+    public byte[] GetData() => w.GetData();
+    public int GetBytesProcessed() => w.GetBytesWritten();
+    public int GetBitsProcessed() => w.GetBitsWritten();
     public int GetError() => m_error;
   }
 
   public class ReadStream {
-    BitReader m_reader = new BitReader();
-    int m_bitsRead = 0;
-    int m_error = STREAM_ERROR_NONE;
-    byte[] m_floatBytes = new byte[4];
+    BitReader r = new BitReader();
+    int bitsRead = 0;
+    int error = STREAM_ERROR_NONE;
+    byte[] floatBytes = new byte[4];
 
-    public void Start(byte[] data) => m_reader.Start(data);
+    public void Start(byte[] data) => r.Start(data);
 
-    public bool SerializeSignedInteger(out int value, int min, int max) {
+    public bool Int(out int value, int min, int max) {
       IsTrue(min < max);
       int bits = BitsRequired(min, max);
 
-      if (m_reader.WouldOverflow(bits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(bits)) {
+        error = STREAM_ERROR_OVERFLOW;
         value = 0;
-        return false;
+        throw new SerializeException();
       }
 
-      var unsigned_value = m_reader.ReadBits(bits);
+      var unsigned_value = r.Bits(bits);
       value = (int)(unsigned_value + min);
-      m_bitsRead += bits;
+      bitsRead += bits;
       return true;
     }
 
-    public bool SerializeUnsignedInteger(out uint value, uint min, uint max) {
+    public bool Uing(out uint value, uint min, uint max) {
       IsTrue(min < max);
       int bits = BitsRequired(min, max);
 
-      if (m_reader.WouldOverflow(bits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(bits)) {
+        error = STREAM_ERROR_OVERFLOW;
         value = 0;
-        return false;
+        throw new SerializeException();
       }
 
-      var unsigned_value = m_reader.ReadBits(bits);
+      var unsigned_value = r.Bits(bits);
       value = unsigned_value + min;
-      m_bitsRead += bits;
+      bitsRead += bits;
       return true;
     }
 
-    public bool SerializeBits(out byte value, int bits) {
+    public bool Bits(out byte value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 8);
 
-      if (m_reader.WouldOverflow(bits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(bits)) {
+        error = STREAM_ERROR_OVERFLOW;
         value = 0;
-        return false;
+        throw new SerializeException();
       }
 
-      var read_value = (byte)m_reader.ReadBits(bits);
+      var read_value = (byte)r.Bits(bits);
       value = read_value;
-      m_bitsRead += bits;
+      bitsRead += bits;
       return true;
     }
 
-    public bool SerializeBits(out ushort value, int bits) {
+    public bool Bits(out ushort value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 16);
 
-      if (m_reader.WouldOverflow(bits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(bits)) {
+        error = STREAM_ERROR_OVERFLOW;
         value = 0;
-        return false;
+        throw new SerializeException();
       }
 
-      var read_value = (ushort)m_reader.ReadBits(bits);
+      var read_value = (ushort)r.Bits(bits);
       value = read_value;
-      m_bitsRead += bits;
+      bitsRead += bits;
       return true;
     }
 
-    public bool SerializeBits(out uint value, int bits) {
+    public bool Bits(out uint value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 32);
 
-      if (m_reader.WouldOverflow(bits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(bits)) {
+        error = STREAM_ERROR_OVERFLOW;
         value = 0;
-        return false;
+        throw new SerializeException();
       }
 
-      var read_value = m_reader.ReadBits(bits);
+      var read_value = r.Bits(bits);
       value = read_value;
-      m_bitsRead += bits;
+      bitsRead += bits;
       return true;
     }
 
-    public bool SerializeBits(out ulong value, int bits) {
+    public bool Bits(out ulong value, int bits) {
       IsTrue(bits > 0);
       IsTrue(bits <= 64);
 
-      if (m_reader.WouldOverflow(bits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(bits)) {
+        error = STREAM_ERROR_OVERFLOW;
         value = 0;
-        return false;
+        throw new SerializeException();
       }
 
       if (bits <= 32) {
-        value = m_reader.ReadBits(bits);
+        value = r.Bits(bits);
       } else {
-        var loword = m_reader.ReadBits(32);
-        var hiword = m_reader.ReadBits(bits - 32);
+        var loword = r.Bits(32);
+        var hiword = r.Bits(bits - 32);
         value = loword | (((ulong)hiword) << 32);
       }
       return true;
     }
 
-    public bool SerializeBytes(byte[] data, int bytes) {
-      if (!SerializeAlign()) return false;
+    public bool Bytes(byte[] data, int bytes) {
+      if (!Align()) return false;
 
-      if (m_reader.WouldOverflow(bytes * 8)) {
-        m_error = STREAM_ERROR_OVERFLOW;
-        return false;
+      if (r.WouldOverflow(bytes * 8)) {
+        error = STREAM_ERROR_OVERFLOW;
+        throw new SerializeException();
       }
 
-      m_reader.ReadBytes(data, bytes);
-      m_bitsRead += bytes * 8;
+      r.Bytes(data, bytes);
+      bitsRead += bytes * 8;
       return true;
     }
 
-    public bool SerializeString(out string s) {
-      if (!SerializeAlign()) {
+    public bool String(out string s) {
+      if (!Align()) {
         s = null;
-        return false;
+        throw new SerializeException();
       }
 
       int length;
-      if (!SerializeSignedInteger(out length, 0, MaxStringLength)) {
+      if (!Int(out length, 0, MaxStringLength)) {
         s = null;
-        return false;
+        throw new SerializeException();
       }
 
-      if (m_reader.WouldOverflow(length * 16)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+      if (r.WouldOverflow(length * 16)) {
+        error = STREAM_ERROR_OVERFLOW;
         s = null;
-        return false;
+        throw new SerializeException();
       }
 
       var stringData = new char[MaxStringLength];
 
       for (int i = 0; i < length; ++i)
-        stringData[i] = (char)m_reader.ReadBits(16);
+        stringData[i] = (char)r.Bits(16);
 
       s = new string(stringData, 0, length);
       return true;
     }
 
-    public bool SerializeFloat(out float f) {
-      if (m_reader.WouldOverflow(32)) {
-        m_error = STREAM_ERROR_OVERFLOW;
+    public bool Float(out float f) {
+      if (r.WouldOverflow(32)) {
+        error = STREAM_ERROR_OVERFLOW;
         f = 0.0f;
-        return false;
+        throw new SerializeException();
       }
 
       for (int i = 0; i < 4; ++i)
-        m_floatBytes[i] = (byte)m_reader.ReadBits(8);
+        floatBytes[i] = (byte)r.Bits(8);
 
-      f = ToSingle(m_floatBytes, 0);
+      f = ToSingle(floatBytes, 0);
       return true;
     }
 
-    public bool SerializeAlign() {
-      int alignBits = m_reader.GetAlignBits();
-      if (m_reader.WouldOverflow(alignBits)) {
-        m_error = STREAM_ERROR_OVERFLOW;
-        return false;
+    public bool Align() {
+      int alignBits = r.GetAlignBits();
+
+      if (r.WouldOverflow(alignBits)) {
+        error = STREAM_ERROR_OVERFLOW;
+        throw new SerializeException();
       }
 
-      if (!m_reader.ReadAlign()) {
-        m_error = STREAM_ERROR_ALIGNMENT;
-        return false;
+      if (!r.Align()) {
+        error = STREAM_ERROR_ALIGNMENT;
+        throw new SerializeException();
       }
 
-      m_bitsRead += alignBits;
+      bitsRead += alignBits;
       return true;
     }
 
-    public void Finish() => m_reader.Finish();
-    public int GetAlignBits() => m_reader.GetAlignBits();
-    public int GetBitsProcessed() => m_bitsRead;
-    public int GetBytesProcessed() => (m_bitsRead + 7) / 8;
-    public int GetError() => m_error;
+    public void Bool(out bool b) {
+      uint unsigned_value;
+
+      if (!Bits(out unsigned_value, 1))
+        throw new SerializeException();
+
+      b = (unsigned_value == 1) ? true : false;
+    }
+
+    public void Finish() => r.Finish();
+    public int GetAlignBits() => r.GetAlignBits();
+    public int GetBitsProcessed() => bitsRead;
+    public int GetBytesProcessed() => (bitsRead + 7) / 8;
+    public int GetError() => error;
   }
 
   public class SerializeException : Exception {
@@ -526,78 +536,78 @@ namespace Network {
 
   public class Serializer {
     public void write_bool(WriteStream stream, bool value) 
-      => stream.WriteBits((value == true) ? 1U : 0U, 1);
+      => stream.Bits((value == true) ? 1U : 0U, 1);
 
     public void write_int(WriteStream stream, int value, int min, int max) 
-      => stream.WriteSignedInteger(value, min, max);
+      => stream.Int(value, min, max);
 
     public void write_uint(WriteStream stream, uint value, uint min, uint max)
-      => stream.WriteUnsignedInteger(value, min, max);
+      => stream.Uint(value, min, max);
 
     public void write_bits(WriteStream stream, byte value, int bits)
-      => stream.WriteBits(value, bits);    
+      => stream.Bits(value, bits);    
 
     public void write_bits(WriteStream stream, ushort value, int bits)
-      => stream.WriteBits(value, bits);
+      => stream.Bits(value, bits);
 
     public void write_bits(WriteStream stream, uint value, int bits)
-      => stream.WriteBits(value, bits);
+      => stream.Bits(value, bits);
 
     public void write_bits(WriteStream stream, ulong value, int bits)
-      => stream.WriteBits(value, bits);
+      => stream.Bits(value, bits);
 
     public void write_string(WriteStream stream, string value)
-      => stream.WriteString(value);
+      => stream.String(value);
 
     public void write_float(WriteStream stream, float value)
-      => stream.WriteFloat(value);
+      => stream.Float(value);
 
     public void read_bool(ReadStream stream, out bool value) {
       uint unsigned_value;
 
-      if (!stream.SerializeBits(out unsigned_value, 1))
+      if (!stream.Bits(out unsigned_value, 1))
         throw new SerializeException();
 
       value = (unsigned_value == 1) ? true : false;
     }
 
     public void read_int(ReadStream stream, out int value, int min, int max) {
-      if (!stream.SerializeSignedInteger(out value, min, max))
+      if (!stream.Int(out value, min, max))
         throw new SerializeException();
     }
 
     public void read_uint(ReadStream stream, out uint value, uint min, uint max) {
-      if (!stream.SerializeUnsignedInteger(out value, min, max))
+      if (!stream.Uing(out value, min, max))
         throw new SerializeException();
     }
 
     public void read_bits(ReadStream stream, out byte value, int bits) {
-      if (!stream.SerializeBits(out value, bits))
+      if (!stream.Bits(out value, bits))
         throw new SerializeException();
     }
 
     public void read_bits(ReadStream stream, out ushort value, int bits) {
-      if (!stream.SerializeBits(out value, bits))
+      if (!stream.Bits(out value, bits))
         throw new SerializeException();
     }
 
     public void read_bits(ReadStream stream, out uint value, int bits) {
-      if (!stream.SerializeBits(out value, bits))
+      if (!stream.Bits(out value, bits))
         throw new SerializeException();
     }
 
     public void read_bits(ReadStream stream, out ulong value, int bits) {
-      if (!stream.SerializeBits(out value, bits))
+      if (!stream.Bits(out value, bits))
         throw new SerializeException();
     }
 
     public void read_string(ReadStream stream, out string value) {
-      if (!stream.SerializeString(out value))
+      if (!stream.String(out value))
         throw new SerializeException();
     }
 
     public void read_float(ReadStream stream, out float value) {
-      if (!stream.SerializeFloat(out value))
+      if (!stream.Float(out value))
         throw new SerializeException();
     }
   }
@@ -752,8 +762,8 @@ namespace Network {
   public struct PacketHeader {
     public ushort sequence;
     public ushort ack;
-    public uint ack_bits;
-    public uint frameNumber;                    //physics simulation frame # for jitter buffer
+    public uint ackBits;
+    public uint frame;                    //physics simulation frame # for jitter buffer
     public ushort resetSequence;                //incremented each time the simulation is reset
     public float timeOffset;                    //offset between the current physics frame time of this packet and the time where the avatar state was sampled
   }
@@ -769,30 +779,30 @@ namespace Network {
     public const int SentPacketsSize = 1024;
     public const int ReceivedPacketsSize = 1024;
 
-    ushort m_sequence = 0;
-    int m_numAcks = 0;
-    ushort[] m_acks = new ushort[MaximumAcks];
+    ushort sequence = 0;
+    int ackCount = 0;
+    ushort[] acks = new ushort[MaximumAcks];
     SequenceBuffer<SentPacketData> m_sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
     SequenceBuffer<ReceivedPacketData> m_receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
 
     public void GeneratePacketHeader(out PacketHeader h) {
-      h.sequence = m_sequence;
-      GenerateAckBits(m_receivedPackets, out h.ack, out h.ack_bits);
-      h.frameNumber = 0;
+      h.sequence = sequence;
+      GenerateAckBits(m_receivedPackets, out h.ack, out h.ackBits);
+      h.frame = 0;
       h.resetSequence = 0;
       h.timeOffset = 0.0f;
-      int index = m_sentPackets.Insert(m_sequence);
+      int index = m_sentPackets.Insert(sequence);
       IsTrue(index != -1);
       m_sentPackets.Entries[index].acked = false;
-      m_sequence++;
+      sequence++;
     }
 
     public void ProcessPacketHeader(ref PacketHeader h) {
       PacketReceived(h.sequence);
 
       for (int i = 0; i < 32; ++i) {
-        if ((h.ack_bits & 1) == 0) {
-          h.ack_bits >>= 1;
+        if ((h.ackBits & 1) == 0) {
+          h.ackBits >>= 1;
           continue;
         }
 
@@ -804,20 +814,20 @@ namespace Network {
           m_sentPackets.Entries[index].acked = true;
         }
         
-        h.ack_bits >>= 1;
+        h.ackBits >>= 1;
       }
     }
 
     public void GetAcks(ref ushort[] acks, ref int numAcks) {
-      for (int i = 0; i < Math.Min(m_numAcks, acks.Length); ++i)
-        acks[i] = m_acks[i];
+      for (int i = 0; i < Math.Min(ackCount, acks.Length); ++i)
+        acks[i] = this.acks[i];
 
-      m_numAcks = 0;
+      ackCount = 0;
     }
 
     public void Reset() {
-      m_sequence = 0;
-      m_numAcks = 0;
+      sequence = 0;
+      ackCount = 0;
       m_sentPackets.Reset();
       m_receivedPackets.Reset();
     }
@@ -825,9 +835,9 @@ namespace Network {
     void PacketReceived(ushort sequence) => m_receivedPackets.Insert(sequence);
 
     void PacketAcked(ushort sequence) {
-      if (m_numAcks == MaximumAcks - 1) return;
+      if (ackCount == MaximumAcks - 1) return;
 
-      m_acks[m_numAcks++] = sequence;
+      acks[ackCount++] = sequence;
     }
   }
 

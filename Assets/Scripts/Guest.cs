@@ -393,7 +393,7 @@ public class Guest : Common {
     PacketHeader writePacketHeader;
     data.connection.GeneratePacketHeader(out writePacketHeader);
     writePacketHeader.resetSequence = context.resetSequence;
-    writePacketHeader.frameNumber = (uint)frame;
+    writePacketHeader.frame = (uint)frame;
     writePacketHeader.timeOffset = timeOffset;
 
     DetermineNotChangedAndDeltas(context, data, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubes, ref cubeDeltas);

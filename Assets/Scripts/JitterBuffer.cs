@@ -64,9 +64,9 @@ public class JitterBuffer
         Network.PacketHeader packetHeader;
         ReadStateUpdatePacketHeader( packetData, out packetHeader );
 
-        packetFrameNumber = packetHeader.frameNumber;
+        packetFrameNumber = packetHeader.frame;
 
-        int entryIndex = sequenceBuffer.Insert( packetHeader.frameNumber );
+        int entryIndex = sequenceBuffer.Insert( packetHeader.frame );
         if ( entryIndex < 0 )
         {
             return false;
@@ -89,7 +89,7 @@ public class JitterBuffer
         }
         else
         {
-            sequenceBuffer.Remove( packetHeader.frameNumber );
+            sequenceBuffer.Remove( packetHeader.frame );
 
             result = false;
         }
@@ -272,8 +272,8 @@ public class JitterBuffer
 
             packetHeader.sequence = 0;
             packetHeader.ack = 0;
-            packetHeader.ack_bits = 0;
-            packetHeader.frameNumber = 0;
+            packetHeader.ackBits = 0;
+            packetHeader.frame = 0;
             packetHeader.resetSequence = 0;
             packetHeader.timeOffset = 0.0f;
 
@@ -305,8 +305,8 @@ public class JitterBuffer
 
             packetHeader.sequence = 0;
             packetHeader.ack = 0;
-            packetHeader.ack_bits = 0;
-            packetHeader.frameNumber = 0;
+            packetHeader.ackBits = 0;
+            packetHeader.frame = 0;
             packetHeader.resetSequence = 0;
             packetHeader.timeOffset = 0.0f;
 
