@@ -6,504 +6,380 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
-using System;
 using UnityEngine;
-using UnityEngine.Assertions;
-using System.Collections.Generic;
+using Network;
+using static UnityEngine.Assertions.Assert;
+using static Network.Util;
+using static UnityEngine.Debug;
 
-public static class Tests
-{
-    static void test_bitpacker()
-    {
-        Debug.Log( "test_bitpacker" );
+public static class Tests {
+  static void test_bitpacker() {
+    Log("test_bitpacker");
+    const int BufferSize = 256;
+    var buffer = new uint[BufferSize];
+    var writer = new Network.BitWriter();
+    writer.Start(buffer);
+    IsTrue(writer.GetTotalBytes() == BufferSize);
+    IsTrue(writer.GetBitsWritten() == 0);
+    IsTrue(writer.GetBytesWritten() == 0);
+    IsTrue(writer.GetBitsAvailable() == BufferSize * 8);
 
-        const int BufferSize = 256;
+    writer.Bits(0, 1);
+    writer.Bits(1, 1);
+    writer.Bits(10, 8);
+    writer.Bits(255, 8);
+    writer.Bits(1000, 10);
+    writer.Bits(50000, 16);
+    writer.Bits(9999999, 32);
+    writer.Finish();
+    const int bitsWritten = 1 + 1 + 8 + 8 + 10 + 16 + 32;
+    IsTrue(writer.GetBytesWritten() == 10);
+    IsTrue(writer.GetTotalBytes() == BufferSize);
+    IsTrue(writer.GetBitsWritten() == bitsWritten);
+    IsTrue(writer.GetBitsAvailable() == BufferSize * 8 - bitsWritten);
 
-        uint[] buffer = new uint[BufferSize];
+    int bytesWritten = writer.GetBytesWritten();
+    const int ExpectedBytesWritten = 10;
+    IsTrue(bytesWritten == ExpectedBytesWritten);
 
-        var writer = new Network.BitWriter();
+    var readBuffer = writer.GetData();
+    IsTrue(readBuffer.Length == ExpectedBytesWritten);
 
-        writer.Start( buffer );
+    var reader = new BitReader();
+    reader.Start(readBuffer);
+    IsTrue(reader.GetBitsRead() == 0);
+    IsTrue(reader.GetBitsRemaining() == bytesWritten * 8);
 
-        Assert.IsTrue( writer.GetTotalBytes() == BufferSize );
-        Assert.IsTrue( writer.GetBitsWritten() == 0 );
-        Assert.IsTrue( writer.GetBytesWritten() == 0 );
-        Assert.IsTrue( writer.GetBitsAvailable() == BufferSize * 8 );
+    var a = reader.Bits(1);
+    var b = reader.Bits(1);
+    var c = reader.Bits(8);
+    var d = reader.Bits(8);
+    var e = reader.Bits(10);
+    var f = reader.Bits(16);
+    var g = reader.Bits(32);
+    reader.Finish();
+    IsTrue(a == 0);
+    IsTrue(b == 1);
+    IsTrue(c == 10);
+    IsTrue(d == 255);
+    IsTrue(e == 1000);
+    IsTrue(f == 50000);
+    IsTrue(g == 9999999);
+    IsTrue(reader.GetBitsRead() == bitsWritten);
+    IsTrue(reader.GetBitsRemaining() == bytesWritten * 8 - bitsWritten);
+  }
 
-        writer.Bits( 0, 1 );
-        writer.Bits( 1, 1 );
-        writer.Bits( 10, 8 );
-        writer.Bits( 255, 8 );
-        writer.Bits( 1000, 10 );
-        writer.Bits( 50000, 16 );
-        writer.Bits( 9999999, 32 );
+  struct TestStruct {
+    public bool bool_value;
+    public int int_value;
+    public uint uint_value;
+    public uint bits_value;
+  };
 
-        writer.Finish();
-
-        const int bitsWritten = 1 + 1 + 8 + 8 + 10 + 16 + 32;
-
-        Assert.IsTrue( writer.GetBytesWritten() == 10 );
-        Assert.IsTrue( writer.GetTotalBytes() == BufferSize );
-        Assert.IsTrue( writer.GetBitsWritten() == bitsWritten );
-        Assert.IsTrue( writer.GetBitsAvailable() == BufferSize * 8 - bitsWritten );
-
-        int bytesWritten = writer.GetBytesWritten();
-
-        const int ExpectedBytesWritten = 10;
-
-        Assert.IsTrue( bytesWritten == ExpectedBytesWritten );
-
-        byte[] readBuffer = writer.GetData();
-
-        Assert.IsTrue( readBuffer.Length == ExpectedBytesWritten );
-
-        var reader = new Network.BitReader();
-
-        reader.Start( readBuffer );
-
-        Assert.IsTrue( reader.GetBitsRead() == 0 );
-        Assert.IsTrue( reader.GetBitsRemaining() == bytesWritten * 8 );
-
-        uint a = reader.Bits( 1 );
-        uint b = reader.Bits( 1 );
-        uint c = reader.Bits( 8 );
-        uint d = reader.Bits( 8 );
-        uint e = reader.Bits( 10 );
-        uint f = reader.Bits( 16 );
-        uint g = reader.Bits( 32 );
-
-        reader.Finish();
-
-        Assert.IsTrue( a == 0 );
-        Assert.IsTrue( b == 1 );
-        Assert.IsTrue( c == 10 );
-        Assert.IsTrue( d == 255 );
-        Assert.IsTrue( e == 1000 );
-        Assert.IsTrue( f == 50000 );
-        Assert.IsTrue( g == 9999999 );
-
-        Assert.IsTrue( reader.GetBitsRead() == bitsWritten );
-        Assert.IsTrue( reader.GetBitsRemaining() == bytesWritten * 8 - bitsWritten );
+  class TestSerializer : Serializer {
+    public void WriteTestStruct(WriteStream stream, ref TestStruct testStruct) {
+      write_bool(stream, testStruct.bool_value);
+      write_int(stream, testStruct.int_value, -100, +100);
+      write_uint(stream, testStruct.uint_value, 100, 1000);
+      write_bits(stream, testStruct.bits_value, 23);
     }
 
-    struct TestStruct
-    {
-        public bool bool_value;
-        public int int_value;
-        public uint uint_value;
-        public uint bits_value;
-    };
+    public void ReadTestStruct(ReadStream stream, out TestStruct testStruct) {
+      read_bool(stream, out testStruct.bool_value);
+      read_int(stream, out testStruct.int_value, -100, +100);
+      read_uint(stream, out testStruct.uint_value, 100, 1000);
+      read_bits(stream, out testStruct.bits_value, 23);
+    }
+  }
 
-    class TestSerializer : Network.Serializer
-    {
-        public void WriteTestStruct( Network.WriteStream stream, ref TestStruct testStruct )
-        {
-            write_bool( stream, testStruct.bool_value );
-            write_int( stream, testStruct.int_value, -100, +100 );
-            write_uint( stream, testStruct.uint_value, 100, 1000 );
-            write_bits( stream, testStruct.bits_value, 23 );
-        }
+  static void test_serialization() {
+    Log("test_serialization");
+    const int MaxPacketSize = 1024;
+    var serializer = new TestSerializer();
+    var buffer = new uint[MaxPacketSize / 4];
+    var writeStream = new WriteStream();
 
-        public void ReadTestStruct( Network.ReadStream stream, out TestStruct testStruct )
-        {
-            read_bool( stream, out testStruct.bool_value );
-            read_int( stream, out testStruct.int_value, -100, +100 );
-            read_uint( stream, out testStruct.uint_value, 100, 1000 );
-            read_bits( stream, out testStruct.bits_value, 23 );
-        }
+    writeStream.Start(buffer);
+    TestStruct input;
+    input.bool_value = true;
+    input.int_value = -5;
+    input.uint_value = 215;
+    input.bits_value = 12345;
+    serializer.WriteTestStruct(writeStream, ref input);
+    writeStream.Finish();
+
+    var packet = writeStream.GetData();
+    var readStream = new ReadStream();
+    readStream.Start(packet);
+    TestStruct output;
+    serializer.ReadTestStruct(readStream, out output);
+    readStream.Finish();
+
+    AreEqual(input.bool_value, output.bool_value);
+    AreEqual(input.int_value, output.int_value);
+    AreEqual(input.uint_value, output.uint_value);
+    AreEqual(input.bits_value, output.bits_value);
+  }
+
+  struct TestPacketData {
+    public ushort sequence;
+  };
+
+  static void test_sequence_buffer() {
+    Log("test_sequence_buffer");
+    const int Size = 256;
+    var buffer = new SequenceBuffer<TestPacketData>(Size);
+
+    for (int i = 0; i < Size; ++i) {
+      TestPacketData entry;
+      entry.sequence = 0;
+      IsTrue(buffer.Exists((ushort)i) == false);
+      IsTrue(buffer.Available((ushort)i) == true);
+      IsTrue(buffer.Find((ushort)i) == -1);
     }
 
-    static void test_serialization()
-    {
-        Debug.Log( "test_serialization" );
-
-        const int MaxPacketSize = 1024;
-
-        var serializer = new TestSerializer();
-
-        var buffer = new uint[MaxPacketSize/4];
-
-        var writeStream = new Network.WriteStream();
-
-        writeStream.Start( buffer );
-
-        TestStruct input;
-        input.bool_value = true;
-        input.int_value = -5;
-        input.uint_value = 215;
-        input.bits_value = 12345;
-
-        serializer.WriteTestStruct( writeStream, ref input );
-
-        writeStream.Finish();
-
-        byte[] packet = writeStream.GetData();
-
-        var readStream = new Network.ReadStream();
-
-        readStream.Start( packet );
-
-        TestStruct output;
-        serializer.ReadTestStruct( readStream, out output );
-
-        readStream.Finish();
-
-        Assert.AreEqual( input.bool_value, output.bool_value );
-        Assert.AreEqual( input.int_value, output.int_value );
-        Assert.AreEqual( input.uint_value, output.uint_value );
-        Assert.AreEqual( input.bits_value, output.bits_value );
+    for (int i = 0; i <= Size * 4; ++i) {
+      int index = buffer.Insert((ushort)i);
+      IsTrue(index != -1);
+      IsTrue(buffer.GetSequence() == i + 1);
+      buffer.Entries[index].sequence = (ushort)i;
     }
 
-    struct TestPacketData
-    {
-        public ushort sequence;
-    };                  
-
-    static void test_sequence_buffer()
-    {
-        Debug.Log( "test_sequence_buffer" );
-
-        const int Size = 256;
-
-        var sequenceBuffer = new Network.SequenceBuffer<TestPacketData>( Size );
-
-        for ( int i = 0; i < Size; ++i )
-        {
-            TestPacketData entry;
-            entry.sequence = 0;
-            Assert.IsTrue( sequenceBuffer.Exists( (ushort)i ) == false );
-            Assert.IsTrue( sequenceBuffer.Available( (ushort)i ) == true );
-            Assert.IsTrue( sequenceBuffer.Find( (ushort)i ) == -1 );
-        }
-
-        for ( int i = 0; i <= Size*4; ++i )
-        {
-            int index = sequenceBuffer.Insert( (ushort) i );
-            Assert.IsTrue( index != -1 );
-            Assert.IsTrue( sequenceBuffer.GetSequence() == i + 1 );
-            sequenceBuffer.Entries[index].sequence = (ushort) i;
-        }
-
-        for ( int i = 0; i <= Size; ++i )
-        {
-            // note: outside bounds!
-            int index = sequenceBuffer.Insert( (ushort) i );
-            Assert.IsTrue( index == -1 );
-        }    
-
-        ushort sequence = Size * 4;
-        for ( int i = 0; i < Size; ++i )
-        {
-            int index = sequenceBuffer.Find( sequence );
-            Assert.IsTrue( index >= 0 );
-            Assert.IsTrue( index < Size );
-            Assert.IsTrue( sequenceBuffer.Entries[index].sequence == sequence );
-            sequence--;
-        }
-
-        sequenceBuffer.Reset();
-
-        Assert.IsTrue( sequenceBuffer.GetSequence() == 0 );
-
-        for ( int i = 0; i < Size; ++i )
-        {
-            Assert.IsTrue( sequenceBuffer.Exists( (ushort)i ) == false );
-            Assert.IsTrue( sequenceBuffer.Available( (ushort)i ) == true );
-            Assert.IsTrue( sequenceBuffer.Find( (ushort)i ) == -1 );
-        }
+    for (int i = 0; i <= Size; ++i) {      
+      int index = buffer.Insert((ushort)i); //note: outside bounds!
+      IsTrue(index == -1);
     }
 
-    struct TestPacketData32
-    {
-        public uint sequence;
-    };                  
-
-    static void test_sequence_buffer32()
-    {
-        Debug.Log( "test_sequence_buffer32" );
-
-        const int Size = 256;
-
-        var sequenceBuffer = new Network.SequenceBuffer32<TestPacketData32>( Size );
-
-        for ( int i = 0; i < Size; ++i )
-        {
-            TestPacketData entry;
-            entry.sequence = 0;
-            Assert.IsTrue( sequenceBuffer.Exists( (uint) i ) == false );
-            Assert.IsTrue( sequenceBuffer.Available( (uint) i ) == true );
-            Assert.IsTrue( sequenceBuffer.Find( (uint) i ) == -1 );
-        }
-
-        for ( int i = 0; i <= Size * 4; ++i )
-        {
-            int index = sequenceBuffer.Insert( (uint) i );
-            Assert.IsTrue( index != -1 );
-            Assert.IsTrue( sequenceBuffer.GetSequence() == i + 1 );
-            sequenceBuffer.Entries[index].sequence = (uint) i;
-        }
-
-        for ( int i = 0; i <= Size; ++i )
-        {
-            // note: outside bounds!
-            int index = sequenceBuffer.Insert( (uint) i );
-            Assert.IsTrue( index == -1 );
-        }
-
-        uint sequence = Size * 4;
-        for ( int i = 0; i < Size; ++i )
-        {
-            int index = sequenceBuffer.Find( sequence );
-            Assert.IsTrue( index >= 0 );
-            Assert.IsTrue( index < Size );
-            Assert.IsTrue( sequenceBuffer.Entries[index].sequence == sequence );
-            sequence--;
-        }
-
-        sequenceBuffer.Reset();
-
-        Assert.IsTrue( sequenceBuffer.GetSequence() == 0 );
-
-        for ( int i = 0; i < Size; ++i )
-        {
-            Assert.IsTrue( sequenceBuffer.Exists( (uint) i ) == false );
-            Assert.IsTrue( sequenceBuffer.Available( (uint) i ) == true );
-            Assert.IsTrue( sequenceBuffer.Find( (uint) i ) == -1 );
-        }
+    ushort sequence = Size * 4;
+    for (int i = 0; i < Size; ++i) {
+      int index = buffer.Find(sequence);
+      IsTrue(index >= 0);
+      IsTrue(index < Size);
+      IsTrue(buffer.Entries[index].sequence == sequence);
+      sequence--;
     }
 
-    static void test_generate_ack_bits()
-    {
-        Debug.Log( "test_generate_ack_bits" );
+    buffer.Reset();
+    IsTrue(buffer.GetSequence() == 0);
 
-        const int Size = 256;
+    for (int i = 0; i < Size; ++i) {
+      IsTrue(buffer.Exists((ushort)i) == false);
+      IsTrue(buffer.Available((ushort)i) == true);
+      IsTrue(buffer.Find((ushort)i) == -1);
+    }
+  }
 
-        var receivedPackets = new Network.SequenceBuffer<TestPacketData>( Size );
+  struct TestPacketData32 {
+    public uint sequence;
+  };
 
-        ushort ack = 0xFFFF;
-        uint ack_bits = 0xFFFFFFFF;
+  static void test_sequence_buffer32() {
+    Log("test_sequence_buffer32");
+    const int Size = 256;
+    var buffer = new SequenceBuffer32<TestPacketData32>(Size);
 
-        Network.Util.GenerateAckBits( receivedPackets, out ack, out ack_bits );
-        Assert.IsTrue( ack == 0xFFFF );
-        Assert.IsTrue( ack_bits == 0 );
-
-        for ( int i = 0; i <= Size; ++i )
-            receivedPackets.Insert( (ushort) i );
-
-        Network.Util.GenerateAckBits( receivedPackets, out ack, out ack_bits );
-        Assert.IsTrue( ack == Size );
-        Assert.IsTrue( ack_bits == 0xFFFFFFFF );
-
-        receivedPackets.Reset();
-
-        ushort[] input_acks = { 1, 5, 9, 11 };
-        for ( int i = 0; i < input_acks.Length; ++i )
-            receivedPackets.Insert( input_acks[i] );
-
-        Network.Util.GenerateAckBits( receivedPackets, out ack, out ack_bits );
-
-        Assert.IsTrue( ack == 11 );
-        Assert.IsTrue( ack_bits == ( 1 | (1<<(11-9)) | (1<<(11-5)) | (1<<(11-1)) ) );
+    for (int i = 0; i < Size; ++i) {
+      TestPacketData entry;
+      entry.sequence = 0;
+      IsTrue(buffer.Exists((uint)i) == false);
+      IsTrue(buffer.Available((uint)i) == true);
+      IsTrue(buffer.Find((uint)i) == -1);
     }
 
-    static void test_connection()
-    {
-        Debug.Log( "test_connection" );
-
-        var sender = new Network.Connection();
-        var receiver = new Network.Connection();
-
-        const int NumIterations = 256;
-
-        for ( int i = 0; i < NumIterations; ++i )
-        {
-            Network.PacketHeader senderPacketHeader;
-            Network.PacketHeader receiverPacketHeader;
-
-            sender.GeneratePacketHeader( out senderPacketHeader );
-            receiver.GeneratePacketHeader( out receiverPacketHeader );
-
-            if ( ( i % 11 ) != 0 )
-                sender.ProcessPacketHeader( ref receiverPacketHeader );
-
-            if ( ( i % 13 ) != 0 )
-                receiver.ProcessPacketHeader( ref senderPacketHeader );
-        }
-
-        ushort[] senderAcks = new ushort[Network.Connection.MaximumAcks]; 
-        ushort[] receiverAcks = new ushort[Network.Connection.MaximumAcks]; 
-
-        int numSenderAcks = 0;
-        int numReceiverAcks = 0;
-
-        sender.GetAcks( ref senderAcks, ref numSenderAcks );
-        receiver.GetAcks( ref receiverAcks, ref numReceiverAcks );
-
-        Assert.IsTrue( numSenderAcks > NumIterations / 2 );
-        Assert.IsTrue( numReceiverAcks > NumIterations / 2 );
-
-        var senderAcked = new bool[NumIterations];
-        var receiverAcked = new bool[NumIterations];
-                                    
-        for ( int i = 0; i < NumIterations/2; ++i )
-        {
-            senderAcked[senderAcks[i]] = true;
-            receiverAcked[receiverAcks[i]] = true;
-        }
-
-        for ( int i = 0; i < NumIterations/2; ++i )
-        {
-            Assert.IsTrue( senderAcked[i] == ( ( i % 13 ) != 0 ) );
-            Assert.IsTrue( receiverAcked[i] == ( ( i % 11 ) != 0 ) );
-        }
+    for (int i = 0; i <= Size * 4; ++i) {
+      int index = buffer.Insert((uint)i);
+      IsTrue(index != -1);
+      IsTrue(buffer.GetSequence() == i + 1);
+      buffer.Entries[index].sequence = (uint)i;
     }
 
-    static void test_delta_buffer()
-    {
+    for (int i = 0; i <= Size; ++i) {      
+      int index = buffer.Insert((uint)i); //note: outside bounds!
+      IsTrue(index == -1);
+    }
+
+    uint sequence = Size * 4;
+    for (int i = 0; i < Size; ++i) {
+      int index = buffer.Find(sequence);
+      IsTrue(index >= 0);
+      IsTrue(index < Size);
+      IsTrue(buffer.Entries[index].sequence == sequence);
+      sequence--;
+    }
+
+    buffer.Reset();
+    IsTrue(buffer.GetSequence() == 0);
+
+    for (int i = 0; i < Size; ++i) {
+      IsTrue(buffer.Exists((uint)i) == false);
+      IsTrue(buffer.Available((uint)i) == true);
+      IsTrue(buffer.Find((uint)i) == -1);
+    }
+  }
+
+  static void test_generate_ack_bits() {
+    Log("test_generate_ack_bits");
+    const int Size = 256;
+    var receivedPackets = new SequenceBuffer<TestPacketData>(Size);
+    ushort ack = 0xFFFF;
+    uint ack_bits = 0xFFFFFFFF;
+
+    GenerateAckBits(receivedPackets, out ack, out ack_bits);
+    IsTrue(ack == 0xFFFF);
+    IsTrue(ack_bits == 0);
+
+    for (int i = 0; i <= Size; ++i)
+      receivedPackets.Insert((ushort)i);
+
+    GenerateAckBits(receivedPackets, out ack, out ack_bits);
+    IsTrue(ack == Size);
+    IsTrue(ack_bits == 0xFFFFFFFF);
+
+    receivedPackets.Reset();
+    ushort[] input_acks = { 1, 5, 9, 11 };
+
+    for (int i = 0; i < input_acks.Length; ++i)
+      receivedPackets.Insert(input_acks[i]);
+
+    GenerateAckBits(receivedPackets, out ack, out ack_bits);
+    IsTrue(ack == 11);
+    IsTrue(ack_bits == (1 | (1 << (11 - 9)) | (1 << (11 - 5)) | (1 << (11 - 1))));
+  }
+
+  static void test_connection() {
+    Log("test_connection");
+    var sender = new Connection();
+    var receiver = new Connection();
+    const int NumIterations = 256;
+
+    for (int i = 0; i < NumIterations; ++i) {
+      PacketHeader senderPacketHeader;
+      PacketHeader receiverPacketHeader;
+      sender.GeneratePacketHeader(out senderPacketHeader);
+      receiver.GeneratePacketHeader(out receiverPacketHeader);
+
+      if ((i % 11) != 0)
+        sender.ProcessPacketHeader(ref receiverPacketHeader);
+
+      if ((i % 13) != 0)
+        receiver.ProcessPacketHeader(ref senderPacketHeader);
+    }
+
+    var senderAcks = new ushort[Network.Connection.MaximumAcks];
+    var receiverAcks = new ushort[Network.Connection.MaximumAcks];
+    int numSenderAcks = 0;
+    int numReceiverAcks = 0;
+
+    sender.GetAcks(ref senderAcks, ref numSenderAcks);
+    receiver.GetAcks(ref receiverAcks, ref numReceiverAcks);
+    IsTrue(numSenderAcks > NumIterations / 2);
+    IsTrue(numReceiverAcks > NumIterations / 2);
+
+    var senderAcked = new bool[NumIterations];
+    var receiverAcked = new bool[NumIterations];
+
+    for (int i = 0; i < NumIterations / 2; ++i) {
+      senderAcked[senderAcks[i]] = true;
+      receiverAcked[receiverAcks[i]] = true;
+    }
+
+    for (int i = 0; i < NumIterations / 2; ++i) {
+      IsTrue(senderAcked[i] == ((i % 13) != 0));
+      IsTrue(receiverAcked[i] == ((i % 11) != 0));
+    }
+  }
+
+  static void test_delta_buffer() {
 #if !DEBUG_AUTHORITY
+    Log("test_delta_buffer");
+    const int NumCubeStates = 5;
+    const int DeltaBufferSize = 256;
+    var deltaBuffer = new DeltaBuffer(DeltaBufferSize);
+    var cubeState = CubeState.defaults;    
+    const ushort Sequence = 100; //check that querying for a sequence number not in the buffer returns false
+    const ushort ResetSequence = 1000;
 
-        Debug.Log( "test_delta_buffer" );
+    var result = deltaBuffer.GetCubeState(Sequence, ResetSequence, 0, ref cubeState);
+    IsTrue(result == false);    
+    result = deltaBuffer.AddPacket(Sequence, ResetSequence); //now add an entry for the sequence number
+    IsTrue(result);    
 
-        const int NumCubeStates = 5;
+    var cubeIds = new int[NumCubeStates]; //add a few cube states for the packet
+    var cubeStates = new CubeState[NumCubeStates];
 
-        const int DeltaBufferSize = 256;
+    for (int i = 0; i < NumCubeStates; ++i) {
+      cubeStates[i] = CubeState.defaults;
+      cubeStates[i].positionX = i;
+      int cubeId = 10 + i * 10;
+      cubeIds[i] = cubeId;
+      result = deltaBuffer.AddCubeState(Sequence, cubeId, ref cubeStates[i]);
+      IsTrue(result);
+    }    
 
-        var deltaBuffer = new DeltaBuffer( DeltaBufferSize );
+    for (int i = 0; i < NumCubeStates; ++i) { //verify that we can find the cube state we added by cube id and sequence
+      int cubeId = 10 + i * 10;
+      result = deltaBuffer.GetCubeState(Sequence, ResetSequence, cubeId, ref cubeState);
+      IsTrue(result);
+      IsTrue(cubeState.positionX == cubeStates[i].positionX);
+    }    
 
-        CubeState cubeState = CubeState.defaults;
+    for (int i = 0; i < Constants.NumCubes; ++i) { //verify that get cube state returns false for cube ids that weren't in this packet
+      var validCubeId = false;
 
-        // check that querying for a sequence number not in the buffer returns false
+      for (int j = 0; j < NumCubeStates; ++j) {
+        if (cubeIds[j] == i)
+          validCubeId = true;
+      }
 
-        const ushort Sequence = 100;
-        const ushort ResetSequence = 1000;
+      if (validCubeId) continue;
 
-        bool result = deltaBuffer.GetCubeState( Sequence, ResetSequence, 0, ref cubeState );
+      result = deltaBuffer.GetCubeState(Sequence, ResetSequence, i, ref cubeState);
+      IsTrue(result == false);
+    }    
 
-        Assert.IsTrue( result == false );
+    int packetNumCubes; //grab the packet data for the sequence and make sure it matches what we expect
+    int[] packetCubeIds;
+    CubeState[] packetCubeState;
+    result = deltaBuffer.GetPacketData(Sequence, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState);
+    IsTrue(result == true);
+    IsTrue(packetNumCubes == NumCubeStates);
 
-        // now add an entry for the sequence number
+    for (int i = 0; i < NumCubeStates; ++i) {
+      IsTrue(packetCubeIds[i] == 10 + i * 10);
+      IsTrue(packetCubeState[i].positionX == cubeStates[i].positionX);
+    }    
 
-        result = deltaBuffer.AddPacket( Sequence, ResetSequence );
-
-        Assert.IsTrue( result );
-
-        // add a few cube states for the packet
-
-        int[] cubeIds = new int[NumCubeStates];
-        CubeState[] cubeStates = new CubeState[NumCubeStates];
-
-        for ( int i = 0; i < NumCubeStates; ++i )
-        {
-            cubeStates[i] = CubeState.defaults;
-            cubeStates[i].positionX = i;
-
-            int cubeId = 10 + i * 10;
-
-            cubeIds[i] = cubeId;
-
-            result = deltaBuffer.AddCubeState( Sequence, cubeId, ref cubeStates[i] );
-
-            Assert.IsTrue( result );
-        }
-
-        // verify that we can find the cube state we added by cube id and sequence
-
-        for ( int i = 0; i < NumCubeStates; ++i )
-        {
-            int cubeId = 10 + i * 10;
-
-            result = deltaBuffer.GetCubeState( Sequence, ResetSequence, cubeId, ref cubeState );
-
-            Assert.IsTrue( result );
-            Assert.IsTrue( cubeState.positionX == cubeStates[i].positionX );
-        }
-
-        // verify that get cube state returns false for cube ids that weren't in this packet
-
-        for ( int i = 0; i < Constants.NumCubes; ++i )
-        {
-            bool validCubeId = false;
-
-            for ( int j = 0; j < NumCubeStates; ++j )
-            {
-                if ( cubeIds[j] == i )
-                {
-                    validCubeId = true;
-                }
-            }
-
-            if ( validCubeId )
-                continue;
-
-            result = deltaBuffer.GetCubeState( Sequence, ResetSequence, i, ref cubeState );
-
-            Assert.IsTrue( result == false );
-        }
-
-        // grab the packet data for the sequence and make sure it matches what we expect
-
-        int packetNumCubes;
-        int[] packetCubeIds;
-        CubeState[] packetCubeState;
-        
-        result = deltaBuffer.GetPacketData( Sequence, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState );
-
-        Assert.IsTrue( result == true );
-        Assert.IsTrue( packetNumCubes == NumCubeStates );
-
-        for ( int i = 0; i < NumCubeStates; ++i )
-        {
-            Assert.IsTrue( packetCubeIds[i] == 10 + i * 10 );
-            Assert.IsTrue( packetCubeState[i].positionX == cubeStates[i].positionX );
-        }
-        
-        // try to grab packet data for an invalid sequence number and make sure it returns false
-
-        result = deltaBuffer.GetPacketData( Sequence + 1, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState );
-
-        Assert.IsTrue( result == false );
-
-        // try to grab packet data for a different reset sequence number and make sure it returns false
-
-        result = deltaBuffer.GetPacketData( Sequence, ResetSequence + 1, out packetNumCubes, out packetCubeIds, out packetCubeState );
-
-        Assert.IsTrue( result == false );
-
+    result = deltaBuffer.GetPacketData(Sequence + 1, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for an invalid sequence number and make sure it returns false
+    IsTrue(result == false);
+    
+    result = deltaBuffer.GetPacketData(Sequence, ResetSequence + 1, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for a different reset sequence number and make sure it returns false
+    IsTrue(result == false);
 #endif // #if !DEBUG_AUTHORITY
+  }
+
+  static void test_signed_unsigned() {
+    Log("test_signed_unsigned");
+    var expectedValues = new[] { 0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6 };
+
+    for (int i = 0; i < expectedValues.Length; ++i) {
+      int signed = UnsignedToSigned((uint)i);
+      IsTrue(signed == expectedValues[i]);
+
+      var unsigned = SignedToUnsigned(signed);
+      IsTrue(unsigned == (uint)i);
     }
+  }
 
-    static void test_signed_unsigned()
-    {
-        Debug.Log( "test_signed_unsigned" );
-
-        int[] expectedValues = { 0, -1, +1, -2, +2, -3, +3, -4, +4, -5, +5, -6, +6 };
-
-        for ( int i = 0; i < expectedValues.Length; ++i )
-        {
-            int signed = Network.Util.UnsignedToSigned( (uint) i );
-
-            Assert.IsTrue( signed == expectedValues[i] );
-
-            uint unsigned = Network.Util.SignedToUnsigned( signed );
-
-            Assert.IsTrue( unsigned == (uint) i );
-        }
-    }
-
-    public static void RunTests()
-    {
-        Assert.raiseExceptions = true;
-
-        test_bitpacker();
-        test_serialization();
-        test_sequence_buffer();
-        test_sequence_buffer32();
-        test_generate_ack_bits();
-        test_connection();
-        test_delta_buffer();
-        test_signed_unsigned();
-
-        Debug.Log( "All tests completed successfully!" );
-    }
+  public static void RunTests() {
+    raiseExceptions = true;
+    test_bitpacker();
+    test_serialization();
+    test_sequence_buffer();
+    test_sequence_buffer32();
+    test_generate_ack_bits();
+    test_connection();
+    test_delta_buffer();
+    test_signed_unsigned();
+    Log("All tests completed successfully!");
+  }
 }

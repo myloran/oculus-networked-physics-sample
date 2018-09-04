@@ -609,7 +609,7 @@ namespace Network {
 
   public class SequenceBuffer<T> {
     public T[] entries;
-    uint[] entry_sequence;
+    uint[] entrySequence;
     int size;
     ushort sequence;
     public T[] Entries { get { return entries; } }
@@ -618,7 +618,7 @@ namespace Network {
       IsTrue(size > 0);
       this.size = size;
       sequence = 0;
-      entry_sequence = new uint[size];
+      entrySequence = new uint[size];
       entries = new T[size];
       Reset();
     }
@@ -627,7 +627,7 @@ namespace Network {
       sequence = 0;
 
       for (int i = 0; i < size; ++i)
-        entry_sequence[i] = 0xFFFFFFFF;
+        entrySequence[i] = 0xFFFFFFFF;
     }
 
     public int Insert(ushort newSequence) {
@@ -640,18 +640,18 @@ namespace Network {
       }
 
       int index = newSequence % size;
-      entry_sequence[index] = newSequence;
+      entrySequence[index] = newSequence;
       return index;
     }
 
-    public void Remove(ushort sequence) => entry_sequence[sequence % size] = 0xFFFFFFFF;
-    public bool Available(ushort sequence) => entry_sequence[sequence % size] == 0xFFFFFFFF;
-    public bool Exists(ushort sequence) => entry_sequence[sequence % size] == (uint)sequence;
+    public void Remove(ushort sequence) => entrySequence[sequence % size] = 0xFFFFFFFF;
+    public bool Available(ushort sequence) => entrySequence[sequence % size] == 0xFFFFFFFF;
+    public bool Exists(ushort sequence) => entrySequence[sequence % size] == sequence;
 
     public int Find(ushort sequence) {
       int index = sequence % size;
 
-      if (entry_sequence[index] == sequence)
+      if (entrySequence[index] == sequence)
         return index;
 
       return -1;
@@ -666,7 +666,7 @@ namespace Network {
         : finishSequence;
 
       for (int sequence = startSequence; sequence <= finish; ++sequence)
-        entry_sequence[sequence % size] = 0xFFFFFFFF;
+        entrySequence[sequence % size] = 0xFFFFFFFF;
     }
   }
 
@@ -886,7 +886,7 @@ namespace Network {
       packetEntries[insertId].from = from;
       packetEntries[insertId].to = to;
       packetEntries[insertId].packet = packet;
-      packetEntries[insertId].deliveryTime = time + delay + RandomFloat(0.0f, +1.0f);
+      packetEntries[insertId].deliveryTime = time + delay + RandomFloat(0.0f, 1.0f);
       insertId = (insertId + 1) % packetEntries.Length;
     }
 
