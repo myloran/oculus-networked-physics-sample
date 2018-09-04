@@ -58,7 +58,7 @@ namespace Network {
        | ((value & 0x00FF0000) >> 8) 
        | ((value & 0xFF000000) >> 24);
 
-    public static uint HostToNetwork(uint value) {
+    public static uint HostToNetwork(uint value) { //why not one method instead?
       if (IsLittleEndian)
         return value; 
 
@@ -72,15 +72,15 @@ namespace Network {
       return SwapBytes(value);
     }
 
-    public static int PopCount(uint value) {
-      value = value - ((value >> 1) & 0x55555555);
-      value = (value & 0x33333333) + ((value >> 2) & 0x33333333);
-      value = ((value + (value >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
+    public static int PopCount(uint v) {
+      v = v - ((v >> 1) & 0x55555555); //240 => 127 - 1111111
+      v = (v & 0x33333333) + ((v >> 2) & 0x33333333); //(106 & 110011001100110011001100110011 = 22) + (53 & 110011001100110011001100110011 = 49) = 155
+      v = ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; //(((155 + 9) & 1111000011110000111100001111 = 4) * 1000000010000000100000001) = 4
 
-      return unchecked((int)value);
+      return unchecked((int)v);
     }
 
-    public static int Log2(uint x) {
+    public static int Log2(uint x) { //fill all bits from the first and shift result by one
       var a = x | (x >> 1);
       var b = a | (a >> 2);
       var c = b | (b >> 4);
@@ -96,7 +96,7 @@ namespace Network {
   }
 
   public class BitWriter {
-    uint[] data;
+    uint[] words;
     ulong scratch;
     int bitCount;
     int wordCount;
@@ -106,7 +106,7 @@ namespace Network {
 
     public void Start(uint[] data) {
       IsTrue(data != null);
-      this.data = data;
+      words = data;
       wordCount = data.Length / 4;
       bitCount = wordCount * 32;
       bitsWritten = 0;
@@ -125,7 +125,7 @@ namespace Network {
 
       if (scratchBits >= 32) {
         IsTrue(wordId < wordCount);
-        data[wordId] = HostToNetwork((uint)(scratch & 0xFFFFFFFF));
+        words[wordId] = HostToNetwork((uint)(scratch & 0xFFFFFFFF));
         scratch >>= 32;
         scratchBits -= 32;
         wordId++;
@@ -133,7 +133,7 @@ namespace Network {
       bitsWritten += bits;
     }
 
-    public void WriteAlign() {
+    public void Align() {
       int remainderBits = bitsWritten % 8;
       if (remainderBits == 0) return;
 
@@ -152,20 +152,20 @@ namespace Network {
       if (scratchBits == 0) return;
 
       IsTrue(wordId < wordCount);
-      data[wordId] = HostToNetwork((uint)(scratch & 0xFFFFFFFF));
+      words[wordId] = HostToNetwork((uint)(scratch & 0xFFFFFFFF));
       scratch >>= 32;
       scratchBits -= 32;
       wordId++;
     }
 
-    public int GetAlignBits() => (8 - (bitsWritten % 8)) % 8;
+    public int GetAlignBits() => (8 - (bitsWritten % 8)) % 8; //is not bitsWritten % 8 enought?
     public int GetBitsWritten() => bitsWritten;
     public int GetBitsAvailable() => bitCount - bitsWritten;
 
     public byte[] GetData() {
       int count = GetBytesWritten();
       var output = new byte[count];
-      BlockCopy(data, 0, output, 0, count);
+      BlockCopy(words, 0, output, 0, count);
 
       return output;
     }
@@ -175,7 +175,7 @@ namespace Network {
   }
 
   public class BitReader {
-    uint[] data;
+    uint[] words;
     ulong scratch;
     int bitCount;
     int wordCount;
@@ -183,16 +183,16 @@ namespace Network {
     int scratchBits;
     int wordId;
 
-    public void Start(byte[] packet) {
-      int count = packet.Length;
+    public void Start(byte[] data) {
+      int count = data.Length;
       wordCount = (count + 3) / 4;
       bitCount = count * 8;
       bitsRead = 0;
       scratch = 0;
       scratchBits = 0;
       wordId = 0;
-      data = new uint[wordCount];
-      BlockCopy(packet, 0, data, 0, count);
+      words = new uint[wordCount];
+      BlockCopy(data, 0, words, 0, count);
     }
 
     public bool WouldOverflow(int bits) => bitsRead + bits > bitCount;
@@ -206,7 +206,7 @@ namespace Network {
 
       if (scratchBits < bits) {
         IsTrue(wordId < wordCount);
-        scratch |= ((ulong)(NetworkToHost(data[wordId]))) << scratchBits;
+        scratch |= ((ulong)NetworkToHost(words[wordId])) << scratchBits;
         scratchBits += 32;
         wordId++;
       }
@@ -253,18 +253,14 @@ namespace Network {
       IsTrue(min < max);
       IsTrue(value >= min);
       IsTrue(value <= max);
-      int bits = BitsRequired(min, max);
-      var unsigned_value = (uint)(value - min);
-      w.Bits(unsigned_value, bits);
+      w.Bits((uint)(value - min), BitsRequired(min, max));
     }
 
     public void Uint(uint value, uint min, uint max) {
       IsTrue(min < max);
       IsTrue(value >= min);
       IsTrue(value <= max);
-      int bits = BitsRequired(min, max);
-      var unsigned_value = value - min;
-      w.Bits(unsigned_value, bits);
+      w.Bits(value - min, BitsRequired(min, max));
     }
 
     public void Bits(byte value, int bits) {
@@ -293,25 +289,23 @@ namespace Network {
       IsTrue(bits <= 64);
       IsTrue(bits == 64 || (value < (1UL << bits)));
 
-      var loword = (uint)value;
-      var hiword = (uint)(value >> 32);
-
-      if (bits <= 32) w.Bits(loword, bits);
+      if (bits <= 32)
+        w.Bits((uint)value, bits);
       else {
-        w.Bits(loword, 32);
-        w.Bits(hiword, bits - 32);
+        w.Bits((uint)value, 32);
+        w.Bits((uint)(value >> 32), bits - 32);
       }
     }
 
     public void Bytes(byte[] data, int bytes) {
       IsTrue(data != null);
       IsTrue(bytes >= 0);
-      Align();
+      w.Align();
       w.Bytes(data, bytes);
     }
 
     public void String(string s) {
-      Align();
+      w.Align();
       IsTrue(s.Length <= MaxStringLength);
       w.Bits((byte)s.Length, BitsRequired(0, MaxStringLength));
 
@@ -327,20 +321,15 @@ namespace Network {
     }
 
     public void Bool(bool b) => w.Bits(b ? 1U : 0U, 1);
-    public void Align() => w.WriteAlign();
     public void Finish() => w.Finish();
-    public int GetAlignBits() => w.GetAlignBits();
     public byte[] GetData() => w.GetData();
-    public int GetBytesProcessed() => w.GetBytesWritten();
-    public int GetBitsProcessed() => w.GetBitsWritten();
-    public int GetError() => error;
   }
 
   public class ReadStream {
     BitReader r = new BitReader();
+    byte[] floatBytes = new byte[4];
     int bitsRead = 0;
     int error = STREAM_ERROR_NONE;
-    byte[] floatBytes = new byte[4];
 
     public void Start(byte[] packet) => r.Start(packet);
 

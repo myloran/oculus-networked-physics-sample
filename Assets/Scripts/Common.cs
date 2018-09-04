@@ -9,11 +9,12 @@
 
 using System;
 using UnityEngine;
-using UnityEngine.Profiling;
-using UnityEngine.Assertions;
 using Oculus.Platform;
 using Oculus.Platform.Models;
 using Network;
+using static UnityEngine.Profiling.Profiler;
+using static UnityEngine.Assertions.Assert;
+using static UnityEngine.Debug;
 using static Constants;
 
 public class Common : MonoBehaviour {
@@ -49,9 +50,8 @@ public class Common : MonoBehaviour {
     public void Print() {
       for (int i = 0; i < MaxClients; ++i) {
         if (areConnected[i])
-          Debug.Log(i + ": " + userNames[i] + " [" + userIds[i] + "]");
-        else
-          Debug.Log(i + ": (not connected)");
+          Log(i + ": " + userNames[i] + " [" + userIds[i] + "]"); else
+          Log(i + ": (not connected)");
       }
     }
   };
@@ -115,7 +115,7 @@ public class Common : MonoBehaviour {
 
 
   protected void Start() {
-    Debug.Log("Running Tests");
+    Log("Running Tests");
     Tests.RunTests();
   }
 
@@ -125,19 +125,18 @@ public class Common : MonoBehaviour {
   protected void Update() {
     if (Input.GetKeyDown("backspace")) {
       if (isJitterBufferEnabled = !isJitterBufferEnabled)
-        Debug.Log("Enabled jitter buffer");
-      else
-        Debug.Log("Disabled jitter buffer");
+        Log("Enabled jitter buffer"); else
+        Log("Disabled jitter buffer");
     }
 
     if (Input.GetKeyDown(KeyCode.Escape)) {
-      Debug.Log("User quit the application (ESC)");
+      Log("User quit the application (ESC)");
       wantsToShutdown = true;
       OnQuit();
     }
 
     if (wantsToShutdown && ReadyToShutdown()) {
-      Debug.Log("Shutting down");
+      Log("Shutting down");
       UnityEngine.Application.Quit();
       wantsToShutdown = false;
     }
@@ -183,7 +182,7 @@ public class Common : MonoBehaviour {
   }
 
   protected bool WriteClientsPacket(bool[] areConnected, ulong[] userIds, string[] userNames) {
-    Profiler.BeginSample("WriteServerInfoPacket");
+    BeginSample("WriteServerInfoPacket");
     writeStream.Start(packetBuffer);
     var result = true;
 
@@ -191,34 +190,34 @@ public class Common : MonoBehaviour {
       serializer.WriteClientsPacket(writeStream, areConnected, userIds, userNames);
       writeStream.Finish();
     } catch (SerializeException) {
-      Debug.Log("error: failed to write server info packet");
+      Log("error: failed to write server info packet");
       result = false;
     }
-    Profiler.EndSample();
+    EndSample();
 
     return result;
   }
 
   protected bool ReadClientsPacket(byte[] packetData, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
-    Profiler.BeginSample("ReadServerInfoPacket");
+    BeginSample("ReadServerInfoPacket");
     readStream.Start(packetData);
     var result = true;
 
     try {
       serializer.ReadClientsPacket(readStream, clientConnected, clientUserId, clientUserName);
     } catch (SerializeException) {
-      Debug.Log("error: failed to read server info packet");
+      Log("error: failed to read server info packet");
       result = false;
     }
     readStream.Finish();
-    Profiler.EndSample();
+    EndSample();
 
     return result;
   }
 
   protected bool WriteUpdatePacket(ref PacketHeader packetHeader, int numAvatarStates, ref AvatarStateQuantized[] avatarState, int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta
   ) {
-    Profiler.BeginSample("WriteStateUpdatePacket");
+    BeginSample("WriteStateUpdatePacket");
     writeStream.Start(packetBuffer);
     var result = true;
 
@@ -226,24 +225,24 @@ public class Common : MonoBehaviour {
       serializer.WriteUpdatePacket(writeStream, ref packetHeader, numAvatarStates, avatarState, numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta);
       writeStream.Finish();
     } catch (SerializeException) {
-      Debug.Log("error: failed to write state update packet packet");
+      Log("error: failed to write state update packet packet");
       result = false;
     }
-    Profiler.EndSample();
+    EndSample();
 
     return result;
   }
 
   protected bool ReadUpdatePacket(byte[] packetData, out PacketHeader packetHeader, out int numAvatarStates, ref AvatarStateQuantized[] avatarState, out int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta
   ) {
-    Profiler.BeginSample("ReadStateUpdatePacket");
+    BeginSample("ReadStateUpdatePacket");
     readStream.Start(packetData);
     var result = true;
 
     try {
       serializer.ReadUpdatePacket(readStream, out packetHeader, out numAvatarStates, avatarState, out numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta);
     } catch (SerializeException) {
-      Debug.Log("error: failed to read state update packet");
+      Log("error: failed to read state update packet");
       packetHeader.sequence = 0;
       packetHeader.ack = 0;
       packetHeader.ackBits = 0;
@@ -255,25 +254,25 @@ public class Common : MonoBehaviour {
       result = false;
     }
     readStream.Finish();
-    Profiler.EndSample();
+    EndSample();
 
     return result;
   }
 
   protected void AddPacket(ref DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref CubeState[] cubeState
   ) {
-    Profiler.BeginSample("AddPacketToDeltaBuffer");
+    BeginSample("AddPacketToDeltaBuffer");
     deltaBuffer.AddPacket(sequence, resetSequence);
 
     for (int i = 0; i < numCubes; ++i)
       deltaBuffer.AddCubeState(sequence, cubeIds[i], ref cubeState[i]);
 
-    Profiler.EndSample();
+    EndSample();
   }
 
   protected void DetermineNotChangedAndDeltas(Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta
   ) {
-    Profiler.BeginSample("DeterminedNotChangedAndDeltas");
+    BeginSample("DeterminedNotChangedAndDeltas");
 #if !DISABLE_DELTA_COMPRESSION
     CubeState baselineCubeState = CubeState.defaults;
 #endif // #if !DISABLE_DELTA_COMPRESSION
@@ -305,12 +304,12 @@ public class Common : MonoBehaviour {
       }
 #endif // #if !DISABLE_DELTA_COMPRESSION
     }
-    Profiler.EndSample();
+    EndSample();
   }
 
   protected bool DecodeNotChangedAndDeltas(DeltaBuffer deltaBuffer, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta
   ) {
-    Profiler.BeginSample("DecodeNotChangedAndDeltas");
+    BeginSample("DecodeNotChangedAndDeltas");
     bool result = true;
 #if !DISABLE_DELTA_COMPRESSION
     var baselineCubeState = CubeState.defaults;
@@ -321,7 +320,7 @@ public class Common : MonoBehaviour {
 #if DEBUG_DELTA_COMPRESSION
           if ( baselineCubeState.position_x != cubeDelta[i].absolute_position_x )
           {
-              Debug.Log( "expected " + cubeDelta[i].absolute_position_x + ", got " + baselineCubeState.position_x );
+              Log( "expected " + cubeDelta[i].absolute_position_x + ", got " + baselineCubeState.position_x );
           }
           Assert.IsTrue( baselineCubeState.position_x == cubeDelta[i].absolute_position_x );
           Assert.IsTrue( baselineCubeState.position_y == cubeDelta[i].absolute_position_y );
@@ -329,7 +328,7 @@ public class Common : MonoBehaviour {
 #endif // #if DEBUG_DELTA_COMPRESSION
           cubeState[i] = baselineCubeState;
         } else {
-          Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (not changed)");
+          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (not changed)");
           result = false;
           break;
         }
@@ -350,7 +349,7 @@ public class Common : MonoBehaviour {
           cubeState[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDelta[i].angularVelocityY;
           cubeState[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDelta[i].angularVelocityZ;
         } else {
-          Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (delta)");
+          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (delta)");
           result = false;
           break;
         }
@@ -362,7 +361,7 @@ public class Common : MonoBehaviour {
 
   protected void DeterminePrediction(Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDeltas
   ) {
-    Profiler.BeginSample("DeterminePrediction");
+    BeginSample("DeterminePrediction");
     var baselineCubeState = CubeState.defaults;
 
     for (int i = 0; i < numCubes; ++i) {
@@ -522,12 +521,12 @@ public class Common : MonoBehaviour {
       }
     }
 #endif // #if !DISABLE_DELTA_ENCODING
-    Profiler.EndSample();
+    EndSample();
   }
 
   protected bool DecodePrediction(DeltaBuffer deltaBuffer, ushort currentSequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDelta
   ) {
-    Profiler.BeginSample("DecodePrediction");
+    BeginSample("DecodePrediction");
     var baselineCubeState = CubeState.defaults;
     var result = true;
 #if !DISABLE_DELTA_ENCODING
@@ -605,20 +604,20 @@ public class Common : MonoBehaviour {
             cubeState[i].angularVelocityZ = predicted_angular_velocity_z + predictionDelta[i].angularVelocityZ;
           }
         } else {
-          Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (perfect prediction and prediction delta)");
+          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (perfect prediction and prediction delta)");
           result = false;
           break;
         }
       }
     }
 #endif // #if !DISABLE_DELTA_COMPRESSION
-    Profiler.EndSample();
+    EndSample();
 
     return result;
   }
 
   protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) {
-    Profiler.BeginSample("ProcessAcksForConnection");
+    BeginSample("ProcessAcksForConnection");
     int numAcks = 0;
     data.connection.GetAcks(ref acks, ref numAcks);
 
@@ -632,7 +631,7 @@ public class Common : MonoBehaviour {
           context.UpdateAck(data, packetCubeIds[j], acks[i], context.resetSequence, ref packetCubeState[j]);
       }
     }
-    Profiler.EndSample();
+    EndSample();
   }
 
   protected void WriteDeltasToFile(System.IO.StreamWriter file, DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta
@@ -644,7 +643,7 @@ public class Common : MonoBehaviour {
     for (int i = 0; i < numCubes; ++i) {
       if (hasDelta[i]) {
         var result = deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState);
-        Assert.IsTrue(result);
+        IsTrue(result);
 
         if (result) {
           file.WriteLine(sequence + "," +
@@ -705,27 +704,27 @@ public class Common : MonoBehaviour {
   }
 
   protected void JoinRoom(ulong roomId, Message<Room>.Callback callback) {
-    Debug.Log("Joining room " + roomId);
+    Log("Joining room " + roomId);
     Rooms.Join(roomId, true).OnComplete(callback);
   }
 
   protected void LeaveRoom(ulong roomId, Message<Room>.Callback callback) {
     if (roomId == 0) return;
 
-    Debug.Log("Leaving room " + roomId);
+    Log("Leaving room " + roomId);
     Rooms.Leave(roomId).OnComplete(callback);
   }
 
   protected void PrintRoomDetails(Room room) {
-    Debug.Log("AppID: " + room.ApplicationID);
-    Debug.Log("Room ID: " + room.ID);
-    Debug.Log("Users in room: " + room.Users.Count + " / " + room.MaxUsers);
+    Log("AppID: " + room.ApplicationID);
+    Log("Room ID: " + room.ID);
+    Log("Users in room: " + room.Users.Count + " / " + room.MaxUsers);
 
     if (room.Owner != null)
-      Debug.Log("Room owner: " + room.Owner.OculusID + " [" + room.Owner.ID + "]");
+      Log("Room owner: " + room.Owner.OculusID + " [" + room.Owner.ID + "]");
 
-    Debug.Log("Join Policy: " + room.JoinPolicy.ToString());
-    Debug.Log("Room Type: " + room.Type.ToString());
+    Log("Join Policy: " + room.JoinPolicy.ToString());
+    Log("Room Type: " + room.Type.ToString());
   }
 
   protected bool FindUserById(UserList users, ulong userId) {
