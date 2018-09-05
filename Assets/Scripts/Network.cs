@@ -39,11 +39,11 @@ namespace Network {
       }
     }
 
-    public static bool SequenceGreaterThan(ushort first, ushort second) 
+    public static bool IdGreaterThan(ushort first, ushort second) 
       => ((first > second) && (first-second <= 32768)) 
       || ((first < second) && (second-first > 32768));
 
-    public static bool SequenceLessThan(ushort first, ushort second) => SequenceGreaterThan(second, first);
+    public static bool IdLessThan(ushort first, ushort second) => IdGreaterThan(second, first);
 
     public static int BaselineDifference(ushort current, ushort baseline) {
       if (current > baseline)
@@ -542,11 +542,11 @@ namespace Network {
     }
 
     public int Insert(ushort newId) {
-      if (SequenceGreaterThan((ushort)(newId + 1), id)) {
+      if (IdGreaterThan((ushort)(newId + 1), id)) {
         RemoveEntries(id, newId);
         id = (ushort)(newId + 1);
 
-      } else if (SequenceLessThan(newId, (ushort)(id - size))) {
+      } else if (IdLessThan(newId, (ushort)(id - size))) {
         return -1;
       }
 
@@ -672,7 +672,7 @@ namespace Network {
     public ushort ack;
     public uint ackBits;
     public uint frame;                    //physics simulation frame # for jitter buffer
-    public ushort resetSequence;                //incremented each time the simulation is reset
+    public ushort resetId;                //incremented each time the simulation is reset
     public float timeOffset;                    //offset between the current physics frame time of this packet and the time where the avatar state was sampled
   }
 
@@ -697,7 +697,7 @@ namespace Network {
       h.id = id;
       GenerateAckBits(receivedPackets, out h.ack, out h.ackBits);
       h.frame = 0;
-      h.resetSequence = 0;
+      h.resetId = 0;
       h.timeOffset = 0.0f;
       int newId = sentPackets.Insert(id);
       IsTrue(newId != -1);

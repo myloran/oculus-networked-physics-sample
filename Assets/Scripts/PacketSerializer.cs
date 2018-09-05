@@ -52,7 +52,7 @@ public class PacketSerializer {
     w.Bits(header.ack, 16);
     w.Bits(header.ackBits, 32);
     w.Bits(header.frame, 32);
-    w.Bits(header.resetSequence, 16);
+    w.Bits(header.resetId, 16);
     w.Float(header.timeOffset);
     w.Int(avatarCount, 0, MaxClients);
 
@@ -147,7 +147,7 @@ public class PacketSerializer {
     r.Bits(out h.ack, 16);
     r.Bits(out h.ackBits, 32);
     r.Bits(out h.frame, 32);
-    r.Bits(out h.resetSequence, 16);
+    r.Bits(out h.resetId, 16);
     r.Float(out h.timeOffset);
   }
 
@@ -160,7 +160,7 @@ public class PacketSerializer {
     r.Bits(out header.ack, 16);
     r.Bits(out header.ackBits, 32);
     r.Bits(out header.frame, 32);
-    r.Bits(out header.resetSequence, 16);
+    r.Bits(out header.resetId, 16);
     r.Float(out header.timeOffset);
     r.Int(out avatarCount, 0, MaxClients);
 

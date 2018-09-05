@@ -248,7 +248,7 @@ public class Loopback: Common
 
             Context context = GetContext( to );
 
-            ProcessStateUpdateFromJitterBuffer( context, context.GetServerData( from ), from, to, isJitterBufferEnabled );
+            ProcessUpdateFromJitterBuffer( context, context.GetServerData( from ), from, to, isJitterBufferEnabled );
         }
 
         // process packet from guest jitter buffer
@@ -260,7 +260,7 @@ public class Loopback: Common
 
             Context context = GetContext( to );
 
-            ProcessStateUpdateFromJitterBuffer( context, context.GetClientData(), from, to, isJitterBufferEnabled );
+            ProcessUpdateFromJitterBuffer( context, context.GetClientData(), from, to, isJitterBufferEnabled );
         }
 
         // advance host remote frame number for each connected client
@@ -350,7 +350,7 @@ public class Loopback: Common
 
         writePacketHeader.frame = (uint) frame;
 
-        writePacketHeader.resetSequence = context.resetId;
+        writePacketHeader.resetId = context.resetId;
 
         DetermineNotChangedAndDeltas( context, connectionData, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas );
 
@@ -448,14 +448,14 @@ public class Loopback: Common
                 // server -> client
 
                 // Ignore updates from before the last reset.
-                if ( Network.Util.SequenceGreaterThan( context.resetId, readPacketHeader.resetSequence ) )
+                if ( Network.Util.IdGreaterThan( context.resetId, readPacketHeader.resetId ) )
                     return;
 
                 // Reset if the server reset sequence is more recent than ours.
-                if ( Network.Util.SequenceGreaterThan( readPacketHeader.resetSequence, context.resetId) )
+                if ( Network.Util.IdGreaterThan( readPacketHeader.resetId, context.resetId) )
                 {
                     context.Reset();
-                    context.resetId = readPacketHeader.resetSequence ;
+                    context.resetId = readPacketHeader.resetId ;
                 }
             }
             else
@@ -463,7 +463,7 @@ public class Loopback: Common
                 // server -> client
 
                 // Ignore any updates from the client with a different reset sequence #
-                if ( context.resetId != readPacketHeader.resetSequence )
+                if ( context.resetId != readPacketHeader.resetId )
                     return;
             }
 

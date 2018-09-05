@@ -28,21 +28,21 @@ public struct AuthoritySystem {
     var localAuthoritySequence = network.authorityPacketId;
     int localAuthorityId = network.authorityId;
     // *** OWNERSHIP SEQUENCE ***    
-    if (SequenceGreaterThan(ownershipSequence, localOwnershipSequence)) { //Must accept if ownership sequence is newer
+    if (IdGreaterThan(ownershipSequence, localOwnershipSequence)) { //Must accept if ownership sequence is newer
 #if DEBUG_AUTHORITY
             Debug.Log( "client " + toClientIndex + " sees new ownership sequence (" + localOwnershipSequence + "->" + ownershipSequence + ") for cube " + cubeId + " and accepts update" );
 #endif // #if DEBUG_AUTHORITY
       return true;
     }
-    if (SequenceLessThan(ownershipSequence, localOwnershipSequence)) return false; //Must reject if ownership sequence is older
+    if (IdLessThan(ownershipSequence, localOwnershipSequence)) return false; //Must reject if ownership sequence is older
     //*** AUTHORITY SEQUENCE ***    
-    if (SequenceGreaterThan(authoritySequence, localAuthoritySequence)) { //accept if the authority sequence is newer
+    if (IdGreaterThan(authoritySequence, localAuthoritySequence)) { //accept if the authority sequence is newer
 #if DEBUG_AUTHORITY
             Debug.Log( "client " + toClientIndex + " sees new authority sequence (" + localAuthoritySequence + "->" + authoritySequence + ") for cube " + cubeId + " and accepts update" );
 #endif // #if DEBUG_AUTHORITY
       return true;
     }
-    if (SequenceLessThan(authoritySequence, localAuthoritySequence)) return false; //reject if the authority sequence is older
+    if (IdLessThan(authoritySequence, localAuthoritySequence)) return false; //reject if the authority sequence is older
     if (fromClientId == 0) { //Both sequence numbers are the same. Resolve authority conflicts!
       // =============================
       //       server -> client

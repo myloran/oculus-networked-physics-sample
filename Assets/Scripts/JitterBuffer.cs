@@ -191,7 +191,7 @@ public class JitterBuffer {
         count++;
       }
     }
-    resetId = a.header.resetSequence;
+    resetId = a.header.resetId;
 
     return true;
   }
@@ -209,7 +209,7 @@ public class JitterBuffer {
       h.ack = 0;
       h.ackBits = 0;
       h.frame = 0;
-      h.resetSequence = 0;
+      h.resetId = 0;
       h.timeOffset = 0.0f;
       result = false;
     }
@@ -233,7 +233,7 @@ public class JitterBuffer {
       header.ack = 0;
       header.ackBits = 0;
       header.frame = 0;
-      header.resetSequence = 0;
+      header.resetId = 0;
       header.timeOffset = 0.0f;
       avatarCount = 0;
       cubeCount = 0;

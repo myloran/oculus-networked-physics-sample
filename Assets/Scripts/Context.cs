@@ -265,8 +265,8 @@ public class Context : MonoBehaviour {
 
   public bool UpdateAck(ConnectionData d, int cubeId, ushort packetId, ushort resetId, ref CubeState state) {
     if (d.acks[cubeId].isAcked
-      && (Util.SequenceGreaterThan(d.acks[cubeId].resetId, resetId)
-      || Util.SequenceGreaterThan(d.acks[cubeId].id, packetId))
+      && (Util.IdGreaterThan(d.acks[cubeId].resetId, resetId)
+      || Util.IdGreaterThan(d.acks[cubeId].id, packetId))
     ) return false;
 
     d.acks[cubeId].isAcked = true;

@@ -360,7 +360,7 @@ public class Host : Common {
     if (isJitterBufferEnabled) { //process client state update from jitter buffer
       for (int i = 1; i < MaxClients; ++i) {
         if (clients[i].state == Connected)
-          ProcessStateUpdateFromJitterBuffer(context, context.GetServerData(i), i, 0, isJitterBufferEnabled);
+          ProcessUpdateFromJitterBuffer(context, context.GetServerData(i), i, 0, isJitterBufferEnabled);
       }
     }
 
@@ -417,7 +417,7 @@ public class Host : Common {
 
     PacketHeader header;
     data.connection.GeneratePacketHeader(out header);
-    header.resetSequence = context.resetId;
+    header.resetId = context.resetId;
     header.frame = (uint)frame;
     header.timeOffset = timeOffset;
 
@@ -462,7 +462,7 @@ public class Host : Common {
     for (int i = 0; i < avatarCount; ++i) //unquantize avatar states
       Unquantize(ref readAvatarsQuantized[i], out readAvatars[i]);
 
-    if (context.resetId != header.resetSequence) return; //ignore any updates from a client with a different reset sequence #
+    if (context.resetId != header.resetId) return; //ignore any updates from a client with a different reset sequence #
 
     DecodePrediction(data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines
     DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetId, cubeCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines

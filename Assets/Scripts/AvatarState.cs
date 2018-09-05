@@ -203,7 +203,7 @@ public struct AvatarState {
     if (!s.isLeftHandHoldingCube) return;
 
     var n = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
-    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.ownershipId)) return;
+    if (!Util.IdGreaterThan(s.leftHandOwnershipSequence, n.ownershipId)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
@@ -215,7 +215,7 @@ public struct AvatarState {
     if (!s.isRightHandHoldingCube) return;
 
     var n = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
-    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.ownershipId)) return;
+    if (!Util.IdGreaterThan(s.rightHandOwnershipSequence, n.ownershipId)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY

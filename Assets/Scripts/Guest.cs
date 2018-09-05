@@ -367,7 +367,7 @@ public class Guest : Common {
     }    
 
     if (isJitterBufferEnabled && IsConnectedToServer()) { //process state update from jitter buffer
-      ProcessStateUpdateFromJitterBuffer(context, context.GetClientData(), 0, clientId, isJitterBufferEnabled && renderTime > timeConnected + 0.25);
+      ProcessUpdateFromJitterBuffer(context, context.GetClientData(), 0, clientId, isJitterBufferEnabled && renderTime > timeConnected + 0.25);
     }    
 
     if (IsConnectedToServer()) { //advance remote frame number
@@ -386,7 +386,7 @@ public class Guest : Common {
 
     PacketHeader header;
     data.connection.GeneratePacketHeader(out header);
-    header.resetSequence = context.resetId;
+    header.resetId = context.resetId;
     header.frame = (uint)frame;
     header.timeOffset = timeOffset;
 
@@ -476,11 +476,11 @@ public class Guest : Common {
       for (int i = 0; i < avatarCount; ++i) //unquantize avatar states
         AvatarState.Unquantize(ref readAvatarsQuantized[i], out readAvatars[i]);      
 
-      if (Util.SequenceGreaterThan(context.resetId, header.resetSequence)) return; //ignore updates from before the last server reset      
+      if (Util.IdGreaterThan(context.resetId, header.resetId)) return; //ignore updates from before the last server reset      
 
-      if (Util.SequenceGreaterThan(header.resetSequence, context.resetId)) { //reset if the server reset sequence is more recent than ours
+      if (Util.IdGreaterThan(header.resetId, context.resetId)) { //reset if the server reset sequence is more recent than ours
         context.Reset();
-        context.resetId = header.resetSequence;
+        context.resetId = header.resetId;
       }      
 
       DecodePrediction(data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines      

@@ -159,7 +159,7 @@ public class Common : MonoBehaviour {
     d.jitterBuffer.Start(d.frame);
   }
 
-  protected void ProcessStateUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientId, int toClientId, bool isSmooth = true) {
+  protected void ProcessUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientId, int toClientId, bool isSmooth = true) {
     if (data.frame < 0) return;
 
     var entry = data.jitterBuffer.GetEntry((uint)data.frame);
@@ -167,14 +167,14 @@ public class Common : MonoBehaviour {
 
     if (fromClientId == 0) {
       //server -> client      
-      if (Util.SequenceGreaterThan(context.resetId, entry.header.resetSequence)) return; //Ignore updates from before the last reset.
-      if (Util.SequenceGreaterThan(entry.header.resetSequence, context.resetId)) { //Reset if the server reset sequence is more recent than ours.
+      if (Util.IdGreaterThan(context.resetId, entry.header.resetId)) return; //Ignore updates from before the last reset.
+      if (Util.IdGreaterThan(entry.header.resetId, context.resetId)) { //Reset if the server reset sequence is more recent than ours.
         context.Reset();
-        context.resetId = entry.header.resetSequence;
+        context.resetId = entry.header.resetId;
       }
     } else {
       //client -> server      
-      if (context.resetId != entry.header.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
+      if (context.resetId != entry.header.resetId) return; //Ignore any updates from the client with a different reset sequence #
     }
 
     AddPacket(ref data.receiveBuffer, entry.header.id, context.resetId, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
@@ -248,7 +248,7 @@ public class Common : MonoBehaviour {
       header.ack = 0;
       header.ackBits = 0;
       header.frame = 0;
-      header.resetSequence = 0;
+      header.resetId = 0;
       header.timeOffset = 0.0f;
       avatarCount = 0;
       cubeCount = 0;
