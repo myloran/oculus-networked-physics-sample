@@ -95,6 +95,43 @@ public class Host : Common {
     localAvatar.transform.rotation = context.GetAvatar(0).gameObject.transform.rotation;
   }
 
+  new void Update() {
+    base.Update();
+
+    for (int i = 1; i < MaxClients; ++i) { //apply host avatar per-remote client at render time with interpolation
+      if (clients[i].state != Connected) continue;
+
+      var buffer = context.GetServerData(i).jitterBuffer;
+      int count;
+      ushort resetSequence;
+      if (buffer.GetInterpolatedAvatars(ref interpolatedAvatars, out count, out resetSequence)) continue;
+
+      if (resetSequence == context.resetSequence)
+        context.ApplyAvatarUpdates(count, ref interpolatedAvatars, i, 0);
+    }
+
+    for (int i = 1; i < MaxClients; ++i) { //advance jitter buffer time
+      if (clients[i].state == Connected)
+        context.GetServerData(i).jitterBuffer.AdvanceTime(Time.deltaTime);
+    }
+    CheckTimeouts(); //check for timeouts
+  }
+
+  new void FixedUpdate() {
+    var hands = localAvatar.GetComponent<Hands>();
+
+    if (Input.GetKey("space") || (hands.IsPressingIndex() && hands.IsPressingX())) {
+      context.Reset();
+      context.resetSequence++;
+    }
+
+    context.UpdateSleep();
+    ProcessPackets();
+    SendPackets();
+    context.UpdateSleep();
+    base.FixedUpdate();
+  }
+
   void CheckEntitlement(Message message) {
     if (message.IsError) {
       Log("error: You are not entitled to use this app");
@@ -281,43 +318,6 @@ public class Host : Common {
 
     isReadyToShutdown = true;
     roomId = 0;
-  }
-
-  new void Update() {
-    base.Update();    
-
-    for (int i = 1; i < MaxClients; ++i) { //apply host avatar per-remote client at render time with interpolation
-      if (clients[i].state != Connected) continue;
-
-      var buffer = context.GetServerData(i).jitterBuffer;
-      int count;
-      ushort resetSequence;
-      if (buffer.GetInterpolatedAvatar(ref interpolatedAvatars, out count, out resetSequence)) continue;
-
-      if (resetSequence == context.resetSequence)
-        context.ApplyAvatarUpdates(count, ref interpolatedAvatars, i, 0);
-    }    
-
-    for (int i = 1; i < MaxClients; ++i) { //advance jitter buffer time
-      if (clients[i].state == Connected)
-        context.GetServerData(i).jitterBuffer.AdvanceTime(Time.deltaTime);
-    }
-    CheckTimeouts(); //check for timeouts
-  }
-
-  new void FixedUpdate() {
-    var hands = localAvatar.GetComponent<Hands>();
-
-    if (Input.GetKey("space") || (hands.IsPressingIndex() && hands.IsPressingX())) {
-      context.Reset();
-      context.resetSequence++;
-    }
-
-    context.UpdateSleep();
-    ProcessPackets();
-    SendPackets();
-    context.UpdateSleep();
-    base.FixedUpdate();
   }
 
   void CheckTimeouts() {

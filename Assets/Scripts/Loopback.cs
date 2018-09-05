@@ -124,7 +124,7 @@ public class Loopback: Common
 
             int numInterpolatedAvatarStates;
             ushort avatarResetSequence;
-            if ( connectionData.jitterBuffer.GetInterpolatedAvatar( ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence ) )
+            if ( connectionData.jitterBuffer.GetInterpolatedAvatars( ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence ) )
             {
                 if ( avatarResetSequence == context.resetSequence)
                 {
@@ -145,7 +145,7 @@ public class Loopback: Common
 
             int numInterpolatedAvatarStates;
             ushort avatarResetSequence;
-            if ( connectionData.jitterBuffer.GetInterpolatedAvatar( ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence ) )
+            if ( connectionData.jitterBuffer.GetInterpolatedAvatars( ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence ) )
             {
                 if ( avatarResetSequence == context.resetSequence)
                 {

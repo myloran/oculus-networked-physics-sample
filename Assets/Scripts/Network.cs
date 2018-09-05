@@ -348,7 +348,7 @@ namespace Network {
       return true;
     }
 
-    public bool Uing(out uint value, uint min, uint max) {
+    public bool Uint(out uint value, uint min, uint max) {
       IsTrue(min < max);
       int bits = BitsRequired(min, max);
 
@@ -518,84 +518,6 @@ namespace Network {
     public SerializeException() { }
   }
 
-  public class Serializer {
-    public void write_bool(WriteStream stream, bool value) 
-      => stream.Bits((value == true) ? 1U : 0U, 1);
-
-    public void write_int(WriteStream stream, int value, int min, int max) 
-      => stream.Int(value, min, max);
-
-    public void write_uint(WriteStream stream, uint value, uint min, uint max)
-      => stream.Uint(value, min, max);
-
-    public void write_bits(WriteStream stream, byte value, int bits)
-      => stream.Bits(value, bits);    
-
-    public void write_bits(WriteStream stream, ushort value, int bits)
-      => stream.Bits(value, bits);
-
-    public void write_bits(WriteStream stream, uint value, int bits)
-      => stream.Bits(value, bits);
-
-    public void write_bits(WriteStream stream, ulong value, int bits)
-      => stream.Bits(value, bits);
-
-    public void write_string(WriteStream stream, string value)
-      => stream.String(value);
-
-    public void write_float(WriteStream stream, float value)
-      => stream.Float(value);
-
-    public void read_bool(ReadStream stream, out bool value) {
-      uint unsigned_value;
-
-      if (!stream.Bits(out unsigned_value, 1))
-        throw new SerializeException();
-
-      value = (unsigned_value == 1) ? true : false;
-    }
-
-    public void read_int(ReadStream stream, out int value, int min, int max) {
-      if (!stream.Int(out value, min, max))
-        throw new SerializeException();
-    }
-
-    public void read_uint(ReadStream stream, out uint value, uint min, uint max) {
-      if (!stream.Uing(out value, min, max))
-        throw new SerializeException();
-    }
-
-    public void read_bits(ReadStream stream, out byte value, int bits) {
-      if (!stream.Bits(out value, bits))
-        throw new SerializeException();
-    }
-
-    public void read_bits(ReadStream stream, out ushort value, int bits) {
-      if (!stream.Bits(out value, bits))
-        throw new SerializeException();
-    }
-
-    public void read_bits(ReadStream stream, out uint value, int bits) {
-      if (!stream.Bits(out value, bits))
-        throw new SerializeException();
-    }
-
-    public void read_bits(ReadStream stream, out ulong value, int bits) {
-      if (!stream.Bits(out value, bits))
-        throw new SerializeException();
-    }
-
-    public void read_string(ReadStream stream, out string value) {
-      if (!stream.String(out value))
-        throw new SerializeException();
-    }
-
-    public void read_float(ReadStream stream, out float value) {
-      if (!stream.Float(out value))
-        throw new SerializeException();
-    }
-  }
-
   public class SequenceBuffer<T> {
     public T[] entries;
     uint[] entrySequence;
@@ -665,8 +587,6 @@ namespace Network {
     int size;
     uint sequence;
 
-    public T[] Entries { get { return entries; } }
-
     public SequenceBuffer32(int size) {
       IsTrue(size > 0);
       this.size = size;
@@ -698,9 +618,9 @@ namespace Network {
         return -1;
       }
 
-      int index = (int)(newSequence % size);
-      entrySequence[index] = newSequence;
-      return index;
+      int id = (int)(newSequence % size);
+      entrySequence[id] = newSequence;
+      return id;
     }
 
     public void Remove(uint sequence) {
@@ -720,10 +640,10 @@ namespace Network {
 
     public int Find(uint sequence) {
       IsTrue(sequence != 0xFFFFFFFF);
-      int index = (int)(sequence % size);
+      int id = (int)(sequence % size);
 
-      if (entrySequence[index] == sequence)
-        return index; else
+      if (entrySequence[id] == sequence)
+        return id; else
         return -1;
     }
 
@@ -776,9 +696,9 @@ namespace Network {
       h.frame = 0;
       h.resetSequence = 0;
       h.timeOffset = 0.0f;
-      int index = sentPackets.Insert(sequence);
-      IsTrue(index != -1);
-      sentPackets.Entries[index].acked = false;
+      int id = sentPackets.Insert(sequence);
+      IsTrue(id != -1);
+      sentPackets.Entries[id].acked = false;
       sequence++;
     }
 
@@ -792,11 +712,11 @@ namespace Network {
         }
 
         var ackedSequence = (ushort)(h.ack - i);
-        int index = sentPackets.Find(ackedSequence);
+        int id = sentPackets.Find(ackedSequence);
 
-        if (index != -1 && !sentPackets.Entries[index].acked) {
+        if (id != -1 && !sentPackets.Entries[id].acked) {
           PacketAcked(ackedSequence);
-          sentPackets.Entries[index].acked = true;
+          sentPackets.Entries[id].acked = true;
         }
         h.ackBits >>= 1;
       }

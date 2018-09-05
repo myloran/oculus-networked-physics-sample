@@ -13,7 +13,7 @@ using static Network.Util;
 using static PacketSerializer.PacketType;
 using static Constants;
 
-public class PacketSerializer : Network.Serializer {
+public class PacketSerializer {
   public enum PacketType {
     ClientsInfo = 1,                     // information about players connected to the server. broadcast from server -> clients whenever a player joins or leaves the game.
     StateUpdate = 0,                    // most recent state of the world, delta encoded relative to most recent state per-object acked by the client. sent 90 times per-second.
@@ -148,7 +148,7 @@ public class PacketSerializer : Network.Serializer {
     r.Bits(out header.ackBits, 32);
     r.Bits(out header.frame, 32);
     r.Bits(out header.resetSequence, 16);
-    read_float(r, out header.timeOffset);
+    r.Float(out header.timeOffset);
   }
 
   public void ReadUpdatePacket(ReadStream r, out PacketHeader header, out int numAvatarStates, AvatarStateQuantized[] avatarState, out int numStateUpdates, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta

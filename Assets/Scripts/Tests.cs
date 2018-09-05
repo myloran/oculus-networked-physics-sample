@@ -76,19 +76,19 @@ public static class Tests {
     public uint bits_value;
   };
 
-  class TestSerializer : Serializer {
+  class TestSerializer {
     public void WriteTestStruct(WriteStream stream, ref TestStruct testStruct) {
-      write_bool(stream, testStruct.bool_value);
-      write_int(stream, testStruct.int_value, -100, +100);
-      write_uint(stream, testStruct.uint_value, 100, 1000);
-      write_bits(stream, testStruct.bits_value, 23);
+      stream.Bool(testStruct.bool_value);
+      stream.Int(testStruct.int_value, -100, 100);
+      stream.Uint(testStruct.uint_value, 100, 1000);
+      stream.Bits(testStruct.bits_value, 23);
     }
 
     public void ReadTestStruct(ReadStream stream, out TestStruct testStruct) {
-      read_bool(stream, out testStruct.bool_value);
-      read_int(stream, out testStruct.int_value, -100, +100);
-      read_uint(stream, out testStruct.uint_value, 100, 1000);
-      read_bits(stream, out testStruct.bits_value, 23);
+      stream.Bool(out testStruct.bool_value);
+      stream.Int(out testStruct.int_value, -100, 100);
+      stream.Uint(out testStruct.uint_value, 100, 1000);
+      stream.Bits(out testStruct.bits_value, 23);
     }
   }
 
@@ -190,7 +190,7 @@ public static class Tests {
       int index = buffer.Insert((uint)i);
       IsTrue(index != -1);
       IsTrue(buffer.GetSequence() == i + 1);
-      buffer.Entries[index].sequence = (uint)i;
+      buffer.entries[index].sequence = (uint)i;
     }
 
     for (int i = 0; i <= Size; ++i) {      
@@ -203,7 +203,7 @@ public static class Tests {
       int index = buffer.Find(sequence);
       IsTrue(index >= 0);
       IsTrue(index < Size);
-      IsTrue(buffer.Entries[index].sequence == sequence);
+      IsTrue(buffer.entries[index].sequence == sequence);
       sequence--;
     }
 

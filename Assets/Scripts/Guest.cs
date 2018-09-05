@@ -85,6 +85,62 @@ public class Guest : Common {
     localAvatar.GetComponent<Hands>().SetContext(context.GetComponent<Context>());
   }
 
+  new void Update() {
+    base.Update();
+
+    if (Input.GetKeyDown("space")) {
+      Debug.Log("Forcing reconnect");
+      isConnected = false;
+      RetryUntilConnectedToServer();
+    }
+
+    if (state == InMatchmaking && timeMatchmakingStarted + 30.0 < renderTime) {
+      Debug.Log("No result from matchmaker");
+      RetryUntilConnectedToServer();
+      return;
+    }
+
+    if (state == Connecting && !isConnectionAccepted
+      && hostUserId != 0 && connections.Contains(hostUserId)
+    ) {
+      Debug.Log("Accepting connection request from host");
+      Net.Accept(hostUserId);
+      isConnectionAccepted = true;
+    }
+
+    if (state == Connected) {
+      var data = context.GetClientData(); //apply guest avatar state at render time with interpolation
+      int numInterpolatedAvatarStates;
+      ushort avatarResetSequence;
+
+      if (data.jitterBuffer.GetInterpolatedAvatars(ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence)
+        && avatarResetSequence == context.resetSequence
+      ) context.ApplyAvatarUpdates(numInterpolatedAvatarStates, ref interpolatedAvatars, 0, clientId);
+
+      context.GetClientData().jitterBuffer.AdvanceTime(Time.deltaTime); //advance jitter buffer time
+    }
+
+    if (state == WaitingForRetry && timeRetryStarted + RetryTime < renderTime) {
+      StartMatchmaking();
+      return;
+    }
+    CheckForTimeouts();
+  }
+
+  new void FixedUpdate() {
+    if (IsConnectedToServer())
+      context.UpdateSleep();
+
+    ProcessPacketsFromServer();
+
+    if (IsConnectedToServer()) {
+      ProcessAcks();
+      SendPacketToServer();
+      context.UpdateSleep();
+    }
+    base.FixedUpdate();
+  }
+
   void RetryUntilConnectedToServer() {
     Matchmaking.Cancel();
     DisconnectFromServer();
@@ -269,48 +325,6 @@ public class Guest : Common {
     roomId = 0;
   }
 
-  new void Update() {
-    base.Update();
-
-    if (Input.GetKeyDown("space")) {
-      Debug.Log("Forcing reconnect");
-      isConnected = false;
-      RetryUntilConnectedToServer();
-    }
-
-    if (state == InMatchmaking && timeMatchmakingStarted + 30.0 < renderTime) {
-      Debug.Log("No result from matchmaker");
-      RetryUntilConnectedToServer();
-      return;
-    }
-
-    if (state == Connecting && !isConnectionAccepted
-      && hostUserId != 0 && connections.Contains(hostUserId)
-    ) {
-      Debug.Log("Accepting connection request from host");
-      Net.Accept(hostUserId);
-      isConnectionAccepted = true;
-    }
-
-    if (state == Connected) {      
-      var data = context.GetClientData(); //apply guest avatar state at render time with interpolation
-      int numInterpolatedAvatarStates;
-      ushort avatarResetSequence;
-
-      if (data.jitterBuffer.GetInterpolatedAvatar(ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence)
-        && avatarResetSequence == context.resetSequence
-      ) context.ApplyAvatarUpdates(numInterpolatedAvatarStates, ref interpolatedAvatars, 0, clientId);      
-
-      context.GetClientData().jitterBuffer.AdvanceTime(Time.deltaTime); //advance jitter buffer time
-    }
-
-    if (state == WaitingForRetry && timeRetryStarted + RetryTime < renderTime) {
-      StartMatchmaking();
-      return;
-    }
-    CheckForTimeouts();
-  }
-
   void CheckForTimeouts() {
     if (state == Connecting) {
       if (timeConnectionStarted + ConnectTimeout < renderTime) {
@@ -323,20 +337,6 @@ public class Guest : Common {
         DisconnectFromServer();
       }
     }
-  }
-
-  new void FixedUpdate() {
-    if (IsConnectedToServer())
-      context.UpdateSleep();
-
-    ProcessPacketsFromServer();
-
-    if (IsConnectedToServer()) {
-      ProcessAcks();
-      SendPacketToServer();
-      context.UpdateSleep();
-    }
-    base.FixedUpdate();
   }
 
   void SendPacketToServer() {

@@ -166,19 +166,19 @@ public class Common : MonoBehaviour {
 
     if (fromClientIndex == 0) {
       //server -> client      
-      if (Util.SequenceGreaterThan(context.resetSequence, entry.packetHeader.resetSequence)) return; //Ignore updates from before the last reset.
-      if (Util.SequenceGreaterThan(entry.packetHeader.resetSequence, context.resetSequence)) { //Reset if the server reset sequence is more recent than ours.
+      if (Util.SequenceGreaterThan(context.resetSequence, entry.header.resetSequence)) return; //Ignore updates from before the last reset.
+      if (Util.SequenceGreaterThan(entry.header.resetSequence, context.resetSequence)) { //Reset if the server reset sequence is more recent than ours.
         context.Reset();
-        context.resetSequence = entry.packetHeader.resetSequence;
+        context.resetSequence = entry.header.resetSequence;
       }
     } else {
       //client -> server      
-      if (context.resetSequence != entry.packetHeader.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
+      if (context.resetSequence != entry.header.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
     }
 
-    AddPacket(ref data.receiveBuffer, entry.packetHeader.sequence, context.resetSequence, entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState); //add the cube states to the receive delta buffer    
-    context.ApplyCubeUpdates(entry.numStateUpdates, ref entry.cubeIds, ref entry.cubeState, fromClientIndex, toClientIndex, applySmoothing); //apply the state updates to cubes    
-    data.connection.ProcessPacketHeader(ref entry.packetHeader); //process the packet header (handles acks)
+    AddPacket(ref data.receiveBuffer, entry.header.sequence, context.resetSequence, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
+    context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientIndex, toClientIndex, applySmoothing); //apply the state updates to cubes    
+    data.connection.ProcessPacketHeader(ref entry.header); //process the packet header (handles acks)
   }
 
   protected bool WriteClientsPacket(bool[] areConnected, ulong[] userIds, string[] userNames) {
