@@ -253,15 +253,15 @@ public class Guest : Common {
     timeConnectionStarted = renderTime;
   }
 
-  void ConnectToServer(int clientId) {
-    Assert.IsTrue(clientId >= 1);
-    Assert.IsTrue(clientId < MaxClients);
-    localAvatar.transform.position = context.GetAvatar(clientId).gameObject.transform.position;
-    localAvatar.transform.rotation = context.GetAvatar(clientId).gameObject.transform.rotation;
+  void ConnectToServer(int id) {
+    Assert.IsTrue(id >= 1);
+    Assert.IsTrue(id < MaxClients);
+    localAvatar.transform.position = context.GetAvatar(id).gameObject.transform.position;
+    localAvatar.transform.rotation = context.GetAvatar(id).gameObject.transform.rotation;
     state = Connected;
-    this.clientId = clientId;
-    context.Init(clientId);
-    OnConnectToServer(clientId);
+    clientId = id;
+    context.Init(id);
+    OnConnectToServer(id);
   }
 
   void DisconnectFromServer() {
@@ -278,8 +278,8 @@ public class Guest : Common {
     isConnectionAccepted = false;
   }
 
-  void OnConnectToServer(int clientId) {
-    Debug.Log("Connected to server as client " + clientId);
+  void OnConnectToServer(int id) {
+    Debug.Log("Connected to server as client " + id);
     timeConnected = renderTime;
     context.Activate();
 
@@ -391,12 +391,12 @@ public class Guest : Common {
     header.timeOffset = timeOffset;
 
     DetermineNotChangedAndDeltas(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
-    DeterminePrediction(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta);
+    DeterminePrediction(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubePredictions);
 
-    int numAvatarStates = 1;
+    int avatarCount = 1;
     localAvatar.GetComponent<Hands>().GetState(out avatars[0]);
     AvatarState.Quantize(ref avatars[0], out avatarsQuantized[0]);
-    WriteUpdatePacket(ref header, numAvatarStates, ref avatarsQuantized, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref predictionDelta);
+    WriteUpdatePacket(ref header, avatarCount, ref avatarsQuantized, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref cubePredictions);
 
     var packet = writeStream.GetData();
     AddPacket(ref data.sendBuffer, header.id, context.resetId, cubeCount, ref cubeIds, ref cubes);
@@ -444,22 +444,22 @@ public class Guest : Common {
     Debug.Log(userName + " connected as client " + clientId);
     context.ShowAvatar(clientId);
     Voip.Start(userId);
-    var headGameObject = context.GetAvatarHead(clientId);
-    var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
+    var head = context.GetAvatarHead(clientId);
+    var audio = head.GetComponent<VoipAudioSourceHiLevel>();
 
-    if (!audioSource)
-      audioSource = headGameObject.AddComponent<VoipAudioSourceHiLevel>();
+    if (!audio)
+      audio = head.AddComponent<VoipAudioSourceHiLevel>();
 
-    audioSource.senderID = userId;
+    audio.senderID = userId;
   }
 
   void OnRemoteClientDisconnected(int clientId, ulong userId, string userName) {
     Debug.Log(userName + " disconnected");
-    var headGameObject = context.GetAvatarHead(clientId);
-    var audioSource = headGameObject.GetComponent<VoipAudioSourceHiLevel>();
+    var head = context.GetAvatarHead(clientId);
+    var audio = head.GetComponent<VoipAudioSourceHiLevel>();
 
-    if (audioSource)
-      audioSource.senderID = 0;
+    if (audio)
+      audio.senderID = 0;
 
     Voip.Stop(userId);
     context.HideAvatar(clientId);
@@ -467,31 +467,31 @@ public class Guest : Common {
 
   public void ProcessStateUpdatePacket(Context.ConnectionData data, byte[] packet) {
     Profiler.BeginSample("ProcessStateUpdatePacket");
-    int readNumAvatarStates = 0;
-    int readNumStateUpdates = 0;
-    PacketHeader readPacketHeader;
+    int avatarCount = 0;
+    int cubeCount = 0;
+    PacketHeader header;
 
-    if (ReadUpdatePacket(packet, out readPacketHeader, out readNumAvatarStates, ref readAvatarsQuantized, out readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas, ref readPredictionDeltas)
+    if (ReadUpdatePacket(packet, out header, out avatarCount, ref readAvatarsQuantized, out cubeCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas, ref readPredictionDeltas)
     ) {
-      for (int i = 0; i < readNumAvatarStates; ++i) //unquantize avatar states
+      for (int i = 0; i < avatarCount; ++i) //unquantize avatar states
         AvatarState.Unquantize(ref readAvatarsQuantized[i], out readAvatars[i]);      
 
-      if (Util.SequenceGreaterThan(context.resetId, readPacketHeader.resetSequence)) return; //ignore updates from before the last server reset      
+      if (Util.SequenceGreaterThan(context.resetId, header.resetSequence)) return; //ignore updates from before the last server reset      
 
-      if (Util.SequenceGreaterThan(readPacketHeader.resetSequence, context.resetId)) { //reset if the server reset sequence is more recent than ours
+      if (Util.SequenceGreaterThan(header.resetSequence, context.resetId)) { //reset if the server reset sequence is more recent than ours
         context.Reset();
-        context.resetId = readPacketHeader.resetSequence;
+        context.resetId = header.resetSequence;
       }      
 
-      DecodePrediction(data.receiveBuffer, readPacketHeader.id, context.resetId, readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines      
-      DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetId, readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
-      AddPacket(ref data.receiveBuffer, readPacketHeader.id, context.resetId, readNumStateUpdates, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer      
+      DecodePrediction(data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines      
+      DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetId, cubeCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
+      AddPacket(ref data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer      
 
       int fromClientId = 0; //apply the state updates to cubes
       int toClientId = clientId;
-      context.ApplyCubeUpdates(readNumStateUpdates, ref readCubeIds, ref readCubes, fromClientId, toClientId, isJitterBufferEnabled && renderTime > timeConnected + 0.25);
-      context.ApplyAvatarUpdates(readNumAvatarStates, ref readAvatars, fromClientId, toClientId); //apply avatar state updates      
-      data.connection.ProcessPacketHeader(ref readPacketHeader); //process the packet header
+      context.ApplyCubeUpdates(cubeCount, ref readCubeIds, ref readCubes, fromClientId, toClientId, isJitterBufferEnabled && renderTime > timeConnected + 0.25);
+      context.ApplyAvatarUpdates(avatarCount, ref readAvatars, fromClientId, toClientId); //apply avatar state updates      
+      data.connection.ProcessPacketHeader(ref header); //process the packet header
     }
     Profiler.EndSample();
   }

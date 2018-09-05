@@ -354,7 +354,7 @@ public class Loopback: Common
 
         DetermineNotChangedAndDeltas( context, connectionData, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas );
 
-        DeterminePrediction( context, connectionData, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta );
+        DeterminePrediction( context, connectionData, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubePredictions );
 
         int numAvatarStates = 0;
 
@@ -408,7 +408,7 @@ public class Loopback: Common
         for ( int i = 0; i < numAvatarStates; ++i )
             AvatarState.Quantize( ref avatars[i], out avatarsQuantized[i] );
 
-        WriteUpdatePacket( ref writePacketHeader, numAvatarStates, ref avatarsQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref predictionDelta );
+        WriteUpdatePacket( ref writePacketHeader, numAvatarStates, ref avatarsQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref cubePredictions );
 
         byte[] packetData = writeStream.GetData();
 

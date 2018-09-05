@@ -45,7 +45,7 @@ public class PacketSerializer {
     }
   }
 
-  public void WriteUpdatePacket(WriteStream w, ref PacketHeader header, int avatarCount, AvatarStateQuantized[] avatars, int cubeCount, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] arePerfectPrediction, bool[] hasPredictionDelta, ushort[] baselineIds, CubeState[] cubes, CubeDelta[] deltas, CubeDelta[] predictionDeltas
+  public void WriteUpdatePacket(WriteStream w, ref PacketHeader header, int avatarCount, AvatarStateQuantized[] avatars, int cubeCount, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] hasPerfectPrediction, bool[] hasPrediction, ushort[] baselineIds, CubeState[] cubes, CubeDelta[] deltas, CubeDelta[] predictions
   ) {
     w.Bits((byte)StateUpdate, 8);
     w.Bits(header.id, 16);
@@ -78,9 +78,9 @@ public class PacketSerializer {
         continue;
       }
 
-      w.Bool(arePerfectPrediction[i]);
+      w.Bool(hasPerfectPrediction[i]);
 
-      if (arePerfectPrediction[i]) {
+      if (hasPerfectPrediction[i]) {
         w.Bits(baselineIds[i], 16);
         w.Bits(cubes[i].rotationLargest, 2);
         w.Bits(cubes[i].rotationX, RotationBits);
@@ -89,14 +89,14 @@ public class PacketSerializer {
         continue;
       }
 
-      w.Bool(hasPredictionDelta[i]);
+      w.Bool(hasPrediction[i]);
 
-      if (hasPredictionDelta[i]) {
+      if (hasPrediction[i]) {
         w.Bits(baselineIds[i], 16);
         w.Bool(cubes[i].isActive);
-        WriteLinearVelocityDelta(w, predictionDeltas[i].linearVelocityX, predictionDeltas[i].linearVelocityY, predictionDeltas[i].linearVelocityZ);
-        WriteAngularVelocityDelta(w, predictionDeltas[i].angularVelocityX, predictionDeltas[i].angularVelocityY, predictionDeltas[i].angularVelocityZ);
-        WritePositionDelta(w, predictionDeltas[i].positionX, predictionDeltas[i].positionY, predictionDeltas[i].positionZ);
+        WriteLinearVelocityDelta(w, predictions[i].linearVelocityX, predictions[i].linearVelocityY, predictions[i].linearVelocityZ);
+        WriteAngularVelocityDelta(w, predictions[i].angularVelocityX, predictions[i].angularVelocityY, predictions[i].angularVelocityZ);
+        WritePositionDelta(w, predictions[i].positionX, predictions[i].positionY, predictions[i].positionZ);
         w.Bits(cubes[i].rotationLargest, 2);
         w.Bits(cubes[i].rotationX, RotationBits);
         w.Bits(cubes[i].rotationY, RotationBits);
@@ -151,7 +151,7 @@ public class PacketSerializer {
     r.Float(out h.timeOffset);
   }
 
-  public void ReadUpdatePacket(ReadStream r, out PacketHeader header, out int avatarCount, AvatarStateQuantized[] avatars, out int cubeCount, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] perfectPrediction, bool[] hasPredictionDelta, ushort[] baselineIds, CubeState[] cubes, CubeDelta[] deltas, CubeDelta[] predictionDeltas
+  public void ReadUpdatePacket(ReadStream r, out PacketHeader header, out int avatarCount, AvatarStateQuantized[] avatars, out int cubeCount, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] hasPerfectPrediction, bool[] hasPrediction, ushort[] baselineIds, CubeState[] cubes, CubeDelta[] deltas, CubeDelta[] predictions
   ) {
     byte packetType = 0;
     r.Bits(out packetType, 8);
@@ -171,8 +171,8 @@ public class PacketSerializer {
 
     for (int i = 0; i < cubeCount; ++i) {
       hasDelta[i] = false;
-      perfectPrediction[i] = false;
-      hasPredictionDelta[i] = false;
+      hasPerfectPrediction[i] = false;
+      hasPrediction[i] = false;
       r.Int(out cubeIds[i], 0, MaxCubes - 1);
 #if DEBUG_DELTA_COMPRESSION
       read_int( stream, out cubeDelta[i].absolute_position_x, PositionMinimumXZ, PositionMaximumXZ );
@@ -189,9 +189,9 @@ public class PacketSerializer {
         continue;
       }
 
-      r.Bool(out perfectPrediction[i]);
+      r.Bool(out hasPerfectPrediction[i]);
 
-      if (perfectPrediction[i]) {
+      if (hasPerfectPrediction[i]) {
         r.Bits(out baselineIds[i], 16);
         r.Bits(out cubes[i].rotationLargest, 2);
         r.Bits(out cubes[i].rotationX, RotationBits);
@@ -201,14 +201,14 @@ public class PacketSerializer {
         continue;
       }
 
-      r.Bool(out hasPredictionDelta[i]);
+      r.Bool(out hasPrediction[i]);
 
-      if (hasPredictionDelta[i]) {
+      if (hasPrediction[i]) {
         r.Bits(out baselineIds[i], 16);
         r.Bool(out cubes[i].isActive);
-        ReadLinearVelocityDelta(r, out predictionDeltas[i].linearVelocityX, out predictionDeltas[i].linearVelocityY, out predictionDeltas[i].linearVelocityZ);
-        ReadAngularVelocityDelta(r, out predictionDeltas[i].angularVelocityX, out predictionDeltas[i].angularVelocityY, out predictionDeltas[i].angularVelocityZ);
-        ReadPositionDelta(r, out predictionDeltas[i].positionX, out predictionDeltas[i].positionY, out predictionDeltas[i].positionZ);
+        ReadLinearVelocityDelta(r, out predictions[i].linearVelocityX, out predictions[i].linearVelocityY, out predictions[i].linearVelocityZ);
+        ReadAngularVelocityDelta(r, out predictions[i].angularVelocityX, out predictions[i].angularVelocityY, out predictions[i].angularVelocityZ);
+        ReadPositionDelta(r, out predictions[i].positionX, out predictions[i].positionY, out predictions[i].positionZ);
         r.Bits(out cubes[i].rotationLargest, 2);
         r.Bits(out cubes[i].rotationX, RotationBits);
         r.Bits(out cubes[i].rotationY, RotationBits);
