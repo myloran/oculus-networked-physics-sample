@@ -15,12 +15,12 @@ using static Constants;
 
 public class PacketSerializer : Network.Serializer {
   public enum PacketType {
-    ServerInfo = 1,                     // information about players connected to the server. broadcast from server -> clients whenever a player joins or leaves the game.
+    ClientsInfo = 1,                     // information about players connected to the server. broadcast from server -> clients whenever a player joins or leaves the game.
     StateUpdate = 0,                    // most recent state of the world, delta encoded relative to most recent state per-object acked by the client. sent 90 times per-second.
   };
 
   public void WriteClientsPacket(WriteStream w, bool[] areConnected, ulong[] userIds, string[] userNames) {
-    w.Bits((byte)ServerInfo, 8);
+    w.Bits((byte)ClientsInfo, 8);
 
     for (int i = 0; i < MaxClients; ++i) {
       w.Bool(areConnected[i]);
@@ -34,7 +34,7 @@ public class PacketSerializer : Network.Serializer {
   public void ReadClientsPacket(ReadStream r, bool[] areConnected, ulong[] userIds, string[] userNames) {
     byte packetType = 0;
     r.Bits(out packetType, 8);
-    Debug.Assert(packetType == (byte)ServerInfo);
+    Debug.Assert(packetType == (byte)ClientsInfo);
 
     for (int i = 0; i < MaxClients; ++i) {
       r.Bool(out areConnected[i]);

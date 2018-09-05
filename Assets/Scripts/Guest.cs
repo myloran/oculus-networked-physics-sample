@@ -357,7 +357,7 @@ public class Guest : Common {
       packet.ReadBytes(readBuffer);
       var packetType = readBuffer[0];
 
-      if ((state == Connecting || state == Connected) && packetType == (byte)PacketSerializer.PacketType.ServerInfo)
+      if ((state == Connecting || state == Connected) && packetType == (byte)PacketSerializer.PacketType.ClientsInfo)
         ProcessServerInfoPacket(readBuffer);
 
       if (!IsConnectedToServer()) continue;
