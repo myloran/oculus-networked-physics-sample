@@ -472,18 +472,18 @@ public class Context : MonoBehaviour {
     EndSample();
   }
 
-  public void UpdateCubePriority() {
+  public void UpdateCubePriorities() { //separate client and server logic
     BeginSample("UpdateCubeAuthority");
     IsTrue(isActive);
 
     if (IsServer()) {
       for (int i = 1; i < MaxClients; ++i) {
         var data = GetServerData(i);
-        UpdateCubePriority(data);
+        UpdateCubePriorities(data);
       }
     } else {
       var data = GetClientData();
-      UpdateCubePriority(data);
+      UpdateCubePriorities(data);
     }
     EndSample();
   }
@@ -493,7 +493,7 @@ public class Context : MonoBehaviour {
       cubes[i].GetComponent<NetworkCube>().Smooth();
   }
 
-  void UpdateCubePriority(ConnectionData data) {
+  void UpdateCubePriorities(ConnectionData data) {
     IsTrue(snapshot != null);
     var frame = (long)simulationFrame;
 

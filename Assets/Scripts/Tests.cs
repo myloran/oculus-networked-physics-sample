@@ -294,14 +294,14 @@ public static class Tests {
     Log("test_delta_buffer");
     const int NumCubeStates = 5;
     const int DeltaBufferSize = 256;
-    var deltaBuffer = new DeltaBuffer(DeltaBufferSize);
-    var cubeState = CubeState.defaults;    
     const ushort Sequence = 100; //check that querying for a sequence number not in the buffer returns false
     const ushort ResetSequence = 1000;
+    var buffer = new DeltaBuffer(DeltaBufferSize);
+    var state = CubeState.defaults;    
+    var result = buffer.GetCube(Sequence, ResetSequence, 0, ref state);
 
-    var result = deltaBuffer.GetCube(Sequence, ResetSequence, 0, ref cubeState);
     IsTrue(result == false);    
-    result = deltaBuffer.AddPacket(Sequence, ResetSequence); //now add an entry for the sequence number
+    result = buffer.AddPacket(Sequence, ResetSequence); //now add an entry for the sequence number
     IsTrue(result);    
 
     var cubeIds = new int[NumCubeStates]; //add a few cube states for the packet
@@ -312,15 +312,15 @@ public static class Tests {
       cubeStates[i].positionX = i;
       int cubeId = 10 + i * 10;
       cubeIds[i] = cubeId;
-      result = deltaBuffer.AddCube(Sequence, cubeId, ref cubeStates[i]);
+      result = buffer.AddCube(Sequence, cubeId, ref cubeStates[i]);
       IsTrue(result);
     }    
 
     for (int i = 0; i < NumCubeStates; ++i) { //verify that we can find the cube state we added by cube id and sequence
       int cubeId = 10 + i * 10;
-      result = deltaBuffer.GetCube(Sequence, ResetSequence, cubeId, ref cubeState);
+      result = buffer.GetCube(Sequence, ResetSequence, cubeId, ref state);
       IsTrue(result);
-      IsTrue(cubeState.positionX == cubeStates[i].positionX);
+      IsTrue(state.positionX == cubeStates[i].positionX);
     }    
 
     for (int i = 0; i < Constants.MaxCubes; ++i) { //verify that get cube state returns false for cube ids that weren't in this packet
@@ -333,14 +333,14 @@ public static class Tests {
 
       if (validCubeId) continue;
 
-      result = deltaBuffer.GetCube(Sequence, ResetSequence, i, ref cubeState);
+      result = buffer.GetCube(Sequence, ResetSequence, i, ref state);
       IsTrue(result == false);
     }    
 
     int packetNumCubes; //grab the packet data for the sequence and make sure it matches what we expect
     int[] packetCubeIds;
     CubeState[] packetCubeState;
-    result = deltaBuffer.GetPacket(Sequence, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState);
+    result = buffer.GetPacket(Sequence, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState);
     IsTrue(result == true);
     IsTrue(packetNumCubes == NumCubeStates);
 
@@ -349,10 +349,10 @@ public static class Tests {
       IsTrue(packetCubeState[i].positionX == cubeStates[i].positionX);
     }    
 
-    result = deltaBuffer.GetPacket(Sequence + 1, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for an invalid sequence number and make sure it returns false
+    result = buffer.GetPacket(Sequence + 1, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for an invalid sequence number and make sure it returns false
     IsTrue(result == false);
     
-    result = deltaBuffer.GetPacket(Sequence, ResetSequence + 1, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for a different reset sequence number and make sure it returns false
+    result = buffer.GetPacket(Sequence, ResetSequence + 1, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for a different reset sequence number and make sure it returns false
     IsTrue(result == false);
 #endif // #if !DEBUG_AUTHORITY
   }

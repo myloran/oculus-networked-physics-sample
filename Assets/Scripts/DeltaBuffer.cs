@@ -17,8 +17,8 @@ public class DeltaBuffer {
     public CubeState[] states;
 
     public int[] 
-      cubes,
-      ids;
+      entryIds,
+      cubeIds;
 
     public int count;
     public ushort resetId;
@@ -32,8 +32,8 @@ public class DeltaBuffer {
     for (int i = 0; i < buffer.GetSize(); ++i) {
       buffer.entries[i].resetId = 0;
       buffer.entries[i].count = 0;
-      buffer.entries[i].cubes = new int[MaxCubes];
-      buffer.entries[i].ids = new int[MaxCubes];
+      buffer.entries[i].entryIds = new int[MaxCubes];
+      buffer.entries[i].cubeIds = new int[MaxCubes];
       buffer.entries[i].states = new CubeState[MaxCubes];
     }
     Reset();
@@ -58,7 +58,7 @@ public class DeltaBuffer {
     buffer.entries[id].count = 0;
 
     for (int i = 0; i < MaxCubes; ++i)
-      buffer.entries[id].cubes[i] = -1;
+      buffer.entries[id].entryIds[i] = -1;
 
     return true;
   }
@@ -67,11 +67,11 @@ public class DeltaBuffer {
     int id = buffer.Find(packetId);
     if (id == -1) return false;
 
-    int count = buffer.entries[id].count;
-    Assert.IsTrue(count < MaxCubes);
-    buffer.entries[id].cubes[cubeId] = count;
-    buffer.entries[id].ids[count] = cubeId;
-    buffer.entries[id].states[count] = state;
+    int entryId = buffer.entries[id].count;
+    Assert.IsTrue(entryId < MaxCubes);
+    buffer.entries[id].entryIds[cubeId] = entryId;
+    buffer.entries[id].cubeIds[entryId] = cubeId;
+    buffer.entries[id].states[entryId] = state;
     buffer.entries[id].count++;
 
     return true;
@@ -83,10 +83,10 @@ public class DeltaBuffer {
     if (buffer.entries[id].resetId != resetId) return false;
     if (buffer.entries[id].count == 0) return false;
 
-    int entryCubeId = buffer.entries[id].cubes[cubeId];
-    if (entryCubeId == -1) return false;
+    int entryId = buffer.entries[id].entryIds[cubeId];
+    if (entryId == -1) return false;
 
-    state = buffer.entries[id].states[entryCubeId];
+    state = buffer.entries[id].states[entryId];
     return true;
   }
 
@@ -101,7 +101,7 @@ public class DeltaBuffer {
     }
 
     count = buffer.entries[id].count;
-    cubeIds = buffer.entries[id].ids;
+    cubeIds = buffer.entries[id].cubeIds;
     states = buffer.entries[id].states;
 
     return true;

@@ -338,7 +338,7 @@ public class Guest : Common {
     if (!IsConnectedToServer()) return;
 
     var data = context.GetClientData();
-    var packet = GenerateStateUpdatePacket(data, (float)(physicsTime - renderTime));
+    var packet = GenerateUpdatePacket(data, (float)(physicsTime - renderTime));
     Net.SendPacket(hostUserId, packet, SendPolicy.Unreliable);
     timeLastPacketSent = renderTime;
   }
@@ -378,10 +378,10 @@ public class Guest : Common {
     }
   }
 
-  public byte[] GenerateStateUpdatePacket(Context.ConnectionData data, float timeOffset) {
+  public byte[] GenerateUpdatePacket(Context.ConnectionData data, float timeOffset) {
     Profiler.BeginSample("GenerateStateUpdatePacket");
     int cubeCount = Math.Min(MaxCubes, MaxStateUpdates);
-    context.UpdateCubePriority();
+    context.UpdateCubePriorities();
     context.GetCubeUpdates(data, ref cubeCount, ref cubeIds, ref cubes);
 
     PacketHeader header;

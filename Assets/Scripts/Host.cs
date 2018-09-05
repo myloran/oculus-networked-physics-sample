@@ -412,7 +412,7 @@ public class Host : Common {
 
   public byte[] GenerateUpdatePacket(Context.ConnectionData data, int toClientId, float timeOffset) {
     int count = Math.Min(MaxCubes, MaxStateUpdates);
-    context.UpdateCubePriority();
+    context.UpdateCubePriorities();
     context.GetCubeUpdates(data, ref count, ref cubeIds, ref cubes);
 
     PacketHeader header;

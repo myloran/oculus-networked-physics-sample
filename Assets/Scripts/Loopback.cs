@@ -338,7 +338,7 @@ public class Loopback: Common
 
         int numStateUpdates = maxStateUpdates;
 
-        context.UpdateCubePriority();
+        context.UpdateCubePriorities();
 
         context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubes );
 
