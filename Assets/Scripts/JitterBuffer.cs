@@ -16,21 +16,21 @@ using static Constants;
 public class JitterBufferEntry {
   public AvatarStateQuantized[] avatarsQuantized = new AvatarStateQuantized[MaxClients];
   public AvatarState[] avatars = new AvatarState[MaxClients];
-  public CubeState[] cubes = new CubeState[NumCubes];
+  public CubeState[] cubes = new CubeState[MaxCubes];
 
   public CubeDelta[]
-    cubeDelta = new CubeDelta[NumCubes],
-    predictionDelta = new CubeDelta[NumCubes];
+    cubeDelta = new CubeDelta[MaxCubes],
+    predictionDelta = new CubeDelta[MaxCubes];
 
   public PacketHeader header;
-  public ushort[] baselineIds = new ushort[NumCubes];
-  public int[] cubeIds = new int[NumCubes];
+  public ushort[] baselineIds = new ushort[MaxCubes];
+  public int[] cubeIds = new int[MaxCubes];
 
   public bool[] 
-    notChanged = new bool[NumCubes],
-    hasDelta = new bool[NumCubes],
-    perfectPrediction = new bool[NumCubes],
-    hasPredictionDelta = new bool[NumCubes];
+    notChanged = new bool[MaxCubes],
+    hasDelta = new bool[MaxCubes],
+    perfectPrediction = new bool[MaxCubes],
+    hasPredictionDelta = new bool[MaxCubes];
 
   public int 
     avatarCount = 0,

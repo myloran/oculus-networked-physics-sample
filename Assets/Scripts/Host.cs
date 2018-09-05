@@ -103,10 +103,10 @@ public class Host : Common {
 
       var buffer = context.GetServerData(i).jitterBuffer;
       int count;
-      ushort resetSequence;
-      if (buffer.GetInterpolatedAvatars(ref interpolatedAvatars, out count, out resetSequence)) continue;
+      ushort resetId;
+      if (buffer.GetInterpolatedAvatars(ref interpolatedAvatars, out count, out resetId)) continue;
 
-      if (resetSequence == context.resetId)
+      if (resetId == context.resetId)
         context.ApplyAvatarUpdates(count, ref interpolatedAvatars, i, 0);
     }
 
@@ -313,8 +313,8 @@ public class Host : Common {
 
   protected override bool ReadyToShutdown() => isReadyToShutdown;
 
-  void StartShutdown(Message<Room> msg) {
-    if (!msg.IsError) Log("Left room");
+  void StartShutdown(Message<Room> message) {
+    if (!message.IsError) Log("Left room");
 
     isReadyToShutdown = true;
     roomId = 0;
@@ -410,19 +410,19 @@ public class Host : Common {
     return writeStream.GetData();
   }
 
-  public byte[] GenerateUpdatePacket(Context.ConnectionData d, int toClientId, float timeOffset) {
-    int count = Math.Min(NumCubes, MaxStateUpdates);
+  public byte[] GenerateUpdatePacket(Context.ConnectionData data, int toClientId, float timeOffset) {
+    int count = Math.Min(MaxCubes, MaxStateUpdates);
     context.UpdateCubePriority();
-    context.GetCubeUpdates(d, ref count, ref cubeIds, ref cubes);
+    context.GetCubeUpdates(data, ref count, ref cubeIds, ref cubes);
 
     PacketHeader header;
-    d.connection.GeneratePacketHeader(out header);
+    data.connection.GeneratePacketHeader(out header);
     header.resetSequence = context.resetId;
     header.frame = (uint)frame;
     header.timeOffset = timeOffset;
 
-    DetermineNotChangedAndDeltas(context, d, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
-    DeterminePrediction(context, d, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta);
+    DetermineNotChangedAndDeltas(context, data, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
+    DeterminePrediction(context, data, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta);
     int id = 0;
 
     for (int i = 0; i < MaxClients; ++i) {
@@ -444,8 +444,8 @@ public class Host : Common {
     WriteUpdatePacket(ref header, id, ref avatarsQuantized, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref predictionDelta);
 
     var packet = writeStream.GetData(); 
-    AddPacket(ref d.sendBuffer, header.id, context.resetId, count, ref cubeIds, ref cubes); //add the sent cube states to the send delta buffer
-    context.ResetCubePriority(d, count, cubeIds); //reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
+    AddPacket(ref data.sendBuffer, header.id, context.resetId, count, ref cubeIds, ref cubes); //add the sent cube states to the send delta buffer
+    context.ResetCubePriority(data, count, cubeIds); //reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
 
     return packet;
   }

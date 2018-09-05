@@ -323,7 +323,7 @@ public static class Tests {
       IsTrue(cubeState.positionX == cubeStates[i].positionX);
     }    
 
-    for (int i = 0; i < Constants.NumCubes; ++i) { //verify that get cube state returns false for cube ids that weren't in this packet
+    for (int i = 0; i < Constants.MaxCubes; ++i) { //verify that get cube state returns false for cube ids that weren't in this packet
       var validCubeId = false;
 
       for (int j = 0; j < NumCubeStates; ++j) {

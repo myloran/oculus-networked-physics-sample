@@ -16,6 +16,7 @@ using static UnityEngine.Profiling.Profiler;
 using static UnityEngine.Assertions.Assert;
 using static UnityEngine.Debug;
 using static Constants;
+using System.IO;
 
 public class Common : MonoBehaviour {
   protected class ClientsInfo {
@@ -31,11 +32,11 @@ public class Common : MonoBehaviour {
       }
     }
 
-    public void CopyFrom(ClientsInfo other) {
+    public void CopyFrom(ClientsInfo c) {
       for (int i = 0; i < MaxClients; ++i) {
-        areConnected[i] = other.areConnected[i];
-        userIds[i] = other.userIds[i];
-        userNames[i] = other.userNames[i];
+        areConnected[i] = c.areConnected[i];
+        userIds[i] = c.userIds[i];
+        userNames[i] = c.userNames[i];
       }
     }
 
@@ -75,35 +76,35 @@ public class Common : MonoBehaviour {
     readAvatarsQuantized = new AvatarStateQuantized[MaxClients];
 
   protected CubeState[]
-    cubes = new CubeState[NumCubes],
-    readCubes = new CubeState[NumCubes];
+    cubes = new CubeState[MaxCubes],
+    readCubes = new CubeState[MaxCubes];
 
   protected CubeDelta[] 
-    cubeDeltas = new CubeDelta[NumCubes],
-    predictionDelta = new CubeDelta[NumCubes],
-    readCubeDeltas = new CubeDelta[NumCubes],
-    readPredictionDeltas = new CubeDelta[NumCubes];
+    cubeDeltas = new CubeDelta[MaxCubes],
+    predictionDelta = new CubeDelta[MaxCubes],
+    readCubeDeltas = new CubeDelta[MaxCubes],
+    readPredictionDeltas = new CubeDelta[MaxCubes];
 
   protected uint[] packetBuffer = new uint[MaxPacketSize / 4];
 
   protected ushort[] 
-    baselineIds = new ushort[NumCubes],
-    readBaselineIds = new ushort[NumCubes],
+    baselineIds = new ushort[MaxCubes],
+    readBaselineIds = new ushort[MaxCubes],
     acks = new ushort[Connection.MaximumAcks];
 
   protected int[] 
-    cubeIds = new int[NumCubes],
-    readCubeIds = new int[NumCubes];
+    cubeIds = new int[MaxCubes],
+    readCubeIds = new int[MaxCubes];
 
   protected bool[] 
-    notChanged = new bool[NumCubes],
-    hasDelta = new bool[NumCubes],
-    perfectPrediction = new bool[NumCubes],
-    hasPredictionDelta = new bool[NumCubes],
-    readNotChanged = new bool[NumCubes],
-    readHasDelta = new bool[NumCubes],
-    readPerfectPrediction = new bool[NumCubes],
-    readHasPredictionDelta = new bool[NumCubes];
+    notChanged = new bool[MaxCubes],
+    hasDelta = new bool[MaxCubes],
+    perfectPrediction = new bool[MaxCubes],
+    hasPredictionDelta = new bool[MaxCubes],
+    readNotChanged = new bool[MaxCubes],
+    readHasDelta = new bool[MaxCubes],
+    readPerfectPrediction = new bool[MaxCubes],
+    readHasPredictionDelta = new bool[MaxCubes];
 
   protected double 
     renderTime = 0.0,
@@ -158,7 +159,7 @@ public class Common : MonoBehaviour {
     d.jitterBuffer.Start(d.frame);
   }
 
-  protected void ProcessStateUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientId, int toClientId, bool applySmoothing = true) {
+  protected void ProcessStateUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientId, int toClientId, bool isSmooth = true) {
     if (data.frame < 0) return;
 
     var entry = data.jitterBuffer.GetEntry((uint)data.frame);
@@ -177,7 +178,7 @@ public class Common : MonoBehaviour {
     }
 
     AddPacket(ref data.receiveBuffer, entry.header.id, context.resetId, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
-    context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientId, toClientId, applySmoothing); //apply the state updates to cubes    
+    context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientId, toClientId, isSmooth); //apply the state updates to cubes    
     data.connection.ProcessPacketHeader(ref entry.header); //process the packet header (handles acks)
   }
 
@@ -259,12 +260,12 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void AddPacket(ref DeltaBuffer buffer, ushort id, ushort resetId, int count, ref int[] cubeIds, ref CubeState[] states) {
+  protected void AddPacket(ref DeltaBuffer buffer, ushort packetId, ushort resetId, int count, ref int[] cubeIds, ref CubeState[] states) {
     BeginSample("AddPacketToDeltaBuffer");
-    buffer.AddPacket(id, resetId);
+    buffer.AddPacket(packetId, resetId);
 
     for (int i = 0; i < count; ++i)
-      buffer.AddCube(id, cubeIds[i], ref states[i]);
+      buffer.AddCube(packetId, cubeIds[i], ref states[i]);
 
     EndSample();
   }
@@ -633,7 +634,7 @@ public class Common : MonoBehaviour {
     EndSample();
   }
 
-  protected void WriteDeltasToFile(System.IO.StreamWriter file, DeltaBuffer buffer, ushort id, ushort resetId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas
+  protected void WriteDeltasToFile(StreamWriter file, DeltaBuffer buffer, ushort id, ushort resetId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas
   ) {
     if (file == null) return;
 
@@ -690,7 +691,7 @@ public class Common : MonoBehaviour {
     file.Flush();
   }
 
-  protected void WritePacketSizeToFile(System.IO.StreamWriter file, int packetBytes) {
+  protected void WritePacketSizeToFile(StreamWriter file, int packetBytes) {
     if (file == null) return;
 
     file.WriteLine(packetBytes);

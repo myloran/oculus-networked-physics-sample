@@ -39,46 +39,46 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     RightHand,                                          // held by right touch controller
   };
 
-  public void Init(Context c, int id) {
-    context = c;
+  public void Init(Context context, int id) {
+    this.context = context;
     cubeId = id;
-    touching.GetComponent<Touching>().Init(c, id);
+    touching.GetComponent<Touching>().Init(context, id);
     smoothed.transform.parent = null;
   }
 
   public bool HasHolder() => holderId != Nobody;
   public bool SameHolder(RemoteAvatar avatar, RemoteAvatar.Hand hand) => remoteAvatar == avatar && remoteHand == hand;
 
-  public void LocalGrip(Hands hands, Hands.HandData d) {
+  public void LocalGrip(Hands hands, Hands.HandData data) {
     Release();
     localAvatar = hands;
-    localHand = d;
+    localHand = data;
     holderId = context.clientId;
     authorityId = context.authorityId;
     ownershipId++;
     authorityPacketId = 0;
     touching.GetComponent<BoxCollider>().isTrigger = false;
     gameObject.GetComponent<Rigidbody>().isKinematic = true;
-    d.grip = gameObject;
+    data.grip = gameObject;
     gameObject.layer = context.GetGripLayer();
-    gameObject.transform.SetParent(d.transform, true);
-    d.supports = context.FindSupports(d.grip);
-    hands.AttachCube(ref d);
+    gameObject.transform.SetParent(data.transform, true);
+    data.supports = context.FindSupports(data.grip);
+    hands.AttachCube(ref data);
   }
 
-  public void RemoteGrip(RemoteAvatar avatar, RemoteAvatar.Hand h, int clientId) {
+  public void RemoteGrip(RemoteAvatar avatar, RemoteAvatar.Hand hand, int clientId) {
     Assert.IsTrue(clientId != context.clientId);
     Release();
-    h.grip = gameObject;
-    var rigidBody = gameObject.GetComponent<Rigidbody>();
-    rigidBody.isKinematic = true;
-    rigidBody.detectCollisions = false;
-    gameObject.transform.SetParent(h.transform, true);
+    var body = gameObject.GetComponent<Rigidbody>();
+    hand.grip = gameObject;
+    body.isKinematic = true;
+    body.detectCollisions = false;
+    gameObject.transform.SetParent(hand.transform, true);
     remoteAvatar = avatar;
-    remoteHand = h;
+    remoteHand = hand;
     holderId = clientId;
     authorityId = clientId + 1;
-    avatar.CubeAttached(ref h);
+    avatar.CubeAttached(ref hand);
   }
 
   /*
@@ -108,27 +108,27 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
    * which is used to track authority transfer (poorly), and to increase network priority 
    * for cubes that were recently in high energy collisions with other cubes, or the floor.
    */
-  void OnCollisionEnter(Collision c) {
-    var network = c.gameObject.GetComponent<NetworkCube>();
+  void OnCollisionEnter(Collision collision) {
+    var cube = collision.gameObject.GetComponent<NetworkCube>();
     int id1 = cubeId;
 
-    int id2 = network == null
+    int id2 = cube == null
       ? CollisionWithFloor
-      : network.cubeId;
+      : cube.cubeId;
 
-    context.Collide(id1, id2, c);
+    context.Collide(id1, id2, collision);
   }
 
   /*
    * Moves the physical cube immediately, while the visual cube smoothly eases towards the corrected position over time.
    */
   public void SmoothMove(Vector3 position, Quaternion rotation) {
-    var rigidBody = gameObject.GetComponent<Rigidbody>();
-    var oldPosition = rigidBody.position + positionLag; //oldSmoothedPosition
-    var oldRotation = rigidBody.rotation * rotationLag; //oldSmoothedRotation
+    var body = gameObject.GetComponent<Rigidbody>();
+    var oldPosition = body.position + positionLag; //oldSmoothedPosition
+    var oldRotation = body.rotation * rotationLag; //oldSmoothedRotation
 
-    gameObject.transform.position = rigidBody.position = position;
-    gameObject.transform.rotation = rigidBody.rotation = rotation;
+    gameObject.transform.position = body.position = position;
+    gameObject.transform.rotation = body.rotation = rotation;
     positionLag = oldPosition - position;
     rotationLag = Inverse(rotation) * oldRotation;
   }

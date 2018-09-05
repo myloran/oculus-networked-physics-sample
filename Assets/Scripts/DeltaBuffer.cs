@@ -32,9 +32,9 @@ public class DeltaBuffer {
     for (int i = 0; i < buffer.GetSize(); ++i) {
       buffer.entries[i].resetId = 0;
       buffer.entries[i].count = 0;
-      buffer.entries[i].cubes = new int[NumCubes];
-      buffer.entries[i].ids = new int[NumCubes];
-      buffer.entries[i].states = new CubeState[NumCubes];
+      buffer.entries[i].cubes = new int[MaxCubes];
+      buffer.entries[i].ids = new int[MaxCubes];
+      buffer.entries[i].states = new CubeState[MaxCubes];
     }
     Reset();
   }
@@ -57,7 +57,7 @@ public class DeltaBuffer {
     buffer.entries[id].resetId = resetId;
     buffer.entries[id].count = 0;
 
-    for (int i = 0; i < NumCubes; ++i)
+    for (int i = 0; i < MaxCubes; ++i)
       buffer.entries[id].cubes[i] = -1;
 
     return true;
@@ -68,7 +68,7 @@ public class DeltaBuffer {
     if (id == -1) return false;
 
     int count = buffer.entries[id].count;
-    Assert.IsTrue(count < NumCubes);
+    Assert.IsTrue(count < MaxCubes);
     buffer.entries[id].cubes[cubeId] = count;
     buffer.entries[id].ids[count] = cubeId;
     buffer.entries[id].states[count] = state;

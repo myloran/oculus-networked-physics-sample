@@ -72,12 +72,12 @@ namespace Network {
       return SwapBytes(value);
     }
 
-    public static int PopCount(uint v) {
-      v = v - ((v >> 1) & 0x55555555); //240 => 127 - 1111111
-      v = (v & 0x33333333) + ((v >> 2) & 0x33333333); //(106 & 110011001100110011001100110011 = 22) + (53 & 110011001100110011001100110011 = 49) = 155
-      v = ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; //(((155 + 9) & 1111000011110000111100001111 = 4) * 1000000010000000100000001) = 4
+    public static int PopCount(uint x) {
+      x = x - ((x >> 1) & 0x55555555); //240 => 127 - 1111111
+      x = (x & 0x33333333) + ((x >> 2) & 0x33333333); //(106 & 110011001100110011001100110011 = 22) + (53 & 110011001100110011001100110011 = 49) = 155
+      x = ((x + (x >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; //(((155 + 9) & 1111000011110000111100001111 = 4) * 1000000010000000100000001) = 4
 
-      return unchecked((int)v);
+      return unchecked((int)x);
     }
 
     public static int Log2(uint x) { //fill all bits from the first and shift result by one
@@ -134,10 +134,10 @@ namespace Network {
     }
 
     public void Align() {
-      int remainderBits = bitsWritten % 8;
-      if (remainderBits == 0) return;
+      int bitsLeft = bitsWritten % 8;
+      if (bitsLeft == 0) return;
 
-      Bits(0, 8 - remainderBits);
+      Bits(0, 8 - bitsLeft);
       IsTrue((bitsWritten % 8) == 0);
     }
 
@@ -164,10 +164,10 @@ namespace Network {
 
     public byte[] GetData() {
       int count = GetBytesWritten();
-      var output = new byte[count];
-      BlockCopy(words, 0, output, 0, count);
+      var data = new byte[count];
+      BlockCopy(words, 0, data, 0, count);
 
-      return output;
+      return data;
     }
 
     public int GetBytesWritten() => (bitsWritten + 7) / 8;
@@ -220,11 +220,12 @@ namespace Network {
     }
 
     public bool Align() {
-      int remainderBits = bitsRead % 8;
-      if (remainderBits == 0) return true;
+      int bitsLeft = bitsRead % 8;
+      if (bitsLeft == 0) return true;
 
-      uint value = Bits(8 - remainderBits);
+      var value = Bits(8 - bitsLeft);
       IsTrue(bitsRead % 8 == 0);
+
       return value == 0;
     }
 
@@ -331,7 +332,7 @@ namespace Network {
     int bitsRead = 0;
     int error = STREAM_ERROR_NONE;
 
-    public void Start(byte[] packet) => r.Start(packet);
+    public void Start(byte[] data) => r.Start(data);
 
     public bool Int(out int value, int min, int max) {
       IsTrue(min < max);
@@ -420,9 +421,9 @@ namespace Network {
 
       if (bits <= 32) value = r.Bits(bits);
       else {
-        var loword = r.Bits(32);
-        var hiword = r.Bits(bits - 32);
-        value = loword | (((ulong)hiword) << 32);
+        var lowBits = r.Bits(32);
+        var highBits = r.Bits(bits - 32);
+        value = lowBits | (((ulong)highBits) << 32);
       }
       return true;
     }
@@ -520,77 +521,78 @@ namespace Network {
 
   public class SequenceBuffer<T> {
     public T[] entries;
-    uint[] entriesSequence;
+    uint[] entryIds;
     int size;
-    ushort sequence;
+    ushort id;
 
     public SequenceBuffer(int size) {
       IsTrue(size > 0);
       this.size = size;
-      sequence = 0;
-      entriesSequence = new uint[size];
+      id = 0;
+      entryIds = new uint[size];
       entries = new T[size];
       Reset();
     }
 
     public void Reset() {
-      sequence = 0;
+      id = 0;
 
       for (int i = 0; i < size; ++i)
-        entriesSequence[i] = 0xFFFFFFFF;
+        entryIds[i] = 0xFFFFFFFF;
     }
 
-    public int Insert(ushort newSequence) {
-      if (SequenceGreaterThan((ushort)(newSequence + 1), sequence)) {
-        RemoveEntries(sequence, newSequence);
-        sequence = (ushort)(newSequence + 1);
+    public int Insert(ushort newId) {
+      if (SequenceGreaterThan((ushort)(newId + 1), id)) {
+        RemoveEntries(id, newId);
+        id = (ushort)(newId + 1);
 
-      } else if (SequenceLessThan(newSequence, (ushort)(sequence - size))) {
+      } else if (SequenceLessThan(newId, (ushort)(id - size))) {
         return -1;
       }
 
-      int id = newSequence % size;
-      entriesSequence[id] = newSequence;
-      return id;
+      int clampedId = newId % size;
+      entryIds[clampedId] = newId;
+
+      return clampedId;
     }
 
-    public void Remove(ushort sequence) => entriesSequence[sequence % size] = 0xFFFFFFFF;
-    public bool Available(ushort sequence) => entriesSequence[sequence % size] == 0xFFFFFFFF;
-    public bool Exists(ushort sequence) => entriesSequence[sequence % size] == sequence;
+    public void Remove(ushort id) => entryIds[id % size] = 0xFFFFFFFF;
+    public bool Available(ushort id) => entryIds[id % size] == 0xFFFFFFFF;
+    public bool Exists(ushort id) => entryIds[id % size] == id;
 
-    public int Find(ushort sequence) {
-      int id = sequence % size;
+    public int Find(ushort id) {
+      int clampedId = id % size;
 
-      if (entriesSequence[id] == sequence)
-        return id;
+      if (entryIds[clampedId] == id)
+        return clampedId;
 
       return -1;
     }
 
-    public ushort GetSequence() => sequence;
+    public ushort GetSequence() => id;
     public int GetSize() => size;
 
-    public void RemoveEntries(ushort startSequence, ushort finishSequence) {
-      int finish = finishSequence < startSequence
-        ? finishSequence + 65535
-        : finishSequence;
+    public void RemoveEntries(ushort startId, ushort finishId) {
+      int newFinishId = finishId < startId
+        ? finishId + 65535
+        : finishId;
 
-      for (int sequence = startSequence; sequence <= finish; ++sequence)
-        entriesSequence[sequence % size] = 0xFFFFFFFF;
+      for (int i = startId; i <= newFinishId; ++i)
+        entryIds[i % size] = 0xFFFFFFFF;
     }
   }
 
   public class SequenceBuffer32<T> where T : new() {
     public T[] entries;
-    uint[] entrySequence;
+    uint[] entryIds;
     int size;
-    uint sequence;
+    uint id;
 
     public SequenceBuffer32(int size) {
       IsTrue(size > 0);
       this.size = size;
-      sequence = 0;
-      entrySequence = new uint[size];
+      id = 0;
+      entryIds = new uint[size];
       entries = new T[size];
 
       for (int i = 0; i < size; ++i)
@@ -600,65 +602,67 @@ namespace Network {
     }
 
     public void Reset() {
-      sequence = 0;
+      id = 0;
 
       for (int i = 0; i < size; ++i)
-        entrySequence[i] = 0xFFFFFFFF;
+        entryIds[i] = 0xFFFFFFFF;
     }
 
-    public int Insert(uint newSequence) {
-      IsTrue(newSequence != 0xFFFFFFFF);
+    public int Insert(uint newId) {
+      IsTrue(newId != 0xFFFFFFFF);
 
-      if (newSequence + 1 > sequence) {
-        RemoveEntries(sequence, newSequence);
-        sequence = newSequence + 1;
+      if (newId + 1 > id) {
+        RemoveEntries(id, newId);
+        id = newId + 1;
 
-      } else if (newSequence < sequence - size) {
+      } else if (newId < id - size) {
         return -1;
       }
 
-      int id = (int)(newSequence % size);
-      entrySequence[id] = newSequence;
-      return id;
+      int clampedId = (int)(newId % size);
+      entryIds[clampedId] = newId;
+
+      return clampedId;
     }
 
-    public void Remove(uint sequence) {
-      IsTrue(sequence != 0xFFFFFFFF);
-      entrySequence[sequence % size] = 0xFFFFFFFF;
+    public void Remove(uint id) {
+      IsTrue(id != 0xFFFFFFFF);
+      entryIds[id % size] = 0xFFFFFFFF;
     }
 
-    public bool Available(uint sequence) {
-      IsTrue(sequence != 0xFFFFFFFF);
-      return entrySequence[sequence % size] == 0xFFFFFFFF;
+    public bool Available(uint id) {
+      IsTrue(id != 0xFFFFFFFF);
+      return entryIds[id % size] == 0xFFFFFFFF;
     }
 
-    public bool Exists(uint sequence) {
-      IsTrue(sequence != 0xFFFFFFFF);
-      return entrySequence[sequence % size] == sequence;
+    public bool Exists(uint id) {
+      IsTrue(id != 0xFFFFFFFF);
+      return entryIds[id % size] == id;
     }
 
-    public int Find(uint sequence) {
-      IsTrue(sequence != 0xFFFFFFFF);
-      int id = (int)(sequence % size);
+    public int Find(uint id) {
+      IsTrue(id != 0xFFFFFFFF);
+      int clampedId = (int)(id % size);
 
-      if (entrySequence[id] == sequence)
-        return id; else
+      if (entryIds[clampedId] == id)
+        return clampedId;
+      else
         return -1;
     }
 
-    public uint GetSequence() => sequence;
+    public uint GetSequence() => id;
     public int GetSize() => size;
 
-    public void RemoveEntries(uint start, uint finish) {
-      IsTrue(start <= finish);
+    public void RemoveEntries(uint startId, uint finishId) {
+      IsTrue(startId <= finishId);
 
-      if (finish - start < size) {
-        for (uint sequence = start; sequence <= finish; ++sequence)
-          entrySequence[sequence % size] = 0xFFFFFFFF;
+      if (finishId - startId < size) {
+        for (var i = startId; i <= finishId; ++i)
+          entryIds[i % size] = 0xFFFFFFFF;
 
       } else {
         for (int i = 0; i < size; ++i)
-          entrySequence[i] = 0xFFFFFFFF;
+          entryIds[i] = 0xFFFFFFFF;
       }
     }
   }
@@ -721,7 +725,7 @@ namespace Network {
       }
     }
 
-    public void GetAcks(ref ushort[] acks, ref int numAcks) {
+    public void GetAcks(ref ushort[] acks, ref int count) {
       for (int i = 0; i < Math.Min(ackCount, acks.Length); ++i)
         acks[i] = this.acks[i];
 
@@ -761,10 +765,10 @@ namespace Network {
       public byte[] packet;                   // packet data
     };
 
-    PacketEntry[] packetEntries;                  // packet entries
+    PacketEntry[] entries;                  // packet entries
 
     public Simulator() {
-      packetEntries = new PacketEntry[4 * 1024];
+      entries = new PacketEntry[4 * 1024];
     }
 
     public void SetLatency(float ms) => latency = ms;
@@ -781,35 +785,35 @@ namespace Network {
       if (jitter > 0)
         delay += RandomFloat(0, jitter) / 1000.0;
 
-      packetEntries[insertId].from = from;
-      packetEntries[insertId].to = to;
-      packetEntries[insertId].packet = packet;
-      packetEntries[insertId].deliveryTime = time + delay;
-      insertId = (insertId + 1) % packetEntries.Length;
+      entries[insertId].from = from;
+      entries[insertId].to = to;
+      entries[insertId].packet = packet;
+      entries[insertId].deliveryTime = time + delay;
+      insertId = (insertId + 1) % entries.Length;
 
       if (RandomFloat(0.0f, 100.0f) > duplicate) return;
 
       var duplicates = new byte[packet.Length];
       BlockCopy(packet, 0, duplicates, 0, packet.Length);
-      packetEntries[insertId].from = from;
-      packetEntries[insertId].to = to;
-      packetEntries[insertId].packet = packet;
-      packetEntries[insertId].deliveryTime = time + delay + RandomFloat(0.0f, 1.0f);
-      insertId = (insertId + 1) % packetEntries.Length;
+      entries[insertId].from = from;
+      entries[insertId].to = to;
+      entries[insertId].packet = packet;
+      entries[insertId].deliveryTime = time + delay + RandomFloat(0.0f, 1.0f);
+      insertId = (insertId + 1) % entries.Length;
     }
 
     public byte[] ReceivePacket(out int from, out int to) {
       while (receiveId != insertId) {
-        if (packetEntries[receiveId].packet == null && packetEntries[receiveId].deliveryTime > time) {
-          receiveId = (receiveId + 1) % packetEntries.Length;
+        if (entries[receiveId].packet == null && entries[receiveId].deliveryTime > time) {
+          receiveId = (receiveId + 1) % entries.Length;
           continue;
         }
 
-        var packet = packetEntries[receiveId].packet;
-        from = packetEntries[receiveId].from;
-        to = packetEntries[receiveId].to;
-        packetEntries[receiveId].packet = null;
-        receiveId = (receiveId + 1) % packetEntries.Length;
+        var packet = entries[receiveId].packet;
+        from = entries[receiveId].from;
+        to = entries[receiveId].to;
+        entries[receiveId].packet = null;
+        receiveId = (receiveId + 1) % entries.Length;
         return packet;
       }
 
@@ -820,7 +824,7 @@ namespace Network {
 
     public void AdvanceTime(double newTime) {
       time = newTime;
-      receiveId = (insertId + 1) % packetEntries.Length;
+      receiveId = (insertId + 1) % entries.Length;
     }
   }
 }

@@ -59,7 +59,7 @@ public struct CubeDelta {
 }
 
 public class Snapshot {
-  public CubeState[] states = new CubeState[NumCubes];
+  public CubeState[] states = new CubeState[MaxCubes];
 
   public static void QuaternionToSmallestThree(Quaternion q, out uint largest, out uint rotationX, out uint rotationY, out uint rotationZ) { //QuaternionToSmallestThree
     const float min = -1.0f / 1.414214f;       // 1.0f / sqrt(2)
@@ -199,9 +199,9 @@ public class Snapshot {
   }
 
   public static void ClampPosition(ref int x, ref int y, ref int z) {
-    x = Clamp(x, PositionMinimumXZ, PositionMinimumXZ);
-    y = Clamp(y, PositionMinimumY, PositionMaximumY);
-    z = Clamp(z, PositionMinimumXZ, PositionMinimumXZ);
+    x = Clamp(x, MinPositionXZ, MinPositionXZ);
+    y = Clamp(y, MinPositionY, MaxPositionY);
+    z = Clamp(z, MinPositionXZ, MinPositionXZ);
   }
 
   public static void ClampLinearVelocity(ref int x, ref int y, ref int z) {
@@ -217,9 +217,9 @@ public class Snapshot {
   }
 
   public static void ClampLocalPosition(ref int x, ref int y, ref int z) {
-    x = Clamp(x, LocalPositionMinimum, LocalPositionMaximum);
-    y = Clamp(y, LocalPositionMinimum, LocalPositionMaximum);
-    z = Clamp(z, LocalPositionMinimum, LocalPositionMaximum);
+    x = Clamp(x, MinLocalPosition, MaxLocalPosition);
+    y = Clamp(y, MinLocalPosition, MaxLocalPosition);
+    z = Clamp(z, MinLocalPosition, MaxLocalPosition);
   }
 
   public static void GetState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin) {

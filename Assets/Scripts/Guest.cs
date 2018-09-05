@@ -34,7 +34,6 @@ public class Guest : Common {
   public double timeLastPacketSent;                               // time the last packet was sent to the server
   public double timeLastPacketReceived;                           // time the last packet was received from the server (used for post-connect timeouts)
   public double timeRetryStarted;                                 // time the retry state started. used to delay in waiting for retry state before retrying matchmaking from scratch.
-  ClientsInfo packetServerInfo = new ClientsInfo();
   HashSet<ulong> connections = new HashSet<ulong>();       // set of connection request ids we have received. used to fix race condition between connection request and room join.
   GuestState state = LoggingIn;
   const double RetryTime = 0.0;//5.0;                                   // time between retry attempts.
@@ -100,9 +99,7 @@ public class Guest : Common {
       return;
     }
 
-    if (state == Connecting && !isConnectionAccepted
-      && hostUserId != 0 && connections.Contains(hostUserId)
-    ) {
+    if (state == Connecting && !isConnectionAccepted && hostUserId != 0 && connections.Contains(hostUserId)) {
       Debug.Log("Accepting connection request from host");
       Net.Accept(hostUserId);
       isConnectionAccepted = true;
@@ -110,12 +107,11 @@ public class Guest : Common {
 
     if (state == Connected) {
       var data = context.GetClientData(); //apply guest avatar state at render time with interpolation
-      int numInterpolatedAvatarStates;
-      ushort avatarResetSequence;
+      int count;
+      ushort resetId;
 
-      if (data.jitterBuffer.GetInterpolatedAvatars(ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence)
-        && avatarResetSequence == context.resetId
-      ) context.ApplyAvatarUpdates(numInterpolatedAvatarStates, ref interpolatedAvatars, 0, clientId);
+      if (data.jitterBuffer.GetInterpolatedAvatars(ref interpolatedAvatars, out count, out resetId) && resetId == context.resetId)
+        context.ApplyAvatarUpdates(count, ref interpolatedAvatars, 0, clientId);
 
       context.GetClientData().jitterBuffer.AdvanceTime(Time.deltaTime); //advance jitter buffer time
     }
@@ -317,9 +313,8 @@ public class Guest : Common {
   protected override bool ReadyToShutdown() => isReadyToShutdown;
 
   void LeaveRoomOnQuitCallback(Message<Room> message) {
-    if (!message.IsError) {
+    if (!message.IsError)
       Debug.Log("Left room");
-    }
 
     isReadyToShutdown = true;
     roomId = 0;
@@ -385,28 +380,27 @@ public class Guest : Common {
 
   public byte[] GenerateStateUpdatePacket(Context.ConnectionData data, float timeOffset) {
     Profiler.BeginSample("GenerateStateUpdatePacket");
-    int maxStateUpdates = Math.Min(NumCubes, MaxStateUpdates);
-    int numStateUpdates = maxStateUpdates;
-
+    int cubeCount = Math.Min(MaxCubes, MaxStateUpdates);
     context.UpdateCubePriority();
-    context.GetCubeUpdates(data, ref numStateUpdates, ref cubeIds, ref cubes);
-    PacketHeader writePacketHeader;
-    data.connection.GeneratePacketHeader(out writePacketHeader);
-    writePacketHeader.resetSequence = context.resetId;
-    writePacketHeader.frame = (uint)frame;
-    writePacketHeader.timeOffset = timeOffset;
+    context.GetCubeUpdates(data, ref cubeCount, ref cubeIds, ref cubes);
 
-    DetermineNotChangedAndDeltas(context, data, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
-    DeterminePrediction(context, data, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta);
+    PacketHeader header;
+    data.connection.GeneratePacketHeader(out header);
+    header.resetSequence = context.resetId;
+    header.frame = (uint)frame;
+    header.timeOffset = timeOffset;
+
+    DetermineNotChangedAndDeltas(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
+    DeterminePrediction(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta);
 
     int numAvatarStates = 1;
     localAvatar.GetComponent<Hands>().GetState(out avatars[0]);
     AvatarState.Quantize(ref avatars[0], out avatarsQuantized[0]);
-    WriteUpdatePacket(ref writePacketHeader, numAvatarStates, ref avatarsQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref predictionDelta);
+    WriteUpdatePacket(ref header, numAvatarStates, ref avatarsQuantized, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref predictionDelta);
 
     var packet = writeStream.GetData();
-    AddPacket(ref data.sendBuffer, writePacketHeader.id, context.resetId, numStateUpdates, ref cubeIds, ref cubes);
-    context.ResetCubePriority(data, numStateUpdates, cubeIds);
+    AddPacket(ref data.sendBuffer, header.id, context.resetId, cubeCount, ref cubeIds, ref cubes);
+    context.ResetCubePriority(data, cubeCount, cubeIds);
     Profiler.EndSample();
 
     return packet;
@@ -414,33 +408,34 @@ public class Guest : Common {
 
   public void ProcessServerInfoPacket(byte[] packet) {
     Profiler.BeginSample("ProcessServerInfoPacket");
+    var clients = new ClientsInfo();
 
-    if (ReadClientsPacket(packet, packetServerInfo.areConnected, packetServerInfo.userIds, packetServerInfo.userNames)) {
+    if (ReadClientsPacket(packet, clients.areConnected, clients.userIds, clients.userNames)) {
       Debug.Log("Received server info:");
-      packetServerInfo.Print();      
+      clients.Print();      
 
       if (state == Connecting) { //client searches for its own user id in the first server info. this is how the client knows what client slot it has been assigned.
-        int clientId = packetServerInfo.FindClientByUserId(userId);
+        int id = clients.FindClientByUserId(userId);
 
-        if (clientId != -1) {
-          ConnectToServer(clientId);
-        } else {
+        if (id == Nobody) {
           Debug.Log("error: Could not find our user id " + userId + " in server info? Something is horribly wrong!");
           DisconnectFromServer();
           return;
         }
-      }      
+
+        ConnectToServer(id);
+      }
 
       for (int i = 0; i < MaxClients; ++i) { //track remote clients joining and leaving by detecting edge triggers on the server info.
         if (i == clientId) continue;
 
-        if (!info.areConnected[i] && packetServerInfo.areConnected[i])
-          OnRemoteClientConnected(i, packetServerInfo.userIds[i], packetServerInfo.userNames[i]);
+        if (!info.areConnected[i] && clients.areConnected[i])
+          OnRemoteClientConnected(i, clients.userIds[i], clients.userNames[i]);
 
-        else if (info.areConnected[i] && !packetServerInfo.areConnected[i])
+        else if (info.areConnected[i] && !clients.areConnected[i])
           OnRemoteClientDisconnected(i, info.userIds[i], info.userNames[i]);
       }     
-      info.CopyFrom(packetServerInfo); //copy across the packet server info to our current server info
+      info.CopyFrom(clients); //copy across the packet server info to our current server info
     }
     Profiler.EndSample();
   }

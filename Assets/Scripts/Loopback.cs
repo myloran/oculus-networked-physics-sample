@@ -334,7 +334,7 @@ public class Loopback: Common
     {
         Profiler.BeginSample( "GenerateStateUpdatePacket" );
 
-        int maxStateUpdates = Math.Min( Constants.NumCubes, Constants.MaxStateUpdates );
+        int maxStateUpdates = Math.Min( Constants.MaxCubes, Constants.MaxStateUpdates );
 
         int numStateUpdates = maxStateUpdates;
 

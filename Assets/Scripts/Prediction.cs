@@ -36,10 +36,10 @@ static class Prediction
     const long FixedPointQuantizeMask = ~ ( ( 1L << FixedPointQuantizeBits ) - 1 );
     const long FixedPointQuantizeRound = (long) ( 0.5f * ( 1L << FixedPointQuantizeBits ) );
 
-    const long FixedPointPositionMinimumXZ = FixedPointOne * Constants.PositionMinimumXZ;
-    const long FixedPointPositionMaximumXZ = FixedPointOne * Constants.PositionMaximumXZ;
-    const long FixedPointPositionMinimumY = FixedPointOne * Constants.PositionMinimumY;
-    const long FixedPointPositionMaximumY = FixedPointOne * Constants.PositionMaximumY;
+    const long FixedPointPositionMinimumXZ = FixedPointOne * Constants.MinPositionXZ;
+    const long FixedPointPositionMaximumXZ = FixedPointOne * Constants.MaxPositionXZ;
+    const long FixedPointPositionMinimumY = FixedPointOne * Constants.MinPositionY;
+    const long FixedPointPositionMaximumY = FixedPointOne * Constants.MaxPositionY;
     const long FixedPointLinearVelocityMinimum = FixedPointOne * Constants.LinearVelocityMinimum;
     const long FixedPointLinearVelocityMaximum = FixedPointOne * Constants.LinearVelocityMaximum;
     const long FixedPointAngularVelocityMinimum = FixedPointOne * Constants.AngularVelocityMinimum;

@@ -11,16 +11,16 @@ using static Constants;
 
 public class Interactions {
   public class Entry {
-    public byte[] interactions = new byte[NumCubes];
+    public byte[] interactions = new byte[MaxCubes];
 
     public void Add(ushort id) => interactions[id] = 1;
     public void Remove(ushort id) => interactions[id] = 0;
   }
 
-  Entry[] entries = new Entry[NumCubes];
+  Entry[] entries = new Entry[MaxCubes];
 
   public Interactions() {
-    for (int i = 0; i < NumCubes; ++i)
+    for (int i = 0; i < MaxCubes; ++i)
       entries[i] = new Entry();
   }
 
@@ -36,7 +36,7 @@ public class Interactions {
 
   public Entry Get(int id) {
     Assert.IsTrue(id >= 0);
-    Assert.IsTrue(id < NumCubes);
+    Assert.IsTrue(id < MaxCubes);
 
     return entries[id];
   }

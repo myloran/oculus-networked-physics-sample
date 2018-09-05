@@ -217,24 +217,24 @@ public class Hands : OvrAvatarLocalDriver {
     return d.transform.TransformPoint(positions[d.id]);
   }
 
-  void UpdateSnapToHand(ref HandData h) {
-    if (h.input.indexTrigger < IndexThreshold
-      || h.input.indexPressFrame + IndexStickyFrames < context.renderFrame
+  void UpdateSnapToHand(ref HandData d) {
+    if (d.input.indexTrigger < IndexThreshold
+      || d.input.indexPressFrame + IndexStickyFrames < context.renderFrame
     ) return;
 
-    h.input.indexPressFrame = 0;    
-    var position = GetHandPosition(ref h); //warp to hand on index grip
-    var direction = h.grip.transform.position - position;
+    d.input.indexPressFrame = 0;    
+    var position = GetHandPosition(ref d); //warp to hand on index grip
+    var direction = d.grip.transform.position - position;
 
     if (direction.magnitude > WarpDistance) {
-      var rigidBody = h.grip.GetComponent<Rigidbody>();
-      var network = h.grip.GetComponent<NetworkCube>();
+      var body = d.grip.GetComponent<Rigidbody>();
+      var cube = d.grip.GetComponent<NetworkCube>();
 
-      network.SmoothMove(position + direction.normalized * WarpDistance, rigidBody.rotation);
+      cube.SmoothMove(position + direction.normalized * WarpDistance, body.rotation);
     }
 
     for (int i = 0; i < ThrowRingBufferSize; ++i)
-      h.buffer[i].speed = 0.0f;
+      d.buffer[i].speed = 0.0f;
   }
 
   void UpdateGripFrame(ref HandData d) {
@@ -256,8 +256,8 @@ public class Hands : OvrAvatarLocalDriver {
     d.prevGripPosition = d.grip.transform.position;
     d.prevGripRotation = d.grip.transform.rotation;
 
-    var network = d.grip.GetComponent<NetworkCube>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
-    network.interactionFrame = (long)context.simulationFrame;
+    var cube = d.grip.GetComponent<NetworkCube>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
+    cube.interactionFrame = (long)context.simulationFrame;
   }
 
   void CollectInput(ref HandPose hand, ref ControllerPose controller, ref HandInput i) {
@@ -309,8 +309,8 @@ public class Hands : OvrAvatarLocalDriver {
     if (d.input.handTrigger < GripThreshold) return false;
     if (d.point || d.pointFrame + PointStickyFrames < context.renderFrame) return false;
 
-    var network = d.point.GetComponent<NetworkCube>();
-    if (network.HasHolder() || d.inputFrame <= 0) return false;
+    var cube = d.point.GetComponent<NetworkCube>();
+    if (cube.HasHolder() || d.inputFrame <= 0) return false;
 
     Grip(ref d, d.point);
     Transition(ref d, Gripping);
@@ -318,18 +318,16 @@ public class Hands : OvrAvatarLocalDriver {
     return true;
   }
 
-  void Grip(ref HandData d, GameObject obj) {
-    var network = obj.GetComponent<NetworkCube>();
-    network.LocalGrip(this, d);
-
+  void Grip(ref HandData data, GameObject obj) {
+    var cube = obj.GetComponent<NetworkCube>();
+    cube.LocalGrip(this, data);
 #if DEBUG_AUTHORITY
-        Debug.Log( "client " + context.GetClientIndex() + " grabbed cube " + network.GetCubeId() + " and set ownership sequence to " + network.GetOwnershipSequence() );
+    Debug.Log( "client " + context.GetClientIndex() + " grabbed cube " + network.GetCubeId() + " and set ownership sequence to " + network.GetOwnershipSequence() );
 #endif // #if DEBUG_AUTHORITY
-
-    network.isConfirmed = context.IsServer();
+    cube.isConfirmed = context.IsServer();
 
     for (int i = 0; i < ThrowRingBufferSize; ++i)
-      d.buffer[i].speed = 0.0f;
+      data.buffer[i].speed = 0.0f;
   }
 
   bool IsGripNear(ref HandData d) {
@@ -338,12 +336,12 @@ public class Hands : OvrAvatarLocalDriver {
     return (d.grip.transform.position - d.transform.position).magnitude <= GrabDistance;
   }
 
-  bool IsThrowing(ref HandData d) {
+  bool IsThrowing(ref HandData data) {
     int count = 0;
     var sum = 0.0f;
 
     for (int i = 0; i < ThrowRingBufferSize; ++i) {
-      sum += d.buffer[i].speed;
+      sum += data.buffer[i].speed;
       count++;
     }
     if (count == 0) return false;
@@ -351,8 +349,8 @@ public class Hands : OvrAvatarLocalDriver {
     return sum/count >= ThrowSpeed;
   }
 
-  void ApplyReleaseVelocity(ref HandData d, Rigidbody r, bool disableReleaseVelocity = false) {
-    if (disableReleaseVelocity) {
+  void ApplyReleaseVelocity(ref HandData d, Rigidbody r, bool isReleaseVelocityDisabled = false) {
+    if (isReleaseVelocityDisabled) {
       r.velocity = zero;
       r.angularVelocity = zero;
 
@@ -375,21 +373,21 @@ public class Hands : OvrAvatarLocalDriver {
 
   void WakeUpObjects(List<GameObject> objects) {
     foreach (var obj in objects) {
-      var network = obj.GetComponent<NetworkCube>();
-      context.ResetBuffer(network.cubeId);
+      var cube = obj.GetComponent<NetworkCube>();
+      context.ResetBuffer(cube.cubeId);
 
-      if (network.authorityId == 0)
-        context.TakeAuthority(network);
+      if (cube.authorityId == 0)
+        context.TakeAuthority(cube);
 
       obj.GetComponent<Rigidbody>().WakeUp();
     }
   }
 
-  void DetachFromHand(ref HandData d) {
-    if (d.grip == null) return; //IMPORTANT: This happens when passing a cube from hand-to-hand
+  void DetachFromHand(ref HandData data) {
+    if (data.grip == null) return; //IMPORTANT: This happens when passing a cube from hand-to-hand
 
-    var network = d.grip.GetComponent<NetworkCube>();
-    network.Release();
+    var cube = data.grip.GetComponent<NetworkCube>();
+    cube.Release();
 
 #if DEBUG_AUTHORITY
         Debug.Log( "client " + context.GetClientIndex() + " released cube " + network.GetCubeId() + ". ownership sequence is " + network.GetOwnershipSequence() + ", authority sequence is " + network.GetAuthoritySequence() );
@@ -435,8 +433,8 @@ public class Hands : OvrAvatarLocalDriver {
     }
   }
 
-  void SetPointObject(ref HandData d, GameObject gameObject) {
-    d.point = gameObject;
+  void SetPointObject(ref HandData d, GameObject obj) {
+    d.point = obj;
     d.pointFrame = context.renderFrame;
   }
 
@@ -447,17 +445,15 @@ public class Hands : OvrAvatarLocalDriver {
     IsNotNull(d.line);
   }
 
-  bool FilterPointObject(ref HandData hand, Rigidbody r) {
-    if (!r) return false;
+  bool FilterPointObject(ref HandData data, Rigidbody body) {
+    if (!body) return false;
 
-    var obj = r.gameObject;
+    var obj = body.gameObject;
     if (!obj) return false;
+    if (obj.layer != cubesLayer && obj.layer != gripLayer) return false;
 
-    if (obj.layer != cubesLayer && obj.layer != gripLayer)
-      return false;
-
-    var network = obj.GetComponent<NetworkCube>();
-    if (!network) return false;
+    var cube = obj.GetComponent<NetworkCube>();
+    if (!cube) return false;
 
     return true;
   }
@@ -527,18 +523,18 @@ public class Hands : OvrAvatarLocalDriver {
     d.animator.SetLayerWeight(d.animator.GetLayerIndex("Thumb Layer"), 0.0f);
   }
 
-  void ForceGripAnimation(ref HandData h) {
-    h.animator.SetLayerWeight(h.animator.GetLayerIndex("Point Layer"), 0.0f);
-    h.animator.SetLayerWeight(h.animator.GetLayerIndex("Thumb Layer"), 0.0f);
+  void ForceGripAnimation(ref HandData d) {
+    d.animator.SetLayerWeight(d.animator.GetLayerIndex("Point Layer"), 0.0f);
+    d.animator.SetLayerWeight(d.animator.GetLayerIndex("Thumb Layer"), 0.0f);
   }
 
-  Vector3 CalculateAngularVelocity(Quaternion previous, Quaternion current, float delta, float minimumAngle) {
+  Vector3 CalculateAngularVelocity(Quaternion previous, Quaternion current, float delta, float minAngle) {
     IsTrue(delta > 0.0f);
     var rotation = current * Inverse(previous);
     var angle = (float)(2.0f * Acos(rotation.w));
 
     if (float.IsNaN(angle)) return zero;
-    if (Abs(angle) < minimumAngle) return zero;
+    if (Abs(angle) < minAngle) return zero;
 
     if (angle > PI)
       angle -= 2.0f * (float)PI;
@@ -561,13 +557,13 @@ public class Hands : OvrAvatarLocalDriver {
     return velocity;
   }
 
-  public bool GetState(out AvatarState s) {
+  public bool GetState(out AvatarState state) {
     Pose pose;
     if (!avatar.Driver.GetPose(out pose)) {
-      s = AvatarState.Default;
+      state = AvatarState.Default;
       return false;
     }
-    AvatarState.Initialize(out s, context.clientId, pose, left.grip, right.grip);
+    AvatarState.Initialize(out state, context.clientId, pose, left.grip, right.grip);
 
     return true;
   }
@@ -575,15 +571,15 @@ public class Hands : OvrAvatarLocalDriver {
   public void AttachCube(ref HandData d) => UpdateHeldObj(ref d);
 
   public void DetachCube(ref HandData d) {
-    var rigidBody = d.grip.GetComponent<Rigidbody>();
-    rigidBody.isKinematic = false;
+    var body = d.grip.GetComponent<Rigidbody>();
+    body.isKinematic = false;
     d.grip.layer = cubesLayer;
-    ApplyReleaseVelocity(ref d, rigidBody, d.hasReleaseVelocity);
+    ApplyReleaseVelocity(ref d, body, d.hasReleaseVelocity);
     d.grip.transform.SetParent(null);
     d.grip = null;
 
-    if (rigidBody.position.y < MinimumCubeHeight)
-      rigidBody.position = rigidBody.position.WithY(MinimumCubeHeight);
+    if (body.position.y < MinimumCubeHeight)
+      body.position = body.position.WithY(MinimumCubeHeight);
 
     if (d.supports != null) {
       WakeUpObjects(d.supports);

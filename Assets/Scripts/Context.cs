@@ -46,8 +46,8 @@ public class Context : MonoBehaviour {
     public DeltaBuffer sendBuffer = new DeltaBuffer(DeltaBufferSize);
     public DeltaBuffer receiveBuffer = new DeltaBuffer(DeltaBufferSize);
     public JitterBuffer jitterBuffer = new JitterBuffer();
-    public Priority[] priorities = new Priority[NumCubes];
-    public Acks[] acks = new Acks[NumCubes];
+    public Priority[] priorities = new Priority[MaxCubes];
+    public Acks[] acks = new Acks[MaxCubes];
     public bool isFirstPacket = true;
     public long frame = -1;
 
@@ -86,14 +86,14 @@ public class Context : MonoBehaviour {
   public Material[] authorityMaterials = new Material[MaxAuthority];
   public GameObject cubePrefab;
   ConnectionData[] server;
-  public GameObject[] cubes = new GameObject[NumCubes];
+  public GameObject[] cubes = new GameObject[MaxCubes];
   HashSet<int> visited = new HashSet<int>();
   ConnectionData client;
   Interactions Interactions = new Interactions();
   Snapshot snapshot = new Snapshot();
-  Vector3[] cubePositions = new Vector3[NumCubes];
-  RingBuffer[] buffer = new RingBuffer[NumCubes * RingBufferSize];
-  ulong[] collisionFrames = new ulong[NumCubes];
+  Vector3[] cubePositions = new Vector3[MaxCubes];
+  RingBuffer[] buffer = new RingBuffer[MaxCubes * RingBufferSize];
+  ulong[] collisionFrames = new ulong[MaxCubes];
 
   public ulong 
     renderFrame = 0,
@@ -233,7 +233,7 @@ public class Context : MonoBehaviour {
   public void HideAvatar(int id) => ShowObj(GetAvatar(id).gameObject, false);
 
   public void ResetAuthority(int clientId) {
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       if (cube.authorityId != clientId + 1) continue;
 
@@ -278,7 +278,7 @@ public class Context : MonoBehaviour {
   }
 
   void UpdateAuthorityMaterials() {
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       var renderer = cube.smoothed.GetComponent<Renderer>();
 
@@ -291,7 +291,7 @@ public class Context : MonoBehaviour {
 
   void CreateCubes() {
     BeginSample("CreateCubes");
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       if (!cubes[i]) {
         cubes[i] = Instantiate(cubePrefab, gameObject.transform.position + cubePositions[i], identity); //cube initial create
         cubes[i].layer = gameObject.layer;
@@ -332,7 +332,7 @@ public class Context : MonoBehaviour {
   void ShowContext(bool show) {
     ShowObj(gameObject, show);
 
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       if (!cubes[i]) continue;
 
       var cube = cubes[i].GetComponent<NetworkCube>();
@@ -341,7 +341,7 @@ public class Context : MonoBehaviour {
   }
 
   public void FreezeCubes(bool freeze) {
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       if (!cubes[i]) continue;
 
       cubes[i].GetComponent<Rigidbody>().isKinematic = freeze;
@@ -369,7 +369,7 @@ public class Context : MonoBehaviour {
     supports.Add(obj);
     int id = obj.GetComponent<NetworkCube>().cubeId;
 
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       if (Interactions.Get(id).interactions[i] == 0) continue;
       if (cubes[i].layer != layer) continue;
       if (cubes[i].transform.position.y < obj.transform.position.y + SupportHeightThreshold) continue;
@@ -408,7 +408,7 @@ public class Context : MonoBehaviour {
     visited.Add(cubeId);
     var interactions = Interactions.Get(cubeId).interactions;
 
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       if (interactions[i] == 0) continue;
 
       var cube = cubes[i].GetComponent<NetworkCube>();
@@ -423,7 +423,7 @@ public class Context : MonoBehaviour {
     BeginSample("ProcessInteractions");
     visited.Clear();
 
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       if (cube.authorityId != authorityId) continue;
       if (cube.HasHolder()) continue;
@@ -452,7 +452,7 @@ public class Context : MonoBehaviour {
      * returning an object to default authority until after it has received confirmation from the server that
      * it has authority over that object.
      */
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       if (cube.authorityId != clientId + 1) continue;
       if (!cube.isConfirmed) continue;
@@ -489,7 +489,7 @@ public class Context : MonoBehaviour {
   }
 
   void SmoothCubes() {
-    for (int i = 0; i < NumCubes; ++i)
+    for (int i = 0; i < MaxCubes; ++i)
       cubes[i].GetComponent<NetworkCube>().Smooth();
   }
 
@@ -497,7 +497,7 @@ public class Context : MonoBehaviour {
     IsTrue(snapshot != null);
     var frame = (long)simulationFrame;
 
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       
       if (cube.HasHolder()) { //don't send state updates held cubes. they are synchronized differently.
@@ -524,19 +524,19 @@ public class Context : MonoBehaviour {
 
   public void GetCubeUpdates(ConnectionData data, ref int count, ref int[] ids, ref CubeState[] states) {
     IsTrue(count >= 0);
-    IsTrue(count <= NumCubes);
+    IsTrue(count <= MaxCubes);
     if (count == 0) return;
 
-    var priorities = new Priority[NumCubes];
+    var priorities = new Priority[MaxCubes];
 
-    for (int i = 0; i < NumCubes; ++i)
+    for (int i = 0; i < MaxCubes; ++i)
       priorities[i] = data.priorities[i];
 
     Array.Sort(priorities, (x, y) => y.accumulator.CompareTo(x.accumulator));
     int max = count;
     count = 0;
 
-    for (int i = 0; i < NumCubes; ++i) {
+    for (int i = 0; i < MaxCubes; ++i) {
       if (count == max) break;
       if (priorities[i].accumulator < 0.0f) continue; //IMPORTANT: Negative priority means don't send this cube!
 
@@ -609,7 +609,7 @@ public class Context : MonoBehaviour {
     int baseId = 0;
     var axis = new Vector3(1, 0, 0);
 
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       var body = cubes[i].GetComponent<Rigidbody>();
       int id = baseId + (int)(simulationFrame % RingBufferSize);
 
@@ -634,7 +634,7 @@ public class Context : MonoBehaviour {
     BeginSample("CheckForAtRestObjects");
     int baseId = 0;
 
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       var body = cubes[i].GetComponent<Rigidbody>();
       var cube = cubes[i].GetComponent<NetworkCube>();
 
@@ -670,7 +670,7 @@ public class Context : MonoBehaviour {
     BeginSample("CaptureSnapshot");
     var origin = gameObject.transform.position;
 
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       var rigidBody = cubes[i].GetComponent<Rigidbody>();
       var cube = cubes[i].GetComponent<NetworkCube>();
 
@@ -683,7 +683,7 @@ public class Context : MonoBehaviour {
     BeginSample("ApplySnapshot");
     var origin = gameObject.transform.position;
 
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       if (skipHeldObjects && cube.HasHolder()) continue;
 
@@ -708,7 +708,7 @@ public class Context : MonoBehaviour {
   }
 
   void InitPriorities(ConnectionData data) {
-    for (int i = 0; i < NumCubes; ++i)
+    for (int i = 0; i < MaxCubes; ++i)
       data.priorities[i].cubeId = i;
   }
 
@@ -791,7 +791,7 @@ public class Context : MonoBehaviour {
     var origin = gameObject.transform.position;
 
     using (var file = new StreamWriter(filename)) {
-      for (int i = 0; i < NumCubes; i++) {
+      for (int i = 0; i < MaxCubes; i++) {
         var body = cubes[i].GetComponent<Rigidbody>();
         var position = body.position - origin;
 
@@ -801,7 +801,7 @@ public class Context : MonoBehaviour {
   }
 
   public void TestSmoothing() {
-    for (int i = 0; i < NumCubes; i++) {
+    for (int i = 0; i < MaxCubes; i++) {
       var cube = cubes[i].GetComponent<NetworkCube>();
       var body = cubes[i].GetComponent<Rigidbody>();
 

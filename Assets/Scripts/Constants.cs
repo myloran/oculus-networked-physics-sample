@@ -17,7 +17,7 @@ public static class Constants {
 #if DEBUG_AUTHORITY
     public const int NumCubes = 5;
 #else // #if DEBUG_AUTHORITY
-  public const int NumCubes = 64;
+  public const int MaxCubes = 64;
 #endif // #if DEBUG_AUTHORITY
   public const int MaxPacketSize = 16 * 1024;
   public const int MaxStateUpdates = 64;
@@ -28,21 +28,21 @@ public static class Constants {
   public const int RotationBits = 20;
   public const int RotationMinimum = 0;
   public const int RotationMaximum = (1 << RotationBits) - 1;
-  public const int PositionMinimumXZ = -64 * UnitsPerMeter;
-  public const int PositionMaximumXZ = (64 * UnitsPerMeter) - 1;
-  public const int PositionMinimumY = 0;
-  public const int PositionMaximumY = (64 * UnitsPerMeter) - 1;
+  public const int MinPositionXZ = -64 * UnitsPerMeter;
+  public const int MaxPositionXZ = (64 * UnitsPerMeter) - 1;
+  public const int MinPositionY = 0;
+  public const int MaxPositionY = (64 * UnitsPerMeter) - 1;
   public const int LinearVelocityMinimum = -16 * UnitsPerMeter;
   public const int LinearVelocityMaximum = (16 * UnitsPerMeter) - 1;
   public const int AngularVelocityMinimum = -32 * UnitsPerMeter;
   public const int AngularVelocityMaximum = (32 * UnitsPerMeter) - 1;
-  public const int LocalPositionMinimum = -64 * UnitsPerMeter;
-  public const int LocalPositionMaximum = (64 * UnitsPerMeter) - 1;
+  public const int MinLocalPosition = -64 * UnitsPerMeter;
+  public const int MaxLocalPosition = (64 * UnitsPerMeter) - 1;
   public const float HighEnergyCollisionThreshold = 5.0f;
   public const float PushOutVelocity = 1.0f;
   public const int RingBufferSize = 16;
   public const int DeltaBufferSize = 256;
-  public const int PositionDeltaMax = PositionMaximumXZ - PositionMinimumXZ;
+  public const int PositionDeltaMax = MaxPositionXZ - MinPositionXZ;
   public const int LinearVelocityDeltaMax = LinearVelocityMaximum - LinearVelocityMinimum;
   public const int AngularVelocityDeltaMax = AngularVelocityMaximum - AngularVelocityMinimum;
   public const int PositionDeltaSmallBits = 5;
@@ -58,11 +58,11 @@ public static class Constants {
   public const int AngularVelocityDeltaMediumBits = 10;
   public const int AngularVelocityDeltaMediumThreshold = (1 << AngularVelocityDeltaMediumBits) - 1;
   public const int TriggerBits = 8;
-  public const int TriggerMinimum = 0;
-  public const int TriggerMaximum = (1 << TriggerBits) - 1;
+  public const int MinTrigger = 0;
+  public const int MaxTrigger = (1 << TriggerBits) - 1;
   public const int VoiceBits = 8;
-  public const int VoiceMinimum = 0;
-  public const int VoiceMaximum = (1 << VoiceBits) - 1;
+  public const int MinVoice = 0;
+  public const int MaxVoice = (1 << VoiceBits) - 1;
   public const int BaselineDifferenceBits = 7;
   public const int MaxBaselineDifference = (1 << BaselineDifferenceBits) - 1;
   public const int MaxInteractionsDefault = 16;

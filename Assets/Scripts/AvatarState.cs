@@ -263,8 +263,8 @@ public struct AvatarState {
     q.leftHandPositionZ = (int)Floor(s.leftHandPosition.z * UnitsPerMeter + 0.5f);
     SetSmallestThree(s.leftHandRotation, out q.leftHandRotationLargest, out q.leftHandRotationX, out q.leftHandRotationY, out q.leftHandRotationZ);
 
-    q.leftHandGripTrigger = (int)Floor(s.leftHandGripTrigger * TriggerMaximum + 0.5f);
-    q.leftHandIdTrigger = (int)Floor(s.leftHandIdTrigger * TriggerMaximum + 0.5f);
+    q.leftHandGripTrigger = (int)Floor(s.leftHandGripTrigger * MaxTrigger + 0.5f);
+    q.leftHandIdTrigger = (int)Floor(s.leftHandIdTrigger * MaxTrigger + 0.5f);
     q.isLeftHandPointing = s.isLeftHandPointing;
     q.areLeftHandThumbsUp = s.areLeftHandThumbsUp;
 
@@ -296,8 +296,8 @@ public struct AvatarState {
     q.rightHandPositionZ = (int)Floor(s.rightHandPosition.z * UnitsPerMeter + 0.5f);
     SetSmallestThree(s.rightHandRotation, out q.rightHandRotationLargest, out q.rightHandRotationX, out q.rightHandRotationY, out q.rightHandRotationZ);
 
-    q.rightHandGripTrigger = (int)Floor(s.rightHandGripTrigger * TriggerMaximum + 0.5f);
-    q.rightHandIndexTrigger = (int)Floor(s.rightHandIdTrigger * TriggerMaximum + 0.5f);
+    q.rightHandGripTrigger = (int)Floor(s.rightHandGripTrigger * MaxTrigger + 0.5f);
+    q.rightHandIndexTrigger = (int)Floor(s.rightHandIdTrigger * MaxTrigger + 0.5f);
     q.isRightHandPointing = s.isRightHandPointing;
     q.areRightHandThumbsUp = s.areRightHandThumbsUp;
 
@@ -324,7 +324,7 @@ public struct AvatarState {
       q.rightHandCubeLocalRotationZ = 0;
     }
 
-    q.voiceAmplitude = (int)Floor(s.voiceAmplitude * VoiceMaximum + 0.5f);    
+    q.voiceAmplitude = (int)Floor(s.voiceAmplitude * MaxVoice + 0.5f);    
     ClampPosition(ref q.headPositionX, ref q.headPositionY, ref q.headPositionZ); //clamp everything
     ClampPosition(ref q.leftHandPositionX, ref q.leftHandPositionY, ref q.leftHandPositionZ);
     ClampPosition(ref q.rightHandPositionX, ref q.rightHandPositionY, ref q.rightHandPositionZ);
@@ -342,8 +342,8 @@ public struct AvatarState {
     SetQuaternion(out s.headRotation, q.headRotationLargest, q.headRotationX, q.headRotationY, q.headRotationZ);
     s.leftHandPosition = new Vector3(q.leftHandPositionX, q.leftHandPositionY, q.leftHandPositionZ) * 1.0f / UnitsPerMeter;
     s.leftHandRotation = SmallestThreeToQuaternion(q.leftHandRotationLargest, q.leftHandRotationX, q.leftHandRotationY, q.leftHandRotationZ);
-    s.leftHandGripTrigger = q.leftHandGripTrigger * 1.0f / TriggerMaximum;
-    s.leftHandIdTrigger = q.leftHandIdTrigger * 1.0f / TriggerMaximum;
+    s.leftHandGripTrigger = q.leftHandGripTrigger * 1.0f / MaxTrigger;
+    s.leftHandIdTrigger = q.leftHandIdTrigger * 1.0f / MaxTrigger;
     s.isLeftHandPointing = q.isLeftHandPointing;
     s.areLeftHandThumbsUp = q.areLeftHandThumbsUp;
     s.isLeftHandHoldingCube = q.isLeftHandHoldingCube;
@@ -354,8 +354,8 @@ public struct AvatarState {
     s.leftHandCubeLocalRotation = SmallestThreeToQuaternion(q.leftHandCubeLocalRotationLargest, q.leftHandCubeLocalRotationX, q.leftHandCubeLocalRotationY, q.leftHandCubeLocalRotationZ);
     s.rightHandPosition = new Vector3(q.rightHandPositionX, q.rightHandPositionY, q.rightHandPositionZ) * 1.0f / UnitsPerMeter;
     s.rightHandRotation = SmallestThreeToQuaternion(q.rightHandRotationLargest, q.rightHandRotationX, q.rightHandRotationY, q.rightHandRotationZ);
-    s.rightHandGripTrigger = q.rightHandGripTrigger * 1.0f / TriggerMaximum;
-    s.rightHandIdTrigger = q.rightHandIndexTrigger * 1.0f / TriggerMaximum;
+    s.rightHandGripTrigger = q.rightHandGripTrigger * 1.0f / MaxTrigger;
+    s.rightHandIdTrigger = q.rightHandIndexTrigger * 1.0f / MaxTrigger;
     s.isRightHandPointing = q.isRightHandPointing;
     s.areRightHandThumbsUp = q.areRightHandThumbsUp;
     s.isRightHandHoldingCube = q.isRightHandHoldingCube;
@@ -364,7 +364,7 @@ public struct AvatarState {
     s.rightHandAuthoritySequence = q.rightHandAuthoritySequence;
     s.rightHandCubeLocalPosition = new Vector3(q.rightHandCubeLocalPositionX, q.rightHandCubeLocalPositionY, q.rightHandCubeLocalPositionZ) * 1.0f / UnitsPerMeter;
     s.rightHandCubeLocalRotation = SmallestThreeToQuaternion(q.rightHandCubeLocalRotationLargest, q.rightHandCubeLocalRotationX, q.rightHandCubeLocalRotationY, q.rightHandCubeLocalRotationZ);
-    s.voiceAmplitude = q.voiceAmplitude * 1.0f / VoiceMaximum;
+    s.voiceAmplitude = q.voiceAmplitude * 1.0f / MaxVoice;
   }
 
   public static void Interpolate(ref AvatarState from, ref AvatarState to, out AvatarState s, float time) {
