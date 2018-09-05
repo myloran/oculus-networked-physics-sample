@@ -9,12 +9,11 @@
 
 using System;
 using UnityEngine;
-using UnityEngine.Assertions;
-using System.Collections.Generic;
+using static Constants;
 
 static class Prediction
 {
-    const int FixedPointQuantizeBits = Constants.PositionBits;
+    const int FixedPointQuantizeBits = PositionBits;
     const int FixedPointIntermediateBits = 10;
     const int FixedPointFractionalBits = FixedPointQuantizeBits + FixedPointIntermediateBits;
     
@@ -30,20 +29,20 @@ static class Prediction
     const long FixedPointOneHalf = (long) ( 0.5f * FixedPointOne );
 
     const long FixedPointGravity = (long) ( UnityGravity * FixedPointOne );
-    const long FixedPointLinearDrag = (long) ( ( 1.0f - UnityLinearDrag * ( 1.0f / Constants.PhysicsFrameRate ) ) * FixedPointOne );
-    const long FixedPointAngularDrag = (long) ( ( 1.0f - UnityAngularDrag * ( 1.0f / Constants.PhysicsFrameRate ) ) * FixedPointOne );
-    const long FixedPointDeltaTime = (long) ( ( 1.0 / Constants.PhysicsFrameRate ) * FixedPointOne );
+    const long FixedPointLinearDrag = (long) ( ( 1.0f - UnityLinearDrag * ( 1.0f / PhysicsFrameRate ) ) * FixedPointOne );
+    const long FixedPointAngularDrag = (long) ( ( 1.0f - UnityAngularDrag * ( 1.0f / PhysicsFrameRate ) ) * FixedPointOne );
+    const long FixedPointDeltaTime = (long) ( ( 1.0 / PhysicsFrameRate ) * FixedPointOne );
     const long FixedPointQuantizeMask = ~ ( ( 1L << FixedPointQuantizeBits ) - 1 );
     const long FixedPointQuantizeRound = (long) ( 0.5f * ( 1L << FixedPointQuantizeBits ) );
 
-    const long FixedPointPositionMinimumXZ = FixedPointOne * Constants.MinPositionXZ;
-    const long FixedPointPositionMaximumXZ = FixedPointOne * Constants.MaxPositionXZ;
-    const long FixedPointPositionMinimumY = FixedPointOne * Constants.MinPositionY;
-    const long FixedPointPositionMaximumY = FixedPointOne * Constants.MaxPositionY;
-    const long FixedPointLinearVelocityMinimum = FixedPointOne * Constants.LinearVelocityMinimum;
-    const long FixedPointLinearVelocityMaximum = FixedPointOne * Constants.LinearVelocityMaximum;
-    const long FixedPointAngularVelocityMinimum = FixedPointOne * Constants.AngularVelocityMinimum;
-    const long FixedPointAngularVelocityMaximum = FixedPointOne * Constants.AngularVelocityMaximum;
+    const long FixedPointPositionMinimumXZ = FixedPointOne * MinPositionXZ;
+    const long FixedPointPositionMaximumXZ = FixedPointOne * MaxPositionXZ;
+    const long FixedPointPositionMinimumY = FixedPointOne * MinPositionY;
+    const long FixedPointPositionMaximumY = FixedPointOne * MaxPositionY;
+    const long FixedPointLinearVelocityMinimum = FixedPointOne * LinearVelocityMinimum;
+    const long FixedPointLinearVelocityMaximum = FixedPointOne * LinearVelocityMaximum;
+    const long FixedPointAngularVelocityMinimum = FixedPointOne * AngularVelocityMinimum;
+    const long FixedPointAngularVelocityMaximum = FixedPointOne * AngularVelocityMaximum;
 
     public static void PredictBallistic( int numFrames, 
                                          int start_position_x, int start_position_y, int start_position_z,

@@ -368,123 +368,122 @@ public class Common : MonoBehaviour {
       hasPerfectPrediction[i] = false;
       hasPrediction[i] = false;
 #if !DISABLE_DELTA_ENCODING
-      if (notChanged[i]) continue;
-      if (!hasDelta[i]) continue;
-      if (!cubes[i].isActive) continue;
+      if (notChanged[i] 
+        || !hasDelta[i] 
+        || !cubes[i].isActive
+        || !context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)
+        || Util.BaselineDifference(currentId, baselineIds[i]) <= MaxBaselineDifference //baseline is too far behind. send the cube state absolute
+        || !baseline.isActive //no point predicting if the cube is at rest.
+      ) continue;
 
-      if (context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)) {
-        if (Util.BaselineDifference(currentId, baselineIds[i]) <= MaxBaselineDifference) continue; //baseline is too far behind. send the cube state absolute
-        if (!baseline.isActive) continue; //no point predicting if the cube is at rest.
+      int id = currentId;
 
-        int id = currentId;
+      if (id < baselineIds[i])
+        id += 65536;
 
-        if (id < baselineIds[i])
-          id += 65536;
+      if (id < baselineIds[i])
+        id += 65536;
 
-        if (id < baselineIds[i])
-          id += 65536;
+      int positionX;
+      int positionY;
+      int positionZ;
+      int linearVelocityX;
+      int linearVelocityY;
+      int linearVelocityZ;
+      int angularVelocityX;
+      int angularVelocityY;
+      int angularVelocityZ;
 
-        int positionX;
-        int positionY;
-        int positionZ;
-        int linearVelocityX;
-        int linearVelocityY;
-        int linearVelocityZ;
-        int angularVelocityX;
-        int angularVelocityY;
-        int angularVelocityZ;
+      Prediction.PredictBallistic(id - baselineIds[i],
+        baseline.positionX, baseline.positionY, baseline.positionZ,
+        baseline.linearVelocityX, baseline.linearVelocityY, baseline.linearVelocityZ,
+        baseline.angularVelocityX, baseline.angularVelocityY, baseline.angularVelocityZ,
+        out positionX, out positionY, out positionZ,
+        out linearVelocityX, out linearVelocityY, out linearVelocityZ,
+        out angularVelocityX, out angularVelocityY, out angularVelocityZ);
 
-        Prediction.PredictBallistic(id - baselineIds[i],
-          baseline.positionX, baseline.positionY, baseline.positionZ,
-          baseline.linearVelocityX, baseline.linearVelocityY, baseline.linearVelocityZ,
-          baseline.angularVelocityX, baseline.angularVelocityY, baseline.angularVelocityZ,
-          out positionX, out positionY, out positionZ,
-          out linearVelocityX, out linearVelocityY, out linearVelocityZ,
-          out angularVelocityX, out angularVelocityY, out angularVelocityZ);
+      int positionLagX = cubes[i].positionX - positionX;
+      int positionLagY = cubes[i].positionY - positionY;
+      int positionLagZ = cubes[i].positionZ - positionZ;
+      int linearVelocityLagX = cubes[i].linearVelocityX - linearVelocityX;
+      int linearVelocityLagY = cubes[i].linearVelocityY - linearVelocityY;
+      int linearVelocityLagZ = cubes[i].linearVelocityZ - linearVelocityZ;
+      int angularVelocityLagX = cubes[i].angularVelocityX - angularVelocityX;
+      int angularVelocityLagY = cubes[i].angularVelocityY - angularVelocityY;
+      int angularVelocityLagZ = cubes[i].angularVelocityZ - angularVelocityZ;
 
-        int positionLagX = cubes[i].positionX - positionX;
-        int positionLagY = cubes[i].positionY - positionY;
-        int positionLagZ = cubes[i].positionZ - positionZ;
-        int linearVelocityLagX = cubes[i].linearVelocityX - linearVelocityX;
-        int linearVelocityLagY = cubes[i].linearVelocityY - linearVelocityY;
-        int linearVelocityLagZ = cubes[i].linearVelocityZ - linearVelocityZ;
-        int angularVelocityLagX = cubes[i].angularVelocityX - angularVelocityX;
-        int angularVelocityLagY = cubes[i].angularVelocityY - angularVelocityY;
-        int angularVelocityLagZ = cubes[i].angularVelocityZ - angularVelocityZ;
+      if (positionLagX == 0 && positionLagY == 0 && positionLagZ == 0
+        && linearVelocityLagX == 0 && linearVelocityLagY == 0 && linearVelocityLagZ == 0
+        && angularVelocityLagX == 0 && angularVelocityLagY == 0 && angularVelocityLagZ == 0
+      ) {
+        hasPerfectPrediction[i] = true;
+        continue;
+      }
 
-        if (positionLagX == 0 && positionLagY == 0 && positionLagZ == 0
-          && linearVelocityLagX == 0 && linearVelocityLagY == 0 && linearVelocityLagZ == 0
-          && angularVelocityLagX == 0 && angularVelocityLagY == 0 && angularVelocityLagZ == 0
-        ) {
-          hasPerfectPrediction[i] = true;
-          continue;
-        }
+      int absPositionX = Math.Abs(positionLagX);
+      int absPositionY = Math.Abs(positionLagY);
+      int absPositionZ = Math.Abs(positionLagZ);
+      int absLinearVelocityX = Math.Abs(linearVelocityLagX);
+      int absLinearVelocityY = Math.Abs(linearVelocityLagY);
+      int absLinearVelocityZ = Math.Abs(linearVelocityLagZ);
+      int absAngularVelocityX = Math.Abs(angularVelocityLagX);
+      int absAngularVelocityY = Math.Abs(angularVelocityLagY);
+      int absAngularVelocityZ = Math.Abs(angularVelocityLagZ);
 
-        int absPositionX = Math.Abs(positionLagX);
-        int absPositionY = Math.Abs(positionLagY);
-        int absPositionZ = Math.Abs(positionLagZ);
-        int absLinearVelocityX = Math.Abs(linearVelocityLagX);
-        int absLinearVelocityY = Math.Abs(linearVelocityLagY);
-        int absLinearVelocityZ = Math.Abs(linearVelocityLagZ);
-        int absAngularVelocityX = Math.Abs(angularVelocityLagX);
-        int absAngularVelocityY = Math.Abs(angularVelocityLagY);
-        int absAngularVelocityZ = Math.Abs(angularVelocityLagZ);
+      int predictedLag = absPositionX + absPositionY + absPositionZ
+        + linearVelocityLagX + linearVelocityLagY + linearVelocityLagZ
+        + angularVelocityLagX + angularVelocityLagY + angularVelocityLagZ;
 
-        int predictedLag = absPositionX + absPositionY + absPositionZ
-          + linearVelocityLagX + linearVelocityLagY + linearVelocityLagZ
-          + angularVelocityLagX + angularVelocityLagY + angularVelocityLagZ;
+      int absoluteLag = Math.Abs(cubes[i].positionX - baseline.positionX)
+        + Math.Abs(cubes[i].positionY - baseline.positionY)
+        + Math.Abs(cubes[i].positionZ - baseline.positionZ)
+        + Math.Abs(cubes[i].linearVelocityX - baseline.linearVelocityX)
+        + Math.Abs(cubes[i].linearVelocityY - baseline.linearVelocityY)
+        + Math.Abs(cubes[i].linearVelocityZ - baseline.linearVelocityZ)
+        + Math.Abs(cubes[i].angularVelocityX - baseline.angularVelocityX)
+        + Math.Abs(cubes[i].angularVelocityY - baseline.angularVelocityY)
+        + Math.Abs(cubes[i].angularVelocityZ - baseline.angularVelocityZ);
 
-        int absoluteLag = Math.Abs(cubes[i].positionX - baseline.positionX)
-          + Math.Abs(cubes[i].positionY - baseline.positionY)
-          + Math.Abs(cubes[i].positionZ - baseline.positionZ)
-          + Math.Abs(cubes[i].linearVelocityX - baseline.linearVelocityX)
-          + Math.Abs(cubes[i].linearVelocityY - baseline.linearVelocityY)
-          + Math.Abs(cubes[i].linearVelocityZ - baseline.linearVelocityZ) 
-          + Math.Abs(cubes[i].angularVelocityX - baseline.angularVelocityX) 
-          + Math.Abs(cubes[i].angularVelocityY - baseline.angularVelocityY) 
-          + Math.Abs(cubes[i].angularVelocityZ - baseline.angularVelocityZ);
+      if (predictedLag < absoluteLag) {
+        int maxPositionLag = absPositionX;
 
-        if (predictedLag < absoluteLag) {
-          int maxPositionLag = absPositionX;
+        if (absPositionY > maxPositionLag)
+          maxPositionLag = absPositionY;
 
-          if (absPositionY > maxPositionLag)
-            maxPositionLag = absPositionY;
+        if (absPositionZ > maxPositionLag)
+          maxPositionLag = absPositionZ;
 
-          if (absPositionZ > maxPositionLag)
-            maxPositionLag = absPositionZ;
+        int maxLinearVelocityLag = absLinearVelocityX;
 
-          int maxLinearVelocityLag = absLinearVelocityX;
+        if (absLinearVelocityY > maxLinearVelocityLag)
+          maxLinearVelocityLag = absLinearVelocityY;
 
-          if (absLinearVelocityY > maxLinearVelocityLag)
-            maxLinearVelocityLag = absLinearVelocityY;
+        if (absLinearVelocityZ > maxLinearVelocityLag)
+          maxLinearVelocityLag = absLinearVelocityZ;
 
-          if (absLinearVelocityZ > maxLinearVelocityLag)
-            maxLinearVelocityLag = absLinearVelocityZ;
+        int maxAngularVelocityLag = absAngularVelocityX;
 
-          int maxAngularVelocityLag = absAngularVelocityX;
+        if (absAngularVelocityY > maxAngularVelocityLag)
+          maxAngularVelocityLag = absAngularVelocityY;
 
-          if (absAngularVelocityY > maxAngularVelocityLag)
-            maxAngularVelocityLag = absAngularVelocityY;
+        if (absAngularVelocityZ > maxAngularVelocityLag)
+          maxAngularVelocityLag = absAngularVelocityZ;
 
-          if (absAngularVelocityZ > maxAngularVelocityLag)
-            maxAngularVelocityLag = absAngularVelocityZ;
+        if (maxPositionLag > PositionDeltaMax
+          || maxLinearVelocityLag > LinearVelocityDeltaMax
+          || maxAngularVelocityLag > AngularVelocityDeltaMax
+        ) continue;
 
-          if (maxPositionLag > PositionDeltaMax
-            || maxLinearVelocityLag > LinearVelocityDeltaMax
-            || maxAngularVelocityLag > AngularVelocityDeltaMax
-          ) continue;
-
-          hasPrediction[i] = true;
-          cubePredictions[i].positionX = positionLagX;
-          cubePredictions[i].positionY = positionLagY;
-          cubePredictions[i].positionZ = positionLagZ;
-          cubePredictions[i].linearVelocityX = linearVelocityLagX;
-          cubePredictions[i].linearVelocityY = linearVelocityLagY;
-          cubePredictions[i].linearVelocityZ = linearVelocityLagZ;
-          cubePredictions[i].angularVelocityX = angularVelocityLagX;
-          cubePredictions[i].angularVelocityY = angularVelocityLagY;
-          cubePredictions[i].angularVelocityZ = angularVelocityLagZ;
-        }
+        hasPrediction[i] = true;
+        cubePredictions[i].positionX = positionLagX;
+        cubePredictions[i].positionY = positionLagY;
+        cubePredictions[i].positionZ = positionLagZ;
+        cubePredictions[i].linearVelocityX = linearVelocityLagX;
+        cubePredictions[i].linearVelocityY = linearVelocityLagY;
+        cubePredictions[i].linearVelocityZ = linearVelocityLagZ;
+        cubePredictions[i].angularVelocityX = angularVelocityLagX;
+        cubePredictions[i].angularVelocityY = angularVelocityLagY;
+        cubePredictions[i].angularVelocityZ = angularVelocityLagZ;
       }
     }
 #endif // #if !DISABLE_DELTA_ENCODING
