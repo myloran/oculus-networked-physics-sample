@@ -520,16 +520,15 @@ namespace Network {
 
   public class SequenceBuffer<T> {
     public T[] entries;
-    uint[] entrySequence;
+    uint[] entriesSequence;
     int size;
     ushort sequence;
-    public T[] Entries { get { return entries; } }
 
     public SequenceBuffer(int size) {
       IsTrue(size > 0);
       this.size = size;
       sequence = 0;
-      entrySequence = new uint[size];
+      entriesSequence = new uint[size];
       entries = new T[size];
       Reset();
     }
@@ -538,7 +537,7 @@ namespace Network {
       sequence = 0;
 
       for (int i = 0; i < size; ++i)
-        entrySequence[i] = 0xFFFFFFFF;
+        entriesSequence[i] = 0xFFFFFFFF;
     }
 
     public int Insert(ushort newSequence) {
@@ -550,20 +549,20 @@ namespace Network {
         return -1;
       }
 
-      int index = newSequence % size;
-      entrySequence[index] = newSequence;
-      return index;
+      int id = newSequence % size;
+      entriesSequence[id] = newSequence;
+      return id;
     }
 
-    public void Remove(ushort sequence) => entrySequence[sequence % size] = 0xFFFFFFFF;
-    public bool Available(ushort sequence) => entrySequence[sequence % size] == 0xFFFFFFFF;
-    public bool Exists(ushort sequence) => entrySequence[sequence % size] == sequence;
+    public void Remove(ushort sequence) => entriesSequence[sequence % size] = 0xFFFFFFFF;
+    public bool Available(ushort sequence) => entriesSequence[sequence % size] == 0xFFFFFFFF;
+    public bool Exists(ushort sequence) => entriesSequence[sequence % size] == sequence;
 
     public int Find(ushort sequence) {
-      int index = sequence % size;
+      int id = sequence % size;
 
-      if (entrySequence[index] == sequence)
-        return index;
+      if (entriesSequence[id] == sequence)
+        return id;
 
       return -1;
     }
@@ -577,7 +576,7 @@ namespace Network {
         : finishSequence;
 
       for (int sequence = startSequence; sequence <= finish; ++sequence)
-        entrySequence[sequence % size] = 0xFFFFFFFF;
+        entriesSequence[sequence % size] = 0xFFFFFFFF;
     }
   }
 
@@ -650,11 +649,11 @@ namespace Network {
     public uint GetSequence() => sequence;
     public int GetSize() => size;
 
-    public void RemoveEntries(uint startSequence, uint finishSequence) {
-      IsTrue(startSequence <= finishSequence);
+    public void RemoveEntries(uint start, uint finish) {
+      IsTrue(start <= finish);
 
-      if (finishSequence - startSequence < size) {
-        for (uint sequence = startSequence; sequence <= finishSequence; ++sequence)
+      if (finish - start < size) {
+        for (uint sequence = start; sequence <= finish; ++sequence)
           entrySequence[sequence % size] = 0xFFFFFFFF;
 
       } else {
@@ -665,7 +664,7 @@ namespace Network {
   }
 
   public struct PacketHeader {
-    public ushort sequence;
+    public ushort id;
     public ushort ack;
     public uint ackBits;
     public uint frame;                    //physics simulation frame # for jitter buffer
@@ -684,26 +683,26 @@ namespace Network {
     public const int SentPacketsSize = 1024;
     public const int ReceivedPacketsSize = 1024;
 
-    ushort sequence = 0;
+    ushort id = 0;
     int ackCount = 0;
     ushort[] acks = new ushort[MaximumAcks];
     SequenceBuffer<SentPacketData> sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
     SequenceBuffer<ReceivedPacketData> receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
 
     public void GeneratePacketHeader(out PacketHeader h) {
-      h.sequence = sequence;
+      h.id = id;
       GenerateAckBits(receivedPackets, out h.ack, out h.ackBits);
       h.frame = 0;
       h.resetSequence = 0;
       h.timeOffset = 0.0f;
-      int id = sentPackets.Insert(sequence);
-      IsTrue(id != -1);
-      sentPackets.Entries[id].acked = false;
-      sequence++;
+      int newId = sentPackets.Insert(id);
+      IsTrue(newId != -1);
+      sentPackets.entries[newId].acked = false;
+      id++;
     }
 
     public void ProcessPacketHeader(ref PacketHeader h) {
-      PacketReceived(h.sequence);
+      PacketReceived(h.id);
 
       for (int i = 0; i < 32; ++i) {
         if ((h.ackBits & 1) == 0) {
@@ -711,12 +710,12 @@ namespace Network {
           continue;
         }
 
-        var ackedSequence = (ushort)(h.ack - i);
-        int id = sentPackets.Find(ackedSequence);
+        var ackedId = (ushort)(h.ack - i);
+        int id = sentPackets.Find(ackedId);
 
-        if (id != -1 && !sentPackets.Entries[id].acked) {
-          PacketAcked(ackedSequence);
-          sentPackets.Entries[id].acked = true;
+        if (id != -1 && !sentPackets.entries[id].acked) {
+          PacketAcked(ackedId);
+          sentPackets.entries[id].acked = true;
         }
         h.ackBits >>= 1;
       }
@@ -730,18 +729,18 @@ namespace Network {
     }
 
     public void Reset() {
-      sequence = 0;
+      id = 0;
       ackCount = 0;
       sentPackets.Reset();
       receivedPackets.Reset();
     }
 
-    void PacketReceived(ushort sequence) => receivedPackets.Insert(sequence);
+    void PacketReceived(ushort id) => receivedPackets.Insert(id);
 
-    void PacketAcked(ushort sequence) {
+    void PacketAcked(ushort id) {
       if (ackCount == MaximumAcks - 1) return;
 
-      acks[ackCount++] = sequence;
+      acks[ackCount++] = id;
     }
   }
 

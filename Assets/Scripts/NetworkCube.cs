@@ -12,7 +12,6 @@ using static UnityEngine.Quaternion;
 using static UnityEngine.Vector3;
 using static System.Math;
 using static Constants;
-using UnityEngine.Serialization;
 
 public class NetworkCube : UnityEngine.MonoBehaviour {
   public GameObject smoothed;
@@ -22,8 +21,8 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
   public bool isConfirmed = false;                                    // true if this cube has been confirmed under client authority by the server.
   public bool isPendingCommit = false;                                // true if this cube has returned to default authority and needs to be committed back to the server.
   public int authorityId;                                        // 0 = default authority (white), 1 = blue (client 0), 2 = red (client 2), and so on.
-  public ushort ownershipSequence;                                  // sequence number increased on each ownership change (players grabs/release this cube)
-  public ushort authoritySequence;                                  // sequence number increased on each authority change (eg. indirect interaction, such as being hit by an object thrown by a player)
+  public ushort ownershipId;                                  // sequence number increased on each ownership change (players grabs/release this cube)
+  public ushort authorityPacketId;                                  // sequence number increased on each authority change (eg. indirect interaction, such as being hit by an object thrown by a player)
   public int holderId = Nobody;                              // client id of player currently holding this cube. -1 if not currently being held.
   public Hands localAvatar;                                        // while this cube is held by the local player, this points to the local avatar.
   public Hands.HandData localHand;                                 // while this cube is held by the local player, this points to the local avatar hand that is holding it.
@@ -56,8 +55,8 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
     localHand = d;
     holderId = context.clientId;
     authorityId = context.authorityId;
-    ownershipSequence++;
-    authoritySequence = 0;
+    ownershipId++;
+    authorityPacketId = 0;
     touching.GetComponent<BoxCollider>().isTrigger = false;
     gameObject.GetComponent<Rigidbody>().isKinematic = true;
     d.grip = gameObject;

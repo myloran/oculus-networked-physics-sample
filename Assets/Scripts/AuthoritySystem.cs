@@ -24,8 +24,8 @@ public struct AuthoritySystem {
   public static bool ShouldApplyUpdate(Context context, int cubeId, ushort ownershipSequence, ushort authoritySequence, int authorityId, bool fromAvatar, int fromClientId, int toClientId) {
     var cube = context.cubes[cubeId];
     var network = cube.GetComponent<NetworkCube>();
-    var localOwnershipSequence = network.ownershipSequence;
-    var localAuthoritySequence = network.authoritySequence;
+    var localOwnershipSequence = network.ownershipId;
+    var localAuthoritySequence = network.authorityPacketId;
     int localAuthorityId = network.authorityId;
     // *** OWNERSHIP SEQUENCE ***    
     if (SequenceGreaterThan(ownershipSequence, localOwnershipSequence)) { //Must accept if ownership sequence is newer

@@ -48,7 +48,7 @@ public class PacketSerializer {
   public void WriteUpdatePacket(WriteStream w, ref PacketHeader header, int avatarCount, AvatarStateQuantized[] avatarState, int cubeCount, int[] cubeIds, bool[] notChanged, bool[] hasDelta, bool[] arePerfectPrediction, bool[] hasPredictionDelta, ushort[] baselineSequence, CubeState[] cubeState, CubeDelta[] cubeDelta, CubeDelta[] predictionDelta
   ) {
     w.Bits((byte)StateUpdate, 8);
-    w.Bits(header.sequence, 16);
+    w.Bits(header.id, 16);
     w.Bits(header.ack, 16);
     w.Bits(header.ackBits, 32);
     w.Bits(header.frame, 32);
@@ -139,11 +139,11 @@ public class PacketSerializer {
     }
   }
 
-  public void ReadStateUpdatePacketHeader(ReadStream r, out PacketHeader header) {
+  public void ReadUpdatePacketHeader(ReadStream r, out PacketHeader header) {
     byte packetType = 0;
     r.Bits(out packetType, 8);
     Debug.Assert(packetType == (byte)StateUpdate);
-    r.Bits(out header.sequence, 16);
+    r.Bits(out header.id, 16);
     r.Bits(out header.ack, 16);
     r.Bits(out header.ackBits, 32);
     r.Bits(out header.frame, 32);
@@ -156,7 +156,7 @@ public class PacketSerializer {
     byte packetType = 0;
     r.Bits(out packetType, 8);
     Debug.Assert(packetType == (byte)StateUpdate);
-    r.Bits(out header.sequence, 16);
+    r.Bits(out header.id, 16);
     r.Bits(out header.ack, 16);
     r.Bits(out header.ackBits, 32);
     r.Bits(out header.frame, 32);

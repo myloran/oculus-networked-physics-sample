@@ -87,8 +87,8 @@ public class Common : MonoBehaviour {
   protected uint[] packetBuffer = new uint[MaxPacketSize / 4];
 
   protected ushort[] 
-    baselineSequence = new ushort[NumCubes],
-    readBaselineSequence = new ushort[NumCubes],
+    baselineIds = new ushort[NumCubes],
+    readBaselineIds = new ushort[NumCubes],
     acks = new ushort[Connection.MaximumAcks];
 
   protected int[] 
@@ -150,7 +150,7 @@ public class Common : MonoBehaviour {
 
   protected void AddUpdatePacket(Context context, Context.ConnectionData d, byte[] packet) {
     long frame;
-    if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.resetSequence, out frame) || !d.isFirstPacket)
+    if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.resetId, out frame) || !d.isFirstPacket)
       return;
 
     d.isFirstPacket = false;
@@ -158,26 +158,26 @@ public class Common : MonoBehaviour {
     d.jitterBuffer.Start(d.frame);
   }
 
-  protected void ProcessStateUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientIndex, int toClientIndex, bool applySmoothing = true) {
+  protected void ProcessStateUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientId, int toClientId, bool applySmoothing = true) {
     if (data.frame < 0) return;
 
     var entry = data.jitterBuffer.GetEntry((uint)data.frame);
     if (entry == null) return;
 
-    if (fromClientIndex == 0) {
+    if (fromClientId == 0) {
       //server -> client      
-      if (Util.SequenceGreaterThan(context.resetSequence, entry.header.resetSequence)) return; //Ignore updates from before the last reset.
-      if (Util.SequenceGreaterThan(entry.header.resetSequence, context.resetSequence)) { //Reset if the server reset sequence is more recent than ours.
+      if (Util.SequenceGreaterThan(context.resetId, entry.header.resetSequence)) return; //Ignore updates from before the last reset.
+      if (Util.SequenceGreaterThan(entry.header.resetSequence, context.resetId)) { //Reset if the server reset sequence is more recent than ours.
         context.Reset();
-        context.resetSequence = entry.header.resetSequence;
+        context.resetId = entry.header.resetSequence;
       }
     } else {
       //client -> server      
-      if (context.resetSequence != entry.header.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
+      if (context.resetId != entry.header.resetSequence) return; //Ignore any updates from the client with a different reset sequence #
     }
 
-    AddPacket(ref data.receiveBuffer, entry.header.sequence, context.resetSequence, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
-    context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientIndex, toClientIndex, applySmoothing); //apply the state updates to cubes    
+    AddPacket(ref data.receiveBuffer, entry.header.id, context.resetId, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
+    context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientId, toClientId, applySmoothing); //apply the state updates to cubes    
     data.connection.ProcessPacketHeader(ref entry.header); //process the packet header (handles acks)
   }
 
@@ -198,13 +198,13 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected bool ReadClientsPacket(byte[] packetData, bool[] clientConnected, ulong[] clientUserId, string[] clientUserName) {
+  protected bool ReadClientsPacket(byte[] packet, bool[] areConnected, ulong[] userIds, string[] userNames) {
     BeginSample("ReadServerInfoPacket");
-    readStream.Start(packetData);
+    readStream.Start(packet);
     var result = true;
 
     try {
-      serializer.ReadClientsPacket(readStream, clientConnected, clientUserId, clientUserName);
+      serializer.ReadClientsPacket(readStream, areConnected, userIds, userNames);
     } catch (SerializeException) {
       Log("error: failed to read server info packet");
       result = false;
@@ -215,14 +215,14 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected bool WriteUpdatePacket(ref PacketHeader packetHeader, int numAvatarStates, ref AvatarStateQuantized[] avatarState, int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta
+  protected bool WriteUpdatePacket(ref PacketHeader header, int avatarCount, ref AvatarStateQuantized[] avatarState, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas, ref CubeDelta[] predictionDeltas
   ) {
     BeginSample("WriteStateUpdatePacket");
     writeStream.Start(packetBuffer);
     var result = true;
 
     try {
-      serializer.WriteUpdatePacket(writeStream, ref packetHeader, numAvatarStates, avatarState, numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta);
+      serializer.WriteUpdatePacket(writeStream, ref header, avatarCount, avatarState, cubeCount, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineIds, cubeStates, cubeDeltas, predictionDeltas);
       writeStream.Finish();
     } catch (SerializeException) {
       Log("error: failed to write state update packet packet");
@@ -233,24 +233,24 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected bool ReadUpdatePacket(byte[] packetData, out PacketHeader packetHeader, out int numAvatarStates, ref AvatarStateQuantized[] avatarState, out int numStateUpdates, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta, ref CubeDelta[] predictionDelta
+  protected bool ReadUpdatePacket(byte[] packet, out PacketHeader header, out int avatarCount, ref AvatarStateQuantized[] avatarStates, out int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas, ref CubeDelta[] predictionDeltas
   ) {
     BeginSample("ReadStateUpdatePacket");
-    readStream.Start(packetData);
+    readStream.Start(packet);
     var result = true;
 
     try {
-      serializer.ReadUpdatePacket(readStream, out packetHeader, out numAvatarStates, avatarState, out numStateUpdates, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineSequence, cubeState, cubeDelta, predictionDelta);
+      serializer.ReadUpdatePacket(readStream, out header, out avatarCount, avatarStates, out cubeCount, cubeIds, notChanged, hasDelta, perfectPrediction, hasPredictionDelta, baselineIds, cubeStates, cubeDeltas, predictionDeltas);
     } catch (SerializeException) {
       Log("error: failed to read state update packet");
-      packetHeader.sequence = 0;
-      packetHeader.ack = 0;
-      packetHeader.ackBits = 0;
-      packetHeader.frame = 0;
-      packetHeader.resetSequence = 0;
-      packetHeader.timeOffset = 0.0f;
-      numAvatarStates = 0;
-      numStateUpdates = 0;
+      header.id = 0;
+      header.ack = 0;
+      header.ackBits = 0;
+      header.frame = 0;
+      header.resetSequence = 0;
+      header.timeOffset = 0.0f;
+      avatarCount = 0;
+      cubeCount = 0;
       result = false;
     }
     readStream.Finish();
@@ -259,24 +259,23 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void AddPacket(ref DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref CubeState[] cubeState
-  ) {
+  protected void AddPacket(ref DeltaBuffer buffer, ushort id, ushort resetId, int count, ref int[] cubeIds, ref CubeState[] states) {
     BeginSample("AddPacketToDeltaBuffer");
-    deltaBuffer.AddPacket(sequence, resetSequence);
+    buffer.AddPacket(id, resetId);
 
-    for (int i = 0; i < numCubes; ++i)
-      deltaBuffer.AddCubeState(sequence, cubeIds[i], ref cubeState[i]);
+    for (int i = 0; i < count; ++i)
+      buffer.AddCube(id, cubeIds[i], ref states[i]);
 
     EndSample();
   }
 
-  protected void DetermineNotChangedAndDeltas(Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta
+  protected void DetermineNotChangedAndDeltas(Context context, Context.ConnectionData data, ushort currentId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas
   ) {
     BeginSample("DeterminedNotChangedAndDeltas");
 #if !DISABLE_DELTA_COMPRESSION
-    CubeState baselineCubeState = CubeState.defaults;
+    var baselineState = CubeState.defaults;
 #endif // #if !DISABLE_DELTA_COMPRESSION
-    for (int i = 0; i < numCubes; ++i) {
+    for (int i = 0; i < cubeCount; ++i) {
       notChanged[i] = false;
       hasDelta[i] = false;
 #if !DISABLE_DELTA_COMPRESSION
@@ -285,21 +284,21 @@ public class Common : MonoBehaviour {
             cubeDelta[i].absolute_position_y = cubeState[i].position_y;
             cubeDelta[i].absolute_position_z = cubeState[i].position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
-      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.resetSequence, ref baselineCubeState)) {
-        if (Util.BaselineDifference(currentSequence, baselineSequence[i]) > MaxBaselineDifference) continue; //baseline is too far behind => send the cube state absolute.
-        if (baselineCubeState.Equals(cubeState[i])) {
+      if (context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baselineState)) {
+        if (Util.BaselineDifference(currentId, baselineIds[i]) > MaxBaselineDifference) continue; //baseline is too far behind => send the cube state absolute.
+        if (baselineState.Equals(cubeStates[i])) {
           notChanged[i] = true;
         } else {
           hasDelta[i] = true;
-          cubeDelta[i].positionX = cubeState[i].positionX - baselineCubeState.positionX;
-          cubeDelta[i].positionY = cubeState[i].positionY - baselineCubeState.positionY;
-          cubeDelta[i].positionZ = cubeState[i].positionZ - baselineCubeState.positionZ;
-          cubeDelta[i].linearVelocityX = cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX;
-          cubeDelta[i].linearVelocityY = cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY;
-          cubeDelta[i].linearVelocityZ = cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ;
-          cubeDelta[i].angularVelocityX = cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX;
-          cubeDelta[i].angularVelocityY = cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY;
-          cubeDelta[i].angularVelocityZ = cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ;
+          cubeDeltas[i].positionX = cubeStates[i].positionX - baselineState.positionX;
+          cubeDeltas[i].positionY = cubeStates[i].positionY - baselineState.positionY;
+          cubeDeltas[i].positionZ = cubeStates[i].positionZ - baselineState.positionZ;
+          cubeDeltas[i].linearVelocityX = cubeStates[i].linearVelocityX - baselineState.linearVelocityX;
+          cubeDeltas[i].linearVelocityY = cubeStates[i].linearVelocityY - baselineState.linearVelocityY;
+          cubeDeltas[i].linearVelocityZ = cubeStates[i].linearVelocityZ - baselineState.linearVelocityZ;
+          cubeDeltas[i].angularVelocityX = cubeStates[i].angularVelocityX - baselineState.angularVelocityX;
+          cubeDeltas[i].angularVelocityY = cubeStates[i].angularVelocityY - baselineState.angularVelocityY;
+          cubeDeltas[i].angularVelocityZ = cubeStates[i].angularVelocityZ - baselineState.angularVelocityZ;
         }
       }
 #endif // #if !DISABLE_DELTA_COMPRESSION
@@ -307,16 +306,16 @@ public class Common : MonoBehaviour {
     EndSample();
   }
 
-  protected bool DecodeNotChangedAndDeltas(DeltaBuffer deltaBuffer, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta
+  protected bool DecodeNotChangedAndDeltas(DeltaBuffer buffer, ushort resetId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineId, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas
   ) {
     BeginSample("DecodeNotChangedAndDeltas");
     bool result = true;
 #if !DISABLE_DELTA_COMPRESSION
     var baselineCubeState = CubeState.defaults;
 
-    for (int i = 0; i < numCubes; ++i) {
+    for (int i = 0; i < cubeCount; ++i) {
       if (notChanged[i]) {
-        if (deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState)) {
+        if (buffer.GetCube(baselineId[i], resetId, cubeIds[i], ref baselineCubeState)) {
 #if DEBUG_DELTA_COMPRESSION
           if ( baselineCubeState.position_x != cubeDelta[i].absolute_position_x )
           {
@@ -326,30 +325,30 @@ public class Common : MonoBehaviour {
           Assert.IsTrue( baselineCubeState.position_y == cubeDelta[i].absolute_position_y );
           Assert.IsTrue( baselineCubeState.position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
-          cubeState[i] = baselineCubeState;
+          cubeStates[i] = baselineCubeState;
         } else {
-          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (not changed)");
+          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineId[i] + " (not changed)");
           result = false;
           break;
         }
       } else if (hasDelta[i]) {
-        if (deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState)) {
-          cubeState[i].positionX = baselineCubeState.positionX + cubeDelta[i].positionX;
-          cubeState[i].positionY = baselineCubeState.positionY + cubeDelta[i].positionY;
-          cubeState[i].positionZ = baselineCubeState.positionZ + cubeDelta[i].positionZ;
+        if (buffer.GetCube(baselineId[i], resetId, cubeIds[i], ref baselineCubeState)) {
+          cubeStates[i].positionX = baselineCubeState.positionX + cubeDeltas[i].positionX;
+          cubeStates[i].positionY = baselineCubeState.positionY + cubeDeltas[i].positionY;
+          cubeStates[i].positionZ = baselineCubeState.positionZ + cubeDeltas[i].positionZ;
 #if DEBUG_DELTA_COMPRESSION
                     Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
                     Assert.IsTrue( cubeState[i].position_y == cubeDelta[i].absolute_position_y );
                     Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
-          cubeState[i].linearVelocityX = baselineCubeState.linearVelocityX + cubeDelta[i].linearVelocityX;
-          cubeState[i].linearVelocityY = baselineCubeState.linearVelocityY + cubeDelta[i].linearVelocityY;
-          cubeState[i].linearVelocityZ = baselineCubeState.linearVelocityZ + cubeDelta[i].linearVelocityZ;
-          cubeState[i].angularVelocityX = baselineCubeState.angularVelocityX + cubeDelta[i].angularVelocityX;
-          cubeState[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDelta[i].angularVelocityY;
-          cubeState[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDelta[i].angularVelocityZ;
+          cubeStates[i].linearVelocityX = baselineCubeState.linearVelocityX + cubeDeltas[i].linearVelocityX;
+          cubeStates[i].linearVelocityY = baselineCubeState.linearVelocityY + cubeDeltas[i].linearVelocityY;
+          cubeStates[i].linearVelocityZ = baselineCubeState.linearVelocityZ + cubeDeltas[i].linearVelocityZ;
+          cubeStates[i].angularVelocityX = baselineCubeState.angularVelocityX + cubeDeltas[i].angularVelocityX;
+          cubeStates[i].angularVelocityY = baselineCubeState.angularVelocityY + cubeDeltas[i].angularVelocityY;
+          cubeStates[i].angularVelocityZ = baselineCubeState.angularVelocityZ + cubeDeltas[i].angularVelocityZ;
         } else {
-          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (delta)");
+          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineId[i] + " (delta)");
           result = false;
           break;
         }
@@ -359,38 +358,38 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void DeterminePrediction(Context context, Context.ConnectionData connectionData, ushort currentSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDeltas
+  protected void DeterminePrediction(Context context, Context.ConnectionData data, ushort currentId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] predictionDeltas
   ) {
     BeginSample("DeterminePrediction");
-    var baselineCubeState = CubeState.defaults;
+    var baselineState = CubeState.defaults;
 
-    for (int i = 0; i < numCubes; ++i) {
+    for (int i = 0; i < cubeCount; ++i) {
       perfectPrediction[i] = false;
       hasPredictionDelta[i] = false;
 #if !DISABLE_DELTA_ENCODING
       if (notChanged[i]) continue;
       if (!hasDelta[i]) continue;
-      if (!cubeState[i].isActive) continue;
+      if (!cubeStates[i].isActive) continue;
 
-      if (context.GetAck(connectionData, cubeIds[i], ref baselineSequence[i], context.resetSequence, ref baselineCubeState)) {
-        if (Util.BaselineDifference(currentSequence, baselineSequence[i]) <= MaxBaselineDifference) continue; //baseline is too far behind. send the cube state absolute
-        if (!baselineCubeState.isActive) continue; //no point predicting if the cube is at rest.
+      if (context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baselineState)) {
+        if (Util.BaselineDifference(currentId, baselineIds[i]) <= MaxBaselineDifference) continue; //baseline is too far behind. send the cube state absolute
+        if (!baselineState.isActive) continue; //no point predicting if the cube is at rest.
 
-        int baseline_sequence = baselineSequence[i];
-        int current_sequence = currentSequence;
+        int baseline_sequence = baselineIds[i];
+        int current_sequence = currentId;
 
         if (current_sequence < baseline_sequence)
           current_sequence += 65536;
 
-        int baseline_position_x = baselineCubeState.positionX;
-        int baseline_position_y = baselineCubeState.positionY;
-        int baseline_position_z = baselineCubeState.positionZ;
-        int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
-        int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
-        int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
-        int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
-        int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
-        int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
+        int baseline_position_x = baselineState.positionX;
+        int baseline_position_y = baselineState.positionY;
+        int baseline_position_z = baselineState.positionZ;
+        int baseline_linear_velocity_x = baselineState.linearVelocityX;
+        int baseline_linear_velocity_y = baselineState.linearVelocityY;
+        int baseline_linear_velocity_z = baselineState.linearVelocityZ;
+        int baseline_angular_velocity_x = baselineState.angularVelocityX;
+        int baseline_angular_velocity_y = baselineState.angularVelocityY;
+        int baseline_angular_velocity_z = baselineState.angularVelocityZ;
 
         if (current_sequence < baseline_sequence)
           current_sequence += 65536;
@@ -414,15 +413,15 @@ public class Common : MonoBehaviour {
                                      out predicted_linear_velocity_x, out predicted_linear_velocity_y, out predicted_linear_velocity_z,
                                      out predicted_angular_velocity_x, out predicted_angular_velocity_y, out predicted_angular_velocity_z);
 
-        int current_position_x = cubeState[i].positionX;
-        int current_position_y = cubeState[i].positionY;
-        int current_position_z = cubeState[i].positionZ;
-        int current_linear_velocity_x = cubeState[i].linearVelocityX;
-        int current_linear_velocity_y = cubeState[i].linearVelocityY;
-        int current_linear_velocity_z = cubeState[i].linearVelocityZ;
-        int current_angular_velocity_x = cubeState[i].angularVelocityX;
-        int current_angular_velocity_y = cubeState[i].angularVelocityY;
-        int current_angular_velocity_z = cubeState[i].angularVelocityZ;
+        int current_position_x = cubeStates[i].positionX;
+        int current_position_y = cubeStates[i].positionY;
+        int current_position_z = cubeStates[i].positionZ;
+        int current_linear_velocity_x = cubeStates[i].linearVelocityX;
+        int current_linear_velocity_y = cubeStates[i].linearVelocityY;
+        int current_linear_velocity_z = cubeStates[i].linearVelocityZ;
+        int current_angular_velocity_x = cubeStates[i].angularVelocityX;
+        int current_angular_velocity_y = cubeStates[i].angularVelocityY;
+        int current_angular_velocity_z = cubeStates[i].angularVelocityZ;
         int position_error_x = current_position_x - predicted_position_x;
         int position_error_y = current_position_y - predicted_position_y;
         int position_error_z = current_position_z - predicted_position_z;
@@ -464,15 +463,15 @@ public class Common : MonoBehaviour {
                                        angular_velocity_error_y +
                                        angular_velocity_error_z;
 
-          int total_absolute_error = Math.Abs(cubeState[i].positionX - baselineCubeState.positionX) +
-                                     Math.Abs(cubeState[i].positionY - baselineCubeState.positionY) +
-                                     Math.Abs(cubeState[i].positionZ - baselineCubeState.positionZ) +
-                                     Math.Abs(cubeState[i].linearVelocityX - baselineCubeState.linearVelocityX) +
-                                     Math.Abs(cubeState[i].linearVelocityY - baselineCubeState.linearVelocityY) +
-                                     Math.Abs(cubeState[i].linearVelocityZ - baselineCubeState.linearVelocityZ) +
-                                     Math.Abs(cubeState[i].angularVelocityX - baselineCubeState.angularVelocityX) +
-                                     Math.Abs(cubeState[i].angularVelocityY - baselineCubeState.angularVelocityY) +
-                                     Math.Abs(cubeState[i].angularVelocityZ - baselineCubeState.angularVelocityZ);
+          int total_absolute_error = Math.Abs(cubeStates[i].positionX - baselineState.positionX) +
+                                     Math.Abs(cubeStates[i].positionY - baselineState.positionY) +
+                                     Math.Abs(cubeStates[i].positionZ - baselineState.positionZ) +
+                                     Math.Abs(cubeStates[i].linearVelocityX - baselineState.linearVelocityX) +
+                                     Math.Abs(cubeStates[i].linearVelocityY - baselineState.linearVelocityY) +
+                                     Math.Abs(cubeStates[i].linearVelocityZ - baselineState.linearVelocityZ) +
+                                     Math.Abs(cubeStates[i].angularVelocityX - baselineState.angularVelocityX) +
+                                     Math.Abs(cubeStates[i].angularVelocityY - baselineState.angularVelocityY) +
+                                     Math.Abs(cubeStates[i].angularVelocityZ - baselineState.angularVelocityZ);
 
           if (total_prediction_error < total_absolute_error) {
             int max_position_error = abs_position_error_x;
@@ -524,31 +523,31 @@ public class Common : MonoBehaviour {
     EndSample();
   }
 
-  protected bool DecodePrediction(DeltaBuffer deltaBuffer, ushort currentSequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] predictionDelta
+  protected bool DecodePrediction(DeltaBuffer buffer, ushort currentId, ushort resetId, int cubeCount, ref int[] cubeIds, ref bool[] perfectPrediction, ref bool[] hasPredictionDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] predictionDeltas
   ) {
     BeginSample("DecodePrediction");
-    var baselineCubeState = CubeState.defaults;
+    var baselineState = CubeState.defaults;
     var result = true;
 #if !DISABLE_DELTA_ENCODING
 
-    for (int i = 0; i < numCubes; ++i) {
+    for (int i = 0; i < cubeCount; ++i) {
       if (perfectPrediction[i] || hasPredictionDelta[i]) {
-        if (deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState)) {
-          int baseline_sequence = baselineSequence[i];
-          int current_sequence = currentSequence;
+        if (buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baselineState)) {
+          int baseline_sequence = baselineIds[i];
+          int current_sequence = currentId;
 
           if (current_sequence < baseline_sequence)
             current_sequence += 65536;
 
-          int baseline_position_x = baselineCubeState.positionX;
-          int baseline_position_y = baselineCubeState.positionY;
-          int baseline_position_z = baselineCubeState.positionZ;
-          int baseline_linear_velocity_x = baselineCubeState.linearVelocityX;
-          int baseline_linear_velocity_y = baselineCubeState.linearVelocityY;
-          int baseline_linear_velocity_z = baselineCubeState.linearVelocityZ;
-          int baseline_angular_velocity_x = baselineCubeState.angularVelocityX;
-          int baseline_angular_velocity_y = baselineCubeState.angularVelocityY;
-          int baseline_angular_velocity_z = baselineCubeState.angularVelocityZ;
+          int baseline_position_x = baselineState.positionX;
+          int baseline_position_y = baselineState.positionY;
+          int baseline_position_z = baselineState.positionZ;
+          int baseline_linear_velocity_x = baselineState.linearVelocityX;
+          int baseline_linear_velocity_y = baselineState.linearVelocityY;
+          int baseline_linear_velocity_z = baselineState.linearVelocityZ;
+          int baseline_angular_velocity_x = baselineState.angularVelocityX;
+          int baseline_angular_velocity_y = baselineState.angularVelocityY;
+          int baseline_angular_velocity_z = baselineState.angularVelocityZ;
 
           if (current_sequence < baseline_sequence)
             current_sequence += 65536;
@@ -578,33 +577,33 @@ public class Common : MonoBehaviour {
             Assert.IsTrue( predicted_position_y == cubeDelta[i].absolute_position_y );
             Assert.IsTrue( predicted_position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
-            cubeState[i].positionX = predicted_position_x;
-            cubeState[i].positionY = predicted_position_y;
-            cubeState[i].positionZ = predicted_position_z;
-            cubeState[i].linearVelocityX = predicted_linear_velocity_x;
-            cubeState[i].linearVelocityY = predicted_linear_velocity_y;
-            cubeState[i].linearVelocityZ = predicted_linear_velocity_z;
-            cubeState[i].angularVelocityX = predicted_angular_velocity_x;
-            cubeState[i].angularVelocityY = predicted_angular_velocity_y;
-            cubeState[i].angularVelocityZ = predicted_angular_velocity_z;
+            cubeStates[i].positionX = predicted_position_x;
+            cubeStates[i].positionY = predicted_position_y;
+            cubeStates[i].positionZ = predicted_position_z;
+            cubeStates[i].linearVelocityX = predicted_linear_velocity_x;
+            cubeStates[i].linearVelocityY = predicted_linear_velocity_y;
+            cubeStates[i].linearVelocityZ = predicted_linear_velocity_z;
+            cubeStates[i].angularVelocityX = predicted_angular_velocity_x;
+            cubeStates[i].angularVelocityY = predicted_angular_velocity_y;
+            cubeStates[i].angularVelocityZ = predicted_angular_velocity_z;
           } else {
-            cubeState[i].positionX = predicted_position_x + predictionDelta[i].positionX;
-            cubeState[i].positionY = predicted_position_y + predictionDelta[i].positionY;
-            cubeState[i].positionZ = predicted_position_z + predictionDelta[i].positionZ;
+            cubeStates[i].positionX = predicted_position_x + predictionDeltas[i].positionX;
+            cubeStates[i].positionY = predicted_position_y + predictionDeltas[i].positionY;
+            cubeStates[i].positionZ = predicted_position_z + predictionDeltas[i].positionZ;
 #if DEBUG_DELTA_COMPRESSION
             Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
             Assert.IsTrue( cubeState[i].position_y == cubeDelta[i].absolute_position_y );
             Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
-            cubeState[i].linearVelocityX = predicted_linear_velocity_x + predictionDelta[i].linearVelocityX;
-            cubeState[i].linearVelocityY = predicted_linear_velocity_y + predictionDelta[i].linearVelocityY;
-            cubeState[i].linearVelocityZ = predicted_linear_velocity_z + predictionDelta[i].linearVelocityZ;
-            cubeState[i].angularVelocityX = predicted_angular_velocity_x + predictionDelta[i].angularVelocityX;
-            cubeState[i].angularVelocityY = predicted_angular_velocity_y + predictionDelta[i].angularVelocityY;
-            cubeState[i].angularVelocityZ = predicted_angular_velocity_z + predictionDelta[i].angularVelocityZ;
+            cubeStates[i].linearVelocityX = predicted_linear_velocity_x + predictionDeltas[i].linearVelocityX;
+            cubeStates[i].linearVelocityY = predicted_linear_velocity_y + predictionDeltas[i].linearVelocityY;
+            cubeStates[i].linearVelocityZ = predicted_linear_velocity_z + predictionDeltas[i].linearVelocityZ;
+            cubeStates[i].angularVelocityX = predicted_angular_velocity_x + predictionDeltas[i].angularVelocityX;
+            cubeStates[i].angularVelocityY = predicted_angular_velocity_y + predictionDeltas[i].angularVelocityY;
+            cubeStates[i].angularVelocityZ = predicted_angular_velocity_z + predictionDeltas[i].angularVelocityZ;
           }
         } else {
-          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineSequence[i] + " (perfect prediction and prediction delta)");
+          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineIds[i] + " (perfect prediction and prediction delta)");
           result = false;
           break;
         }
@@ -622,41 +621,41 @@ public class Common : MonoBehaviour {
     data.connection.GetAcks(ref acks, ref numAcks);
 
     for (int i = 0; i < numAcks; ++i) {
-      int packetNumCubeStates;
-      int[] packetCubeIds;
-      CubeState[] packetCubeState;
+      int cubeCount;
+      int[] cubeIds;
+      CubeState[] states;
 
-      if (data.sendBuffer.GetPacketData(acks[i], context.resetSequence, out packetNumCubeStates, out packetCubeIds, out packetCubeState)) {
-        for (int j = 0; j < packetNumCubeStates; ++j)
-          context.UpdateAck(data, packetCubeIds[j], acks[i], context.resetSequence, ref packetCubeState[j]);
+      if (data.sendBuffer.GetPacket(acks[i], context.resetId, out cubeCount, out cubeIds, out states)) {
+        for (int j = 0; j < cubeCount; ++j)
+          context.UpdateAck(data, cubeIds[j], acks[i], context.resetId, ref states[j]);
       }
     }
     EndSample();
   }
 
-  protected void WriteDeltasToFile(System.IO.StreamWriter file, DeltaBuffer deltaBuffer, ushort sequence, ushort resetSequence, int numCubes, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineSequence, ref CubeState[] cubeState, ref CubeDelta[] cubeDelta
+  protected void WriteDeltasToFile(System.IO.StreamWriter file, DeltaBuffer buffer, ushort id, ushort resetId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineIds, ref CubeState[] cubeStates, ref CubeDelta[] cubeDeltas
   ) {
     if (file == null) return;
 
     var baselineCubeState = CubeState.defaults;
 
-    for (int i = 0; i < numCubes; ++i) {
+    for (int i = 0; i < cubeCount; ++i) {
       if (hasDelta[i]) {
-        var result = deltaBuffer.GetCubeState(baselineSequence[i], resetSequence, cubeIds[i], ref baselineCubeState);
+        var result = buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baselineCubeState);
         IsTrue(result);
 
         if (result) {
-          file.WriteLine(sequence + "," +
-            baselineSequence[i] + "," +
-            cubeDelta[i].positionX + "," +
-            cubeDelta[i].positionY + "," +
-            cubeDelta[i].positionZ + "," + ",,," +   // <--- for backwards compatibility.
-            cubeDelta[i].linearVelocityX + "," +    //todo: remove this and fix up the indices in "TestPrediction".
-            cubeDelta[i].linearVelocityY + "," +
-            cubeDelta[i].linearVelocityZ + "," +
-            cubeDelta[i].angularVelocityX + "," +
-            cubeDelta[i].angularVelocityY + "," +
-            cubeDelta[i].angularVelocityZ + "," +
+          file.WriteLine(id + "," +
+            baselineIds[i] + "," +
+            cubeDeltas[i].positionX + "," +
+            cubeDeltas[i].positionY + "," +
+            cubeDeltas[i].positionZ + "," + ",,," +   // <--- for backwards compatibility.
+            cubeDeltas[i].linearVelocityX + "," +    //todo: remove this and fix up the indices in "TestPrediction".
+            cubeDeltas[i].linearVelocityY + "," +
+            cubeDeltas[i].linearVelocityZ + "," +
+            cubeDeltas[i].angularVelocityX + "," +
+            cubeDeltas[i].angularVelocityY + "," +
+            cubeDeltas[i].angularVelocityZ + "," +
             (baselineCubeState.isActive ? 1 : 0) + "," +
             baselineCubeState.positionX + "," +
             baselineCubeState.positionY + "," +
@@ -671,20 +670,20 @@ public class Common : MonoBehaviour {
             baselineCubeState.angularVelocityX + "," +
             baselineCubeState.angularVelocityY + "," +
             baselineCubeState.angularVelocityZ + "," +
-            (cubeState[i].isActive ? 1 : 0) + "," +
-            cubeState[i].positionX + "," +
-            cubeState[i].positionY + "," +
-            cubeState[i].positionZ + "," +
-            cubeState[i].rotationLargest + "," +
-            cubeState[i].rotationX + "," +
-            cubeState[i].rotationY + "," +
-            cubeState[i].rotationZ + "," +
-            cubeState[i].linearVelocityX + "," +
-            cubeState[i].linearVelocityY + "," +
-            cubeState[i].linearVelocityZ + "," +
-            cubeState[i].angularVelocityX + "," +
-            cubeState[i].angularVelocityY + "," +
-            cubeState[i].angularVelocityZ);
+            (cubeStates[i].isActive ? 1 : 0) + "," +
+            cubeStates[i].positionX + "," +
+            cubeStates[i].positionY + "," +
+            cubeStates[i].positionZ + "," +
+            cubeStates[i].rotationLargest + "," +
+            cubeStates[i].rotationX + "," +
+            cubeStates[i].rotationY + "," +
+            cubeStates[i].rotationZ + "," +
+            cubeStates[i].linearVelocityX + "," +
+            cubeStates[i].linearVelocityY + "," +
+            cubeStates[i].linearVelocityZ + "," +
+            cubeStates[i].angularVelocityX + "," +
+            cubeStates[i].angularVelocityY + "," +
+            cubeStates[i].angularVelocityZ);
         }
       }
     }

@@ -142,8 +142,8 @@ public struct AvatarState {
       s.isLeftHandHoldingCube = true;
       var network = leftHandHeldObj.GetComponent<NetworkCube>();
       s.leftHandCubeId = network.cubeId;
-      s.leftHandAuthoritySequence = network.authoritySequence;
-      s.leftHandOwnershipSequence = network.ownershipSequence;
+      s.leftHandAuthoritySequence = network.authorityPacketId;
+      s.leftHandOwnershipSequence = network.ownershipId;
       s.leftHandCubeLocalPosition = leftHandHeldObj.transform.localPosition;
       s.leftHandCubeLocalRotation = leftHandHeldObj.transform.localRotation;
     } else {
@@ -166,8 +166,8 @@ public struct AvatarState {
       s.isRightHandHoldingCube = true;
       var network = rightHandHeldObj.GetComponent<NetworkCube>();
       s.rightHandCubeId = network.cubeId;
-      s.rightHandAuthoritySequence = network.authoritySequence;
-      s.rightHandOwnershipSequence = network.ownershipSequence;
+      s.rightHandAuthoritySequence = network.authorityPacketId;
+      s.rightHandOwnershipSequence = network.ownershipId;
       s.rightHandCubeLocalPosition = rightHandHeldObj.transform.localPosition;
       s.rightHandCubeLocalRotation = rightHandHeldObj.transform.localRotation;
     } else {
@@ -203,24 +203,24 @@ public struct AvatarState {
     if (!s.isLeftHandHoldingCube) return;
 
     var n = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
-    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.ownershipSequence)) return;
+    if (!Util.SequenceGreaterThan(s.leftHandOwnershipSequence, n.ownershipId)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-    n.ownershipSequence = s.leftHandOwnershipSequence;
-    n.authoritySequence = s.leftHandAuthoritySequence;
+    n.ownershipId = s.leftHandOwnershipSequence;
+    n.authorityPacketId = s.leftHandAuthoritySequence;
   }
 
   public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
     if (!s.isRightHandHoldingCube) return;
 
     var n = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
-    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.ownershipSequence)) return;
+    if (!Util.SequenceGreaterThan(s.rightHandOwnershipSequence, n.ownershipId)) return;
 #if DEBUG_AUTHORITY
     Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
 #endif // #if DEBUG_AUTHORITY
-    n.ownershipSequence = s.rightHandOwnershipSequence;
-    n.authoritySequence = s.rightHandAuthoritySequence;
+    n.ownershipId = s.rightHandOwnershipSequence;
+    n.authorityPacketId = s.rightHandAuthoritySequence;
   }
 
   public static void ApplyLeftHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
@@ -232,8 +232,8 @@ public struct AvatarState {
     if (!n.SameHolder(avatar, avatar.GetLeftHand()))
       n.RemoteGrip(avatar, avatar.GetLeftHand(), s.clientId);
 
-    n.authoritySequence = s.leftHandAuthoritySequence;
-    n.ownershipSequence = s.leftHandOwnershipSequence;
+    n.authorityPacketId = s.leftHandAuthoritySequence;
+    n.ownershipId = s.leftHandOwnershipSequence;
     n.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
   }
 
@@ -246,8 +246,8 @@ public struct AvatarState {
     if (!n.SameHolder(avatar, avatar.GetRightHand()))
       n.RemoteGrip(avatar, avatar.GetRightHand(), s.clientId);
 
-    n.authoritySequence = s.rightHandAuthoritySequence;
-    n.ownershipSequence = s.rightHandOwnershipSequence;
+    n.authorityPacketId = s.rightHandAuthoritySequence;
+    n.ownershipId = s.rightHandOwnershipSequence;
     n.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
   }
 

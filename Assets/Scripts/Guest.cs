@@ -114,7 +114,7 @@ public class Guest : Common {
       ushort avatarResetSequence;
 
       if (data.jitterBuffer.GetInterpolatedAvatars(ref interpolatedAvatars, out numInterpolatedAvatarStates, out avatarResetSequence)
-        && avatarResetSequence == context.resetSequence
+        && avatarResetSequence == context.resetId
       ) context.ApplyAvatarUpdates(numInterpolatedAvatarStates, ref interpolatedAvatars, 0, clientId);
 
       context.GetClientData().jitterBuffer.AdvanceTime(Time.deltaTime); //advance jitter buffer time
@@ -296,7 +296,7 @@ public class Guest : Common {
   void ResetContext() {
     Debug.Log("Disconnected from server");
     context.GetClientData().Reset();
-    context.resetSequence = 0;
+    context.resetId = 0;
     context.Reset();
     context.Deactivate();
   }
@@ -392,20 +392,20 @@ public class Guest : Common {
     context.GetCubeUpdates(data, ref numStateUpdates, ref cubeIds, ref cubes);
     PacketHeader writePacketHeader;
     data.connection.GeneratePacketHeader(out writePacketHeader);
-    writePacketHeader.resetSequence = context.resetSequence;
+    writePacketHeader.resetSequence = context.resetId;
     writePacketHeader.frame = (uint)frame;
     writePacketHeader.timeOffset = timeOffset;
 
-    DetermineNotChangedAndDeltas(context, data, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineSequence, ref cubes, ref cubeDeltas);
-    DeterminePrediction(context, data, writePacketHeader.sequence, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubes, ref predictionDelta);
+    DetermineNotChangedAndDeltas(context, data, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
+    DeterminePrediction(context, data, writePacketHeader.id, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref predictionDelta);
 
     int numAvatarStates = 1;
     localAvatar.GetComponent<Hands>().GetState(out avatars[0]);
     AvatarState.Quantize(ref avatars[0], out avatarsQuantized[0]);
-    WriteUpdatePacket(ref writePacketHeader, numAvatarStates, ref avatarsQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineSequence, ref cubes, ref cubeDeltas, ref predictionDelta);
+    WriteUpdatePacket(ref writePacketHeader, numAvatarStates, ref avatarsQuantized, numStateUpdates, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref predictionDelta);
 
     var packet = writeStream.GetData();
-    AddPacket(ref data.sendBuffer, writePacketHeader.sequence, context.resetSequence, numStateUpdates, ref cubeIds, ref cubes);
+    AddPacket(ref data.sendBuffer, writePacketHeader.id, context.resetId, numStateUpdates, ref cubeIds, ref cubes);
     context.ResetCubePriority(data, numStateUpdates, cubeIds);
     Profiler.EndSample();
 
@@ -476,21 +476,21 @@ public class Guest : Common {
     int readNumStateUpdates = 0;
     PacketHeader readPacketHeader;
 
-    if (ReadUpdatePacket(packet, out readPacketHeader, out readNumAvatarStates, ref readAvatarsQuantized, out readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubes, ref readCubeDeltas, ref readPredictionDeltas)
+    if (ReadUpdatePacket(packet, out readPacketHeader, out readNumAvatarStates, ref readAvatarsQuantized, out readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas, ref readPredictionDeltas)
     ) {
       for (int i = 0; i < readNumAvatarStates; ++i) //unquantize avatar states
         AvatarState.Unquantize(ref readAvatarsQuantized[i], out readAvatars[i]);      
 
-      if (Util.SequenceGreaterThan(context.resetSequence, readPacketHeader.resetSequence)) return; //ignore updates from before the last server reset      
+      if (Util.SequenceGreaterThan(context.resetId, readPacketHeader.resetSequence)) return; //ignore updates from before the last server reset      
 
-      if (Util.SequenceGreaterThan(readPacketHeader.resetSequence, context.resetSequence)) { //reset if the server reset sequence is more recent than ours
+      if (Util.SequenceGreaterThan(readPacketHeader.resetSequence, context.resetId)) { //reset if the server reset sequence is more recent than ours
         context.Reset();
-        context.resetSequence = readPacketHeader.resetSequence;
+        context.resetId = readPacketHeader.resetSequence;
       }      
 
-      DecodePrediction(data.receiveBuffer, readPacketHeader.sequence, context.resetSequence, readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineSequence, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines      
-      DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetSequence, readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineSequence, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
-      AddPacket(ref data.receiveBuffer, readPacketHeader.sequence, context.resetSequence, readNumStateUpdates, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer      
+      DecodePrediction(data.receiveBuffer, readPacketHeader.id, context.resetId, readNumStateUpdates, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines      
+      DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetId, readNumStateUpdates, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
+      AddPacket(ref data.receiveBuffer, readPacketHeader.id, context.resetId, readNumStateUpdates, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer      
 
       int fromClientId = 0; //apply the state updates to cubes
       int toClientId = clientId;

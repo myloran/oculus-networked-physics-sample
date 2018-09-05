@@ -14,92 +14,95 @@ using static Constants;
 
 public class DeltaBuffer {
   struct Entry {
-    public ushort resetSequence;
-    public int numCubes;
-    public int[] cubeLookup;
-    public int[] cubeIds;
-    public CubeState[] cubeState;
+    public CubeState[] states;
+
+    public int[] 
+      cubes,
+      ids;
+
+    public int count;
+    public ushort resetId;
   };
 
-  SequenceBuffer<Entry> sequenceBuffer;
+  SequenceBuffer<Entry> buffer;
 
   public DeltaBuffer(int size) {
-    sequenceBuffer = new SequenceBuffer<Entry>(size);
+    buffer = new SequenceBuffer<Entry>(size);
 
-    for (int i = 0; i < sequenceBuffer.GetSize(); ++i) {
-      sequenceBuffer.Entries[i].resetSequence = 0;
-      sequenceBuffer.Entries[i].numCubes = 0;
-      sequenceBuffer.Entries[i].cubeLookup = new int[NumCubes];
-      sequenceBuffer.Entries[i].cubeIds = new int[NumCubes];
-      sequenceBuffer.Entries[i].cubeState = new CubeState[NumCubes];
+    for (int i = 0; i < buffer.GetSize(); ++i) {
+      buffer.entries[i].resetId = 0;
+      buffer.entries[i].count = 0;
+      buffer.entries[i].cubes = new int[NumCubes];
+      buffer.entries[i].ids = new int[NumCubes];
+      buffer.entries[i].states = new CubeState[NumCubes];
     }
     Reset();
   }
 
   public void Reset() {
     Profiler.BeginSample("DeltaBuffer.Reset");
-    sequenceBuffer.Reset();
+    buffer.Reset();
 
-    for (int i = 0; i < sequenceBuffer.GetSize(); ++i) {
-      sequenceBuffer.Entries[i].resetSequence = 0;
-      sequenceBuffer.Entries[i].numCubes = 0;
+    for (int i = 0; i < buffer.GetSize(); ++i) {
+      buffer.entries[i].resetId = 0;
+      buffer.entries[i].count = 0;
     }
     Profiler.EndSample();
   }
 
-  public bool AddPacket(ushort sequence, ushort resetSequence) {
-    int index = sequenceBuffer.Insert(sequence);
-    if (index == -1) return false;
+  public bool AddPacket(ushort packetId, ushort resetId) {
+    int id = buffer.Insert(packetId);
+    if (id == -1) return false;
 
-    sequenceBuffer.Entries[index].resetSequence = resetSequence;
-    sequenceBuffer.Entries[index].numCubes = 0;
+    buffer.entries[id].resetId = resetId;
+    buffer.entries[id].count = 0;
 
     for (int i = 0; i < NumCubes; ++i)
-      sequenceBuffer.Entries[index].cubeLookup[i] = -1;
+      buffer.entries[id].cubes[i] = -1;
 
     return true;
   }
 
-  public bool AddCubeState(ushort sequence, int cubeId, ref CubeState cubeState) {
-    int index = sequenceBuffer.Find(sequence);
-    if (index == -1) return false;
+  public bool AddCube(ushort packetId, int cubeId, ref CubeState state) {
+    int id = buffer.Find(packetId);
+    if (id == -1) return false;
 
-    int numCubes = sequenceBuffer.Entries[index].numCubes;
-    Assert.IsTrue(numCubes < NumCubes);
-    sequenceBuffer.Entries[index].cubeLookup[cubeId] = numCubes;
-    sequenceBuffer.Entries[index].cubeIds[numCubes] = cubeId;
-    sequenceBuffer.Entries[index].cubeState[numCubes] = cubeState;
-    sequenceBuffer.Entries[index].numCubes++;
+    int count = buffer.entries[id].count;
+    Assert.IsTrue(count < NumCubes);
+    buffer.entries[id].cubes[cubeId] = count;
+    buffer.entries[id].ids[count] = cubeId;
+    buffer.entries[id].states[count] = state;
+    buffer.entries[id].count++;
 
     return true;
   }
 
-  public bool GetCubeState(ushort sequence, ushort resetSequence, int cubeId, ref CubeState cubeState) {
-    int index = sequenceBuffer.Find(sequence);
-    if (index == -1) return false;
-    if (sequenceBuffer.Entries[index].resetSequence != resetSequence) return false;
-    if (sequenceBuffer.Entries[index].numCubes == 0) return false;
+  public bool GetCube(ushort packetId, ushort resetId, int cubeId, ref CubeState state) {
+    int id = buffer.Find(packetId);
+    if (id == -1) return false;
+    if (buffer.entries[id].resetId != resetId) return false;
+    if (buffer.entries[id].count == 0) return false;
 
-    int cubeIndex = sequenceBuffer.Entries[index].cubeLookup[cubeId];
-    if (cubeIndex == -1) return false;
+    int entryCubeId = buffer.entries[id].cubes[cubeId];
+    if (entryCubeId == -1) return false;
 
-    cubeState = sequenceBuffer.Entries[index].cubeState[cubeIndex];
+    state = buffer.entries[id].states[entryCubeId];
     return true;
   }
 
-  public bool GetPacketData(ushort sequence, ushort resetSequence, out int numCubes, out int[] cubeIds, out CubeState[] cubeState) {
-    int index = sequenceBuffer.Find(sequence);
+  public bool GetPacket(ushort packetId, ushort resetId, out int count, out int[] cubeIds, out CubeState[] states) {
+    int id = buffer.Find(packetId);
 
-    if (index == -1 || sequenceBuffer.Entries[index].resetSequence != resetSequence) {
-      numCubes = 0;
+    if (id == -1 || buffer.entries[id].resetId != resetId) {
+      count = 0;
       cubeIds = null;
-      cubeState = null;
+      states = null;
       return false;
     }
 
-    numCubes = sequenceBuffer.Entries[index].numCubes;
-    cubeIds = sequenceBuffer.Entries[index].cubeIds;
-    cubeState = sequenceBuffer.Entries[index].cubeState;
+    count = buffer.entries[id].count;
+    cubeIds = buffer.entries[id].ids;
+    states = buffer.entries[id].states;
 
     return true;
   }
