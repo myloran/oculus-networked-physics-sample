@@ -29,7 +29,7 @@ public class DeltaBuffer {
   public DeltaBuffer(int size) {
     buffer = new SequenceBuffer<Entry>(size);
 
-    for (int i = 0; i < buffer.GetSize(); ++i) {
+    for (int i = 0; i < buffer.size; ++i) {
       buffer.entries[i].resetId = 0;
       buffer.entries[i].count = 0;
       buffer.entries[i].entryIds = new int[MaxCubes];
@@ -43,7 +43,7 @@ public class DeltaBuffer {
     Profiler.BeginSample("DeltaBuffer.Reset");
     buffer.Reset();
 
-    for (int i = 0; i < buffer.GetSize(); ++i) {
+    for (int i = 0; i < buffer.size; ++i) {
       buffer.entries[i].resetId = 0;
       buffer.entries[i].count = 0;
     }

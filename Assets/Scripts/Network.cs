@@ -26,14 +26,14 @@ namespace Network {
     public static uint SignedToUnsigned(int n) => (uint)((n << 1) ^ (n >> 31));
     public static int UnsignedToSigned(uint n) => (int)((n >> 1) ^ (-(n & 1)));
 
-    public static void GenerateAckBits<T>(SequenceBuffer<T> buffer, out ushort ack, out uint ackBits) {
-      ack = (ushort)(buffer.GetSequence() - 1);
-      ackBits = 0;
-      uint mask = 1;
+    public static void GenerateAckBits<T>(SequenceBuffer<T> buffer, out ushort ack, out uint bits) {
+      var mask = 1u;
+      ack = (ushort)(buffer.id - 1);
+      bits = 0;
 
       for (int i = 0; i < 32; ++i) {
         if (buffer.Exists((ushort)(ack - i)))
-          ackBits |= mask;
+          bits |= mask;
 
         mask <<= 1;
       }
@@ -521,9 +521,9 @@ namespace Network {
 
   public class SequenceBuffer<T> {
     public T[] entries;
+    public ushort id;
+    public int size;
     uint[] entryIds;
-    int size;
-    ushort id;
 
     public SequenceBuffer(int size) {
       IsTrue(size > 0);
@@ -550,10 +550,10 @@ namespace Network {
         return -1;
       }
 
-      int clampedId = newId % size;
-      entryIds[clampedId] = newId;
+      int entryId = newId % size;
+      entryIds[entryId] = newId;
 
-      return clampedId;
+      return entryId;
     }
 
     public void Remove(ushort id) => entryIds[id % size] = 0xFFFFFFFF;
@@ -561,16 +561,13 @@ namespace Network {
     public bool Exists(ushort id) => entryIds[id % size] == id;
 
     public int Find(ushort id) {
-      int clampedId = id % size;
+      int entryId = id % size;
 
-      if (entryIds[clampedId] == id)
-        return clampedId;
+      if (entryIds[entryId] == id)
+        return entryId;
 
       return -1;
     }
-
-    public ushort GetSequence() => id;
-    public int GetSize() => size;
 
     public void RemoveEntries(ushort startId, ushort finishId) {
       int newFinishId = finishId < startId
@@ -584,9 +581,9 @@ namespace Network {
 
   public class SequenceBuffer32<T> where T : new() {
     public T[] entries;
+    public uint id;
+    public int size;
     uint[] entryIds;
-    int size;
-    uint id;
 
     public SequenceBuffer32(int size) {
       IsTrue(size > 0);
@@ -619,10 +616,10 @@ namespace Network {
         return -1;
       }
 
-      int clampedId = (int)(newId % size);
-      entryIds[clampedId] = newId;
+      int entryId = (int)(newId % size);
+      entryIds[entryId] = newId;
 
-      return clampedId;
+      return entryId;
     }
 
     public void Remove(uint id) {
@@ -642,16 +639,13 @@ namespace Network {
 
     public int Find(uint id) {
       IsTrue(id != 0xFFFFFFFF);
-      int clampedId = (int)(id % size);
+      int entryId = (int)(id % size);
 
-      if (entryIds[clampedId] == id)
-        return clampedId;
+      if (entryIds[entryId] == id)
+        return entryId;
       else
         return -1;
     }
-
-    public uint GetSequence() => id;
-    public int GetSize() => size;
 
     public void RemoveEntries(uint startId, uint finishId) {
       IsTrue(startId <= finishId);
@@ -693,16 +687,21 @@ namespace Network {
     SequenceBuffer<SentPacketData> sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
     SequenceBuffer<ReceivedPacketData> receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
 
-    public void GeneratePacketHeader(out PacketHeader h) {
-      h.id = id;
-      GenerateAckBits(receivedPackets, out h.ack, out h.ackBits);
-      h.frame = 0;
-      h.resetId = 0;
-      h.timeOffset = 0.0f;
-      int newId = sentPackets.Insert(id);
-      IsTrue(newId != -1);
-      sentPackets.entries[newId].acked = false;
+    public PacketHeader GeneratePacketHeader(ushort resetId = 0, uint frame = 0, float timeOffset = 0.0f) {
+      var header = new PacketHeader {
+        id = id,
+        frame = frame,
+        resetId = resetId,
+        timeOffset = timeOffset
+      };
+      GenerateAckBits(receivedPackets, out header.ack, out header.ackBits);
+
+      int entryId = sentPackets.Insert(id);
+      IsTrue(entryId != -1);
+      sentPackets.entries[entryId].acked = false;
       id++;
+
+      return header;
     }
 
     public void ProcessPacketHeader(ref PacketHeader h) {

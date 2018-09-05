@@ -257,7 +257,7 @@ public class Hands : OvrAvatarLocalDriver {
     d.prevGripRotation = d.grip.transform.rotation;
 
     var cube = d.grip.GetComponent<NetworkCube>(); //while an object is held set its last interaction frame to the current sim frame. this is used to boost priority for this object when it is thrown.
-    cube.interactionFrame = (long)context.simulationFrame;
+    cube.heldFrame = (long)context.simulationFrame;
   }
 
   void CollectInput(ref HandPose hand, ref ControllerPose controller, ref HandInput i) {

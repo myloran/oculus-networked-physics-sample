@@ -281,27 +281,27 @@ public class Common : MonoBehaviour {
       hasDelta[i] = false;
 #if !DISABLE_DELTA_COMPRESSION
 #if DEBUG_DELTA_COMPRESSION
-            cubeDelta[i].absolute_position_x = cubeState[i].position_x;
-            cubeDelta[i].absolute_position_y = cubeState[i].position_y;
-            cubeDelta[i].absolute_position_z = cubeState[i].position_z;
+      cubeDelta[i].absolute_position_x = cubeState[i].position_x;
+      cubeDelta[i].absolute_position_y = cubeState[i].position_y;
+      cubeDelta[i].absolute_position_z = cubeState[i].position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
-      if (context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)) {
-        if (Util.BaselineDifference(currentId, baselineIds[i]) > MaxBaselineDifference) continue; //baseline is too far behind => send the cube state absolute.
-        if (baseline.Equals(cubes[i])) {
-          notChanged[i] = true;
-        } else {
-          hasDelta[i] = true;
-          deltas[i].positionX = cubes[i].positionX - baseline.positionX;
-          deltas[i].positionY = cubes[i].positionY - baseline.positionY;
-          deltas[i].positionZ = cubes[i].positionZ - baseline.positionZ;
-          deltas[i].linearVelocityX = cubes[i].linearVelocityX - baseline.linearVelocityX;
-          deltas[i].linearVelocityY = cubes[i].linearVelocityY - baseline.linearVelocityY;
-          deltas[i].linearVelocityZ = cubes[i].linearVelocityZ - baseline.linearVelocityZ;
-          deltas[i].angularVelocityX = cubes[i].angularVelocityX - baseline.angularVelocityX;
-          deltas[i].angularVelocityY = cubes[i].angularVelocityY - baseline.angularVelocityY;
-          deltas[i].angularVelocityZ = cubes[i].angularVelocityZ - baseline.angularVelocityZ;
-        }
-      }
+      if (!context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)) continue;
+      if (Util.BaselineDifference(currentId, baselineIds[i]) > MaxBaselineDifference) continue; //baseline is too far behind => send the cube state absolute.
+      if (baseline.Equals(cubes[i])) {
+        notChanged[i] = true;
+        continue;
+      } 
+
+      hasDelta[i] = true;
+      deltas[i].positionX = cubes[i].positionX - baseline.positionX;
+      deltas[i].positionY = cubes[i].positionY - baseline.positionY;
+      deltas[i].positionZ = cubes[i].positionZ - baseline.positionZ;
+      deltas[i].linearVelocityX = cubes[i].linearVelocityX - baseline.linearVelocityX;
+      deltas[i].linearVelocityY = cubes[i].linearVelocityY - baseline.linearVelocityY;
+      deltas[i].linearVelocityZ = cubes[i].linearVelocityZ - baseline.linearVelocityZ;
+      deltas[i].angularVelocityX = cubes[i].angularVelocityX - baseline.angularVelocityX;
+      deltas[i].angularVelocityY = cubes[i].angularVelocityY - baseline.angularVelocityY;
+      deltas[i].angularVelocityZ = cubes[i].angularVelocityZ - baseline.angularVelocityZ;
 #endif // #if !DISABLE_DELTA_COMPRESSION
     }
     EndSample();

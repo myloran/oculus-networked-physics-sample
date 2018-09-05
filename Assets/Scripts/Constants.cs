@@ -68,10 +68,11 @@ public static class Constants {
   public const int MaxInteractionsDefault = 16;
   public const int ReturnToDefaultAuthorityFrames = 1 * PhysicsFrameRate;
   public const float SupportHeightThreshold = 0.1f;
-  public const int ThrownObjectPriorityBoostNumFrames = 1 * PhysicsFrameRate;
-  public const int HighEnergyCollisionPriorityBoostNumFrames = PhysicsFrameRate / 4;
+  public const int ThrownObjectPriority = 1 * PhysicsFrameRate;
+  public const int CollisionPriority = PhysicsFrameRate / 4;
   public const int JitterBufferSize = 256;
   public const int NumJitterBufferFrames = 10;
   public const int CollisionWithFloor = -1;
   public const int Nobody = -1;
+  public const float DontSend = -1f;
 }

@@ -26,7 +26,7 @@ using static AuthoritySystem;
 public class Context : MonoBehaviour {
   public struct Priority {
     public int cubeId;
-    public float accumulator;
+    public float value;
   };
 
   public struct Acks {
@@ -63,7 +63,7 @@ public class Context : MonoBehaviour {
 
       for (int i = 0; i < priorities.Length; ++i) {
         priorities[i].cubeId = i;
-        priorities[i].accumulator = 0.0f;
+        priorities[i].value = 0.0f;
       }
 
       for (int i = 0; i < acks.Length; ++i) {
@@ -495,30 +495,27 @@ public class Context : MonoBehaviour {
 
   void UpdateCubePriorities(ConnectionData data) {
     IsTrue(snapshot != null);
-    var frame = (long)simulationFrame;
 
     for (int i = 0; i < MaxCubes; ++i) {
       var cube = cubes[i].GetComponent<NetworkCube>();
-      
       if (cube.HasHolder()) { //don't send state updates held cubes. they are synchronized differently.
-        data.priorities[i].accumulator = -1;
+        data.priorities[i].value = DontSend;
         continue;
       }
-      
       if (IsClient() && cube.authorityId == 0 && !cube.isPendingCommit) { //only send white cubes from client -> server if they are pending commit after returning to default authority
-        data.priorities[i].accumulator = -1;
+        data.priorities[i].value = DontSend;
         continue;
       }
       
       var priority = 1.0f; //base priority
       
-      if (collisionFrames[i] + HighEnergyCollisionPriorityBoostNumFrames >= (ulong)frame) //higher priority for cubes that were recently in a high energy collision
-        priority = 10.0f;
-      
-      if (cube.interactionFrame + ThrownObjectPriorityBoostNumFrames >= frame) //*extremely* high priority for cubes that were just thrown by a player
-        priority = 1000000.0f;
+      if (collisionFrames[i] + CollisionPriority >= simulationFrame) 
+        priority = 10.0f; //higher priority for cubes that were recently in a high energy collision
 
-      data.priorities[i].accumulator += priority;
+      if (cube.heldFrame + ThrownObjectPriority >= (long)simulationFrame)
+        priority = 1000000.0f; //*extremely* high priority for cubes that were just thrown by a player
+
+      data.priorities[i].value += priority;
     }
   }
 
@@ -532,16 +529,17 @@ public class Context : MonoBehaviour {
     for (int i = 0; i < MaxCubes; ++i)
       priorities[i] = data.priorities[i];
 
-    Array.Sort(priorities, (x, y) => y.accumulator.CompareTo(x.accumulator));
+    Array.Sort(priorities, (x, y) => y.value.CompareTo(x.value));
     int max = count;
     count = 0;
 
     for (int i = 0; i < MaxCubes; ++i) {
       if (count == max) break;
-      if (priorities[i].accumulator < 0.0f) continue; //IMPORTANT: Negative priority means don't send this cube!
+      if (priorities[i].value <= DontSend) continue;
 
-      ids[count] = priorities[i].cubeId;
-      states[count] = snapshot.states[ids[count]];
+      int id = priorities[i].cubeId;
+      ids[count] = id;
+      states[count] = snapshot.states[id];
       ++count;
     }
   }
@@ -601,7 +599,7 @@ public class Context : MonoBehaviour {
 
   public void ResetCubePriority(ConnectionData data, int count, int[] cubeIds) {
     for (int i = 0; i < count; ++i)
-      data.priorities[cubeIds[i]].accumulator = 0.0f;
+      data.priorities[cubeIds[i]].value = 0.0f;
   }
 
   void AddStateToBuffer() {

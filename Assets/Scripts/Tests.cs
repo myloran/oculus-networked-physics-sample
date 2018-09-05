@@ -141,7 +141,7 @@ public static class Tests {
     for (int i = 0; i <= Size * 4; ++i) {
       int index = buffer.Insert((ushort)i);
       IsTrue(index != -1);
-      IsTrue(buffer.GetSequence() == i + 1);
+      IsTrue(buffer.id == i + 1);
       buffer.entries[index].sequence = (ushort)i;
     }
 
@@ -160,7 +160,7 @@ public static class Tests {
     }
 
     buffer.Reset();
-    IsTrue(buffer.GetSequence() == 0);
+    IsTrue(buffer.id == 0);
 
     for (int i = 0; i < Size; ++i) {
       IsTrue(buffer.Exists((ushort)i) == false);
@@ -189,7 +189,7 @@ public static class Tests {
     for (int i = 0; i <= Size * 4; ++i) {
       int index = buffer.Insert((uint)i);
       IsTrue(index != -1);
-      IsTrue(buffer.GetSequence() == i + 1);
+      IsTrue(buffer.id == i + 1);
       buffer.entries[index].sequence = (uint)i;
     }
 
@@ -208,7 +208,7 @@ public static class Tests {
     }
 
     buffer.Reset();
-    IsTrue(buffer.GetSequence() == 0);
+    IsTrue(buffer.id == 0);
 
     for (int i = 0; i < Size; ++i) {
       IsTrue(buffer.Exists((uint)i) == false);
@@ -253,20 +253,18 @@ public static class Tests {
     const int NumIterations = 256;
 
     for (int i = 0; i < NumIterations; ++i) {
-      PacketHeader senderPacketHeader;
-      PacketHeader receiverPacketHeader;
-      sender.GeneratePacketHeader(out senderPacketHeader);
-      receiver.GeneratePacketHeader(out receiverPacketHeader);
+      var senderHeader = sender.GeneratePacketHeader();
+      var receiverHeader = receiver.GeneratePacketHeader();
 
       if ((i % 11) != 0)
-        sender.ProcessPacketHeader(ref receiverPacketHeader);
+        sender.ProcessPacketHeader(ref receiverHeader);
 
       if ((i % 13) != 0)
-        receiver.ProcessPacketHeader(ref senderPacketHeader);
+        receiver.ProcessPacketHeader(ref senderHeader);
     }
 
-    var senderAcks = new ushort[Network.Connection.MaximumAcks];
-    var receiverAcks = new ushort[Network.Connection.MaximumAcks];
+    var senderAcks = new ushort[Connection.MaximumAcks];
+    var receiverAcks = new ushort[Connection.MaximumAcks];
     int numSenderAcks = 0;
     int numReceiverAcks = 0;
 

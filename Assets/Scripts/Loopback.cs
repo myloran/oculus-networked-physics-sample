@@ -342,9 +342,7 @@ public class Loopback: Common
 
         context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubes );
 
-        Network.PacketHeader writePacketHeader;
-
-        connectionData.connection.GeneratePacketHeader( out writePacketHeader );
+        Network.PacketHeader writePacketHeader = connectionData.connection.GeneratePacketHeader();
 
         writePacketHeader.timeOffset = avatarSampleTimeOffset;
 

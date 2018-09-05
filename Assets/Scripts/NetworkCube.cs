@@ -12,6 +12,7 @@ using static UnityEngine.Quaternion;
 using static UnityEngine.Vector3;
 using static System.Math;
 using static Constants;
+using UnityEngine.Serialization;
 
 public class NetworkCube : UnityEngine.MonoBehaviour {
   public GameObject smoothed;
@@ -29,7 +30,8 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
   public RemoteAvatar remoteAvatar;                                 // while this cube is held by a remote player, this points to the remote avatar.
   public RemoteAvatar.Hand remoteHand;                          // while this cube is held by a remote player, this points to the remote avatar hand that is holding it.
   public ulong activeFrame = 0;                                 // the frame number this cube was last active (not at rest). used to return to default authority (white) some amount of time after coming to rest.
-  public long interactionFrame = -100000;                 // the last frame number this cube was held by a player. used to increase priority for objects for a few seconds after they are thrown.
+  [FormerlySerializedAs("interactionFrame")]
+  public long heldFrame = -100000;                 // the last frame number this cube was held by a player. used to increase priority for objects for a few seconds after they are thrown.
   public Vector3 positionLag = zero;                      // the current position error between the physical cube and its visual representation.
   public Quaternion rotationLag = identity;            // the current rotation error between the physical cube and its visual representation.
 

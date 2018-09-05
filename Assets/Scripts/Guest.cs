@@ -384,11 +384,7 @@ public class Guest : Common {
     context.UpdateCubePriorities();
     context.GetCubeUpdates(data, ref cubeCount, ref cubeIds, ref cubes);
 
-    PacketHeader header;
-    data.connection.GeneratePacketHeader(out header);
-    header.resetId = context.resetId;
-    header.frame = (uint)frame;
-    header.timeOffset = timeOffset;
+    var header = data.connection.GeneratePacketHeader(context.resetId, (uint)frame, timeOffset);
 
     DetermineNotChangedAndDeltas(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
     DeterminePrediction(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubePredictions);
