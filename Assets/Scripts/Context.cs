@@ -21,7 +21,8 @@ using static Snapshot;
 using static AuthoritySystem;
 
 /// <summary>
-/// On it's own spreads authority, captures and applies snapshot
+/// Inits avatars and cubes. Spreads cube authority. Smoothes cubes.
+/// Captures and applies snapshot.
 /// </summary>
 public class Context : MonoBehaviour {
   public struct Priority {
@@ -79,7 +80,7 @@ public class Context : MonoBehaviour {
     }
   };
 
-  public GameObject[] 
+  public GameObject[]
     remoteAvatar = new GameObject[MaxClients],
     remoteLinePrefabs = new GameObject[MaxClients];
 
@@ -95,11 +96,11 @@ public class Context : MonoBehaviour {
   RingBuffer[] buffer = new RingBuffer[MaxCubes * RingBufferSize];
   ulong[] collisionFrames = new ulong[MaxCubes];
 
-  public ulong 
+  public ulong
     renderFrame = 0,
     simulationFrame = 0;
 
-  public int 
+  public int
     clientId,
     authorityId,
     layer;
@@ -178,7 +179,7 @@ public class Context : MonoBehaviour {
     IsTrue(clientId >= 0 && clientId < MaxClients);
     IsTrue(authorityId >= 0 && authorityId < MaxAuthority);
 
-    if (id == 0) {      
+    if (id == 0) {
       client = null; //initialize as server
       server = new ConnectionData[MaxClients - 1];
 
@@ -186,7 +187,7 @@ public class Context : MonoBehaviour {
         server[i] = new ConnectionData();
         InitPriorities(server[i]);
       }
-    } else {      
+    } else {
       client = new ConnectionData(); //initialize as client
       server = null;
       InitPriorities(client);
@@ -220,7 +221,7 @@ public class Context : MonoBehaviour {
   public RemoteAvatar GetAvatar(int id) {
     IsTrue(id >= 0);
     IsTrue(id < MaxClients);
-    
+
     return remoteAvatar[id]?.GetComponent<RemoteAvatar>();
   }
 
@@ -283,7 +284,7 @@ public class Context : MonoBehaviour {
       var renderer = cube.smoothed.GetComponent<Renderer>();
 
       renderer.material.Lerp(
-        renderer.material, 
+        renderer.material,
         authorityMaterials[cube.authorityId],
         cube.authorityId != 0 ? 0.3f : 0.04f);
     }
@@ -301,7 +302,7 @@ public class Context : MonoBehaviour {
         body.maxDepenetrationVelocity = PushOutVelocity; //this is *extremely* important to reduce jitter in the remote view of large stacks of rigid bodies
         cube.touching.layer = GetTouchingLayer();
         cube.Init(this, i);
-      } else {        
+      } else {
         var body = cubes[i].GetComponent<Rigidbody>(); //cube already exists: force it back to initial state
 
         if (body.IsSleeping())
@@ -357,10 +358,10 @@ public class Context : MonoBehaviour {
       collisionFrames[cubeId2] = simulationFrame;
   }
 
-  public void StartTouching(int cubeId1, int cubeId2) 
+  public void StartTouching(int cubeId1, int cubeId2)
     => Interactions.Add((ushort)cubeId1, (ushort)cubeId2);
 
-  public void FinishTouching(int cubeId1, int cubeId2) 
+  public void FinishTouching(int cubeId1, int cubeId2)
     => Interactions.Remove((ushort)cubeId1, (ushort)cubeId2);
 
   public void FindSupports(GameObject obj, ref HashSet<GameObject> supports) {
@@ -506,10 +507,10 @@ public class Context : MonoBehaviour {
         data.priorities[i].value = DontSend;
         continue;
       }
-      
+
       var priority = 1.0f; //base priority
-      
-      if (collisionFrames[i] + CollisionPriority >= simulationFrame) 
+
+      if (collisionFrames[i] + CollisionPriority >= simulationFrame)
         priority = 10.0f; //higher priority for cubes that were recently in a high energy collision
 
       if (cube.heldFrame + ThrownObjectPriority >= (long)simulationFrame)
@@ -669,10 +670,10 @@ public class Context : MonoBehaviour {
     var origin = gameObject.transform.position;
 
     for (int i = 0; i < MaxCubes; i++) {
-      var rigidBody = cubes[i].GetComponent<Rigidbody>();
+      var body = cubes[i].GetComponent<Rigidbody>();
       var cube = cubes[i].GetComponent<NetworkCube>();
 
-      GetState(rigidBody, cube, ref snapshot.states[i], ref origin);
+      GetState(body, cube, ref snapshot.states[i], ref origin);
     }
     EndSample();
   }
@@ -685,10 +686,10 @@ public class Context : MonoBehaviour {
       var cube = cubes[i].GetComponent<NetworkCube>();
       if (skipHeldObjects && cube.HasHolder()) continue;
 
-      var rigidBody = cubes[i].GetComponent<Rigidbody>();
-      if (skipSleepers && !snapshot.states[i].isActive && rigidBody.IsSleeping()) continue;
+      var body = cubes[i].GetComponent<Rigidbody>();
+      if (skipSleepers && !snapshot.states[i].isActive && body.IsSleeping()) continue;
 
-      ApplyState(rigidBody, cube, ref snapshot.states[i], ref origin);
+      ApplyState(body, cube, ref snapshot.states[i], ref origin);
     }
     EndSample();
   }

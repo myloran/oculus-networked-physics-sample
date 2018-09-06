@@ -49,7 +49,7 @@ public class NetworkCube : UnityEngine.MonoBehaviour {
   }
 
   public bool HasHolder() => holderId != Nobody;
-  public bool SameHolder(RemoteAvatar avatar, RemoteAvatar.Hand hand) => remoteAvatar == avatar && remoteHand == hand;
+  public bool HeldBy(RemoteAvatar avatar, RemoteAvatar.Hand hand) => remoteAvatar == avatar && remoteHand == hand;
 
   public void LocalGrip(Hands hands, Hands.HandData data) {
     Release();

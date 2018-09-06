@@ -6,9 +6,6 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
-using Network;
-using System;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Pose = OvrAvatarDriver.Pose;
@@ -84,6 +81,9 @@ public struct AvatarStateQuantized {
     isRightHandHoldingCube;
 }
 
+/// <summary>
+/// Reads avatar from pose. Compresses, decompresses and interpolates avatar. Binds cube to hand
+/// </summary>
 public struct AvatarState {
   public static AvatarState Default;
 
@@ -181,7 +181,7 @@ public struct AvatarState {
     s.voiceAmplitude = p.voiceAmplitude;
   }
 
-  public static void ApplyPose(ref AvatarState s, int clientId, Pose p, Context context) {
+  public static void UpdatePose(ref AvatarState s, int clientId, Pose p, Context context) {
     p.headPosition = s.headPosition;
     p.headRotation = s.headRotation;
     p.handLeftPosition = s.leftHandPosition;
@@ -199,56 +199,32 @@ public struct AvatarState {
     p.voiceAmplitude = s.voiceAmplitude;
   }
 
-  public static void UpdateLeftHandSequenceNumbers(ref AvatarState s, Context context) {
-    if (!s.isLeftHandHoldingCube) return;
-
-    var n = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
-    if (!Util.IdGreaterThan(s.leftHandOwnershipSequence, n.ownershipId)) return;
-#if DEBUG_AUTHORITY
-    Debug.Log( "server -> client: update left hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.leftHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.leftHandAuthoritySequence );
-#endif // #if DEBUG_AUTHORITY
-    n.ownershipId = s.leftHandOwnershipSequence;
-    n.authorityPacketId = s.leftHandAuthoritySequence;
-  }
-
-  public static void UpdateRightHandSequenceNumbers(ref AvatarState s, Context context) {
-    if (!s.isRightHandHoldingCube) return;
-
-    var n = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
-    if (!Util.IdGreaterThan(s.rightHandOwnershipSequence, n.ownershipId)) return;
-#if DEBUG_AUTHORITY
-    Debug.Log( "server -> client: update right hand sequence numbers - ownership sequence " + network.GetOwnershipSequence() + "->" + s.rightHandOwnershipSequence + ", authority sequence " + network.GetOwnershipSequence() + "->" + s.rightHandAuthoritySequence );
-#endif // #if DEBUG_AUTHORITY
-    n.ownershipId = s.rightHandOwnershipSequence;
-    n.authorityPacketId = s.rightHandAuthoritySequence;
-  }
-
-  public static void ApplyLeftHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
+  public static void UpdateLeftHand(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
     Assert.IsTrue(clientId == s.clientId);
     if (!s.isLeftHandHoldingCube) return;
 
-    var n = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
+    var cube = context.cubes[s.leftHandCubeId].GetComponent<NetworkCube>();
 
-    if (!n.SameHolder(avatar, avatar.GetLeftHand()))
-      n.RemoteGrip(avatar, avatar.GetLeftHand(), s.clientId);
+    if (!cube.HeldBy(avatar, avatar.GetLeftHand()))
+      cube.RemoteGrip(avatar, avatar.GetLeftHand(), s.clientId);
 
-    n.authorityPacketId = s.leftHandAuthoritySequence;
-    n.ownershipId = s.leftHandOwnershipSequence;
-    n.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
+    cube.authorityPacketId = s.leftHandAuthoritySequence;
+    cube.ownershipId = s.leftHandOwnershipSequence;
+    cube.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
   }
 
-  public static void ApplyRightHandUpdate(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
+  public static void UpdateRightHand(ref AvatarState s, int clientId, Context context, RemoteAvatar avatar) {
     Assert.IsTrue(clientId == s.clientId);
     if (!s.isRightHandHoldingCube) return;
 
-    var n = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
+    var cube = context.cubes[s.rightHandCubeId].GetComponent<NetworkCube>();
 
-    if (!n.SameHolder(avatar, avatar.GetRightHand()))
-      n.RemoteGrip(avatar, avatar.GetRightHand(), s.clientId);
+    if (!cube.HeldBy(avatar, avatar.GetRightHand()))
+      cube.RemoteGrip(avatar, avatar.GetRightHand(), s.clientId);
 
-    n.authorityPacketId = s.rightHandAuthoritySequence;
-    n.ownershipId = s.rightHandOwnershipSequence;
-    n.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
+    cube.authorityPacketId = s.rightHandAuthoritySequence;
+    cube.ownershipId = s.rightHandOwnershipSequence;
+    cube.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
   }
 
   public static void Quantize(ref AvatarState s, out AvatarStateQuantized q) {
@@ -325,7 +301,7 @@ public struct AvatarState {
     }
 
     q.voiceAmplitude = (int)Floor(s.voiceAmplitude * MaxVoice + 0.5f);    
-    ClampPosition(ref q.headPositionX, ref q.headPositionY, ref q.headPositionZ); //clamp everything
+    ClampPosition(ref q.headPositionX, ref q.headPositionY, ref q.headPositionZ);
     ClampPosition(ref q.leftHandPositionX, ref q.leftHandPositionY, ref q.leftHandPositionZ);
     ClampPosition(ref q.rightHandPositionX, ref q.rightHandPositionY, ref q.rightHandPositionZ);
 

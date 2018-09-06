@@ -13,6 +13,9 @@ using static Network.Util;
 using static PacketSerializer.PacketType;
 using static Constants;
 
+/// <summary>
+/// Bitpacking of packets, both read and write
+/// </summary>
 public class PacketSerializer {
   public enum PacketType {
     ClientsInfo = 1,                     // information about players connected to the server. broadcast from server -> clients whenever a player joins or leaves the game.

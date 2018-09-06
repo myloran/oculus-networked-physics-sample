@@ -108,13 +108,13 @@ public class RemoteAvatar : OvrAvatarDriver {
   }
 
   public void ApplyAvatarPose(ref AvatarState s) 
-    => ApplyPose(ref s, clientId, pose, context);
+    => UpdatePose(ref s, clientId, pose, context);
 
   public void ApplyLeftHandUpdate(ref AvatarState s) 
-    => AvatarState.ApplyLeftHandUpdate(ref s, clientId, context, this);
+    => UpdateLeftHand(ref s, clientId, context, this);
 
   public void ApplyRightHandUpdate(ref AvatarState s) 
-    => AvatarState.ApplyRightHandUpdate(ref s, clientId, context, this);
+    => UpdateRightHand(ref s, clientId, context, this);
 
   public override bool GetPose(out Pose p) {
     p = pose;

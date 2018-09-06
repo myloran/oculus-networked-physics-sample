@@ -18,6 +18,11 @@ using static UnityEngine.Debug;
 using static Constants;
 using System.IO;
 
+/// <summary>
+/// Holds message info of clients, avatars and cubes. Tracks render and physics time.
+/// Process packets in jitter buffer. Calculates prediction and delta compression. Process acks.
+/// Handles exeptions during packet read and write. Joins and leaves occulus rooms.
+/// </summary>
 public class Common : MonoBehaviour {
   protected class ClientsInfo {
     public bool[] areConnected = new bool[MaxClients];
@@ -83,14 +88,11 @@ public class Common : MonoBehaviour {
     cubeDeltas = new CubeDelta[MaxCubes],
     cubePredictions = new CubeDelta[MaxCubes],
     readCubeDeltas = new CubeDelta[MaxCubes],
-    readPredictionDeltas = new CubeDelta[MaxCubes];
+    readPredictionDeltas = new CubeDelta[MaxCubes];  
 
-  protected uint[] packetBuffer = new uint[MaxPacketSize / 4];
-
-  protected ushort[] 
+  protected ushort[]
     baselineIds = new ushort[MaxCubes],
-    readBaselineIds = new ushort[MaxCubes],
-    acks = new ushort[Connection.MaximumAcks];
+    readBaselineIds = new ushort[MaxCubes];
 
   protected int[] 
     cubeIds = new int[MaxCubes],
@@ -112,8 +114,10 @@ public class Common : MonoBehaviour {
 
   protected long frame = 0;
   protected bool isJitterBufferEnabled = true;
-  bool wantsToShutdown = false;
 
+  ushort[] acks = new ushort[Connection.MaximumAcks];
+  uint[] packetBuffer = new uint[MaxPacketSize / 4];
+  bool wantsToShutdown = false;
 
   protected void Start() {
     Log("Running Tests");
@@ -338,9 +342,9 @@ public class Common : MonoBehaviour {
           cubes[i].positionY = baseline.positionY + deltas[i].positionY;
           cubes[i].positionZ = baseline.positionZ + deltas[i].positionZ;
 #if DEBUG_DELTA_COMPRESSION
-                    Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
-                    Assert.IsTrue( cubeState[i].position_y == cubeDelta[i].absolute_position_y );
-                    Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
+          Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
+          Assert.IsTrue( cubeState[i].position_y == cubeDelta[i].absolute_position_y );
+          Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
           cubes[i].linearVelocityX = baseline.linearVelocityX + deltas[i].linearVelocityX;
           cubes[i].linearVelocityY = baseline.linearVelocityY + deltas[i].linearVelocityY;
@@ -571,7 +575,7 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) {
+  protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) { //is this should be here?
     BeginSample("ProcessAcksForConnection");
     int numAcks = 0;
     data.connection.GetAcks(ref acks, ref numAcks);

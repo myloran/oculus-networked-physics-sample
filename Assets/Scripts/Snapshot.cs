@@ -58,6 +58,10 @@ public struct CubeDelta {
     angularVelocityZ;
 }
 
+/// <summary>
+/// Gets cube with compressed position and rotation.
+/// Decompress position and rotation with optional smoothing and applies it to cube.
+/// </summary>
 public class Snapshot {
   public CubeState[] states = new CubeState[MaxCubes];
 
@@ -222,54 +226,54 @@ public class Snapshot {
     z = Clamp(z, MinLocalPosition, MaxLocalPosition);
   }
 
-  public static void GetState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin) {
-    s.isActive = !rigidbody.IsSleeping();
-    s.authorityId = network.authorityId;
-    s.authoritySequence = network.authorityPacketId;
-    s.ownershipSequence = network.ownershipId;
+  public static void GetState(Rigidbody body, NetworkCube cube, ref CubeState s, ref Vector3 origin) {
+    s.isActive = !body.IsSleeping();
+    s.authorityId = cube.authorityId;
+    s.authoritySequence = cube.authorityPacketId;
+    s.ownershipSequence = cube.ownershipId;
 
-    var position = rigidbody.position - origin;
+    var position = body.position - origin;
     s.positionX = (int)Math.Floor(position.x * UnitsPerMeter + 0.5f);
     s.positionY = (int)Math.Floor(position.y * UnitsPerMeter + 0.5f);
     s.positionZ = (int)Math.Floor(position.z * UnitsPerMeter + 0.5f);
-    QuaternionToSmallestThree(rigidbody.rotation, out s.rotationLargest, out s.rotationX, out s.rotationY, out s.rotationZ);
+    QuaternionToSmallestThree(body.rotation, out s.rotationLargest, out s.rotationX, out s.rotationY, out s.rotationZ);
 
-    s.linearVelocityX = (int)Math.Floor(rigidbody.velocity.x * UnitsPerMeter + 0.5f);
-    s.linearVelocityY = (int)Math.Floor(rigidbody.velocity.y * UnitsPerMeter + 0.5f);
-    s.linearVelocityZ = (int)Math.Floor(rigidbody.velocity.z * UnitsPerMeter + 0.5f);
-    s.angularVelocityX = (int)Math.Floor(rigidbody.angularVelocity.x * UnitsPerMeter + 0.5f);
-    s.angularVelocityY = (int)Math.Floor(rigidbody.angularVelocity.y * UnitsPerMeter + 0.5f);
-    s.angularVelocityZ = (int)Math.Floor(rigidbody.angularVelocity.z * UnitsPerMeter + 0.5f);
+    s.linearVelocityX = (int)Math.Floor(body.velocity.x * UnitsPerMeter + 0.5f);
+    s.linearVelocityY = (int)Math.Floor(body.velocity.y * UnitsPerMeter + 0.5f);
+    s.linearVelocityZ = (int)Math.Floor(body.velocity.z * UnitsPerMeter + 0.5f);
+    s.angularVelocityX = (int)Math.Floor(body.angularVelocity.x * UnitsPerMeter + 0.5f);
+    s.angularVelocityY = (int)Math.Floor(body.angularVelocity.y * UnitsPerMeter + 0.5f);
+    s.angularVelocityZ = (int)Math.Floor(body.angularVelocity.z * UnitsPerMeter + 0.5f);
 
     ClampPosition(ref s.positionX, ref s.positionY, ref s.positionZ);
     ClampLinearVelocity(ref s.linearVelocityX, ref s.linearVelocityY, ref s.linearVelocityZ);
     ClampAngularVelocity(ref s.angularVelocityX, ref s.angularVelocityY, ref s.angularVelocityZ);
   }
 
-  public static void ApplyState(Rigidbody rigidbody, NetworkCube network, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
-    network.Release();
+  public static void ApplyState(Rigidbody body, NetworkCube cube, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
+    cube.Release();
 
-    if (s.isActive && rigidbody.IsSleeping())
-        rigidbody.WakeUp();
+    if (s.isActive && body.IsSleeping())
+        body.WakeUp();
 
-    if (!s.isActive && !rigidbody.IsSleeping())
-        rigidbody.Sleep();
+    if (!s.isActive && !body.IsSleeping())
+        body.Sleep();
 
-    network.authorityId = s.authorityId;
-    network.authorityPacketId = s.authoritySequence;
-    network.ownershipId = s.ownershipSequence;
+    cube.authorityId = s.authorityId;
+    cube.authorityPacketId = s.authoritySequence;
+    cube.ownershipId = s.ownershipSequence;
 
     var position = new Vector3(s.positionX, s.positionY, s.positionZ) * 1.0f / UnitsPerMeter + origin;
     var rotation = SmallestThreeToQuaternion(s.rotationLargest, s.rotationX, s.rotationY, s.rotationZ);
 
     if (isSmooth) {
-      network.SmoothMove(position, rotation);
+      cube.SmoothMove(position, rotation);
     } else {
-      rigidbody.position = position;
-      rigidbody.rotation = rotation;
+      body.position = position;
+      body.rotation = rotation;
     }
 
-    rigidbody.velocity = new Vector3(s.linearVelocityX, s.linearVelocityY, s.linearVelocityZ) * 1.0f / UnitsPerMeter;
-    rigidbody.angularVelocity = new Vector3(s.angularVelocityX, s.angularVelocityY, s.angularVelocityZ) * 1.0f / UnitsPerMeter;
+    body.velocity = new Vector3(s.linearVelocityX, s.linearVelocityY, s.linearVelocityZ) * 1.0f / UnitsPerMeter;
+    body.angularVelocity = new Vector3(s.angularVelocityX, s.angularVelocityY, s.angularVelocityZ) * 1.0f / UnitsPerMeter;
   }
 }
