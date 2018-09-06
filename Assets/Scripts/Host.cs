@@ -113,11 +113,11 @@ public class Host : Common {
         context.ApplyAvatarUpdates(count, ref interpolatedAvatars, i, 0);
     }
 
-    for (int i = 1; i < MaxClients; ++i) { //advance jitter buffer time
+    for (int i = 1; i < MaxClients; ++i) {
       if (clients[i].state == Connected)
         context.GetServerData(i).jitterBuffer.AdvanceTime(Time.deltaTime);
     }
-    CheckTimeouts(); //check for timeouts
+    CheckTimeouts();
   }
 
   new void FixedUpdate() {
@@ -419,7 +419,7 @@ public class Host : Common {
     context.UpdateCubePriorities();
     context.GetCubeUpdates(data, ref count, ref cubeIds, ref cubes);
 
-    var header = data.connection.GeneratePacketHeader(context.resetId, (uint)frame, timeOffset);
+    var header = data.connection.GeneratePacketHeader((uint)frame, context.resetId, timeOffset);
     DetermineNotChangedAndDeltas(context, data, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
     DeterminePrediction(context, data, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubePredictions);
     int id = 0;

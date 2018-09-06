@@ -289,7 +289,7 @@ public class Common : MonoBehaviour {
       cubeDelta[i].absolute_position_y = cubeState[i].position_y;
       cubeDelta[i].absolute_position_z = cubeState[i].position_z;
 #endif // #if DEBUG_DELTA_COMPRESSION
-      if (!context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)) continue;
+      if (!context.GetAckedCube(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)) continue;
       if (Util.BaselineDifference(currentId, baselineIds[i]) > MaxBaselineDifference) continue; //baseline is too far behind => send the cube state absolute.
       if (baseline.Equals(cubes[i])) {
         notChanged[i] = true;
@@ -375,7 +375,7 @@ public class Common : MonoBehaviour {
       if (notChanged[i] 
         || !hasDelta[i] 
         || !cubes[i].isActive
-        || !context.GetAck(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)
+        || !context.GetAckedCube(data, cubeIds[i], ref baselineIds[i], context.resetId, ref baseline)
         || Util.BaselineDifference(currentId, baselineIds[i]) <= MaxBaselineDifference //baseline is too far behind. send the cube state absolute
         || !baseline.isActive //no point predicting if the cube is at rest.
       ) continue;
@@ -577,17 +577,17 @@ public class Common : MonoBehaviour {
 
   protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) { //is this should be here?
     BeginSample("ProcessAcksForConnection");
-    int numAcks = 0;
-    data.connection.GetAcks(ref acks, ref numAcks);
+    int ackCount = 0;
+    data.connection.GetAcks(ref acks, ref ackCount);
 
-    for (int i = 0; i < numAcks; ++i) {
+    for (int i = 0; i < ackCount; ++i) {
       int cubeCount;
       int[] cubeIds;
       CubeState[] states;
 
       if (data.sendBuffer.GetPacket(acks[i], context.resetId, out cubeCount, out cubeIds, out states)) {
         for (int j = 0; j < cubeCount; ++j)
-          context.UpdateAck(data, cubeIds[j], acks[i], context.resetId, ref states[j]);
+          context.UpdateCubeAck(data, cubeIds[j], acks[i], context.resetId, ref states[j]);
       }
     }
     EndSample();

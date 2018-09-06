@@ -683,7 +683,7 @@ namespace Network {
   }
 
   public struct SentPacketData {
-    public bool acked;
+    public bool isAcked;
   }
 
   public struct ReceivedPacketData { }
@@ -699,7 +699,7 @@ namespace Network {
     SequenceBuffer<SentPacketData> sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
     SequenceBuffer<ReceivedPacketData> receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
 
-    public PacketHeader GeneratePacketHeader(ushort resetId = 0, uint frame = 0, float timeOffset = 0.0f) {
+    public PacketHeader GeneratePacketHeader(uint frame = 0, ushort resetId = 0, float timeOffset = 0.0f) {
       var header = new PacketHeader {
         id = id,
         frame = frame,
@@ -710,14 +710,14 @@ namespace Network {
 
       int entryId = sentPackets.Insert(id);
       IsTrue(entryId != -1);
-      sentPackets.entries[entryId].acked = false;
+      sentPackets.entries[entryId].isAcked = false;
       id++;
 
       return header;
     }
 
     public void ProcessPacketHeader(ref PacketHeader h) {
-      PacketReceived(h.id);
+      receivedPackets.Insert(h.id);
 
       for (int i = 0; i < 32; ++i) {
         if ((h.ackBits & 1) == 0) {
@@ -725,12 +725,12 @@ namespace Network {
           continue;
         }
 
-        var ackedId = (ushort)(h.ack - i);
-        int id = sentPackets.Find(ackedId);
+        var ackId = (ushort)(h.ack - i);
+        int id = sentPackets.Find(ackId);
 
-        if (id != -1 && !sentPackets.entries[id].acked) {
-          PacketAcked(ackedId);
-          sentPackets.entries[id].acked = true;
+        if (id != -1 && !sentPackets.entries[id].isAcked) {
+          Ack(ackId);
+          sentPackets.entries[id].isAcked = true;
         }
         h.ackBits >>= 1;
       }
@@ -750,10 +750,8 @@ namespace Network {
       receivedPackets.Reset();
     }
 
-    void PacketReceived(ushort id) => receivedPackets.Insert(id);
-
-    void PacketAcked(ushort id) {
-      if (ackCount == MaximumAcks - 1) return;
+    void Ack(ushort id) {
+      if (ackCount == MaximumAcks-1) return;
 
       acks[ackCount++] = id;
     }

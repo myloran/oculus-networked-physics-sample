@@ -48,7 +48,7 @@ public class Context : MonoBehaviour {
     public DeltaBuffer receiveBuffer = new DeltaBuffer(DeltaBufferSize);
     public JitterBuffer jitterBuffer = new JitterBuffer();
     public Priority[] priorities = new Priority[MaxCubes];
-    public Acks[] acks = new Acks[MaxCubes];
+    public Acks[] cubeAcks = new Acks[MaxCubes];
     public bool isFirstPacket = true;
     public long frame = -1;
 
@@ -67,10 +67,10 @@ public class Context : MonoBehaviour {
         priorities[i].value = 0.0f;
       }
 
-      for (int i = 0; i < acks.Length; ++i) {
-        acks[i].isAcked = false;
-        acks[i].id = 0;
-        acks[i].resetId = 0;
+      for (int i = 0; i < cubeAcks.Length; ++i) {
+        cubeAcks[i].isAcked = false;
+        cubeAcks[i].id = 0;
+        cubeAcks[i].resetId = 0;
       }
 
       isFirstPacket = true;
@@ -254,26 +254,25 @@ public class Context : MonoBehaviour {
 
   public GameObject GetAvatarHead(int id) => GetAvatar(id)?.GetHead();
 
-  public bool GetAck(ConnectionData d, int cubeId, ref ushort packetId, ushort resetId, ref CubeState state) {
-    if (!d.acks[cubeId].isAcked) return false;
-    if (d.acks[cubeId].resetId != resetId) return false;
+  public bool GetAckedCube(ConnectionData d, int cubeId, ref ushort packetId, ushort resetId, ref CubeState state) {
+    if (!d.cubeAcks[cubeId].isAcked) return false;
+    if (d.cubeAcks[cubeId].resetId != resetId) return false;
 
-    packetId = d.acks[cubeId].id;
-    state = d.acks[cubeId].state;
+    packetId = d.cubeAcks[cubeId].id;
+    state = d.cubeAcks[cubeId].state;
 
     return true;
   }
 
-  public bool UpdateAck(ConnectionData d, int cubeId, ushort packetId, ushort resetId, ref CubeState state) {
-    if (d.acks[cubeId].isAcked
-      && (Util.IdGreaterThan(d.acks[cubeId].resetId, resetId)
-      || Util.IdGreaterThan(d.acks[cubeId].id, packetId))
+  public bool UpdateCubeAck(ConnectionData d, int cubeId, ushort packetId, ushort resetId, ref CubeState state) {
+    if (d.cubeAcks[cubeId].isAcked && 
+      Util.IdGreaterThan(d.cubeAcks[cubeId].resetId, resetId) || Util.IdGreaterThan(d.cubeAcks[cubeId].id, packetId)
     ) return false;
 
-    d.acks[cubeId].isAcked = true;
-    d.acks[cubeId].id = packetId;
-    d.acks[cubeId].resetId = resetId;
-    d.acks[cubeId].state = state;
+    d.cubeAcks[cubeId].isAcked = true;
+    d.cubeAcks[cubeId].id = packetId;
+    d.cubeAcks[cubeId].resetId = resetId;
+    d.cubeAcks[cubeId].state = state;
 
     return true;
   }

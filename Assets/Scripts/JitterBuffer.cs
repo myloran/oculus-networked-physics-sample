@@ -140,7 +140,7 @@ public class JitterBuffer {
     //so we can reuse code below to find a suitable end point on first time through.
     //if no interpolation start point is found, return.
     if (!isInterpolating) {
-      for (long i = frame + 1; (i > frame - n) && (i >= 0); i--) {
+      for (var i = frame+1; i > frame-n && i >= 0; i--) {
         var entry = GetEntry((uint)i);
         if (entry == null) continue;
 
