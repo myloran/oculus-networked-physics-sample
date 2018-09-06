@@ -115,7 +115,7 @@ public class Common : MonoBehaviour {
   protected long frame = 0;
   protected bool isJitterBufferEnabled = true;
 
-  ushort[] acks = new ushort[MaximumAcks];
+  ushort[] ackedPackets = new ushort[MaximumAcks];
   uint[] packetBuffer = new uint[MaxPacketSize / 4];
   bool wantsToShutdown = false;
 
@@ -183,7 +183,7 @@ public class Common : MonoBehaviour {
 
     AddPacket(ref data.receiveBuffer, entry.header.id, context.resetId, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
     context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientId, toClientId, isSmooth); //apply the state updates to cubes    
-    data.connection.ProcessPacketHeader(ref entry.header); //process the packet header (handles acks)
+    data.acking.AckPackets(ref entry.header); //process the packet header (handles acks)
   }
 
   protected bool WriteClientsPacket(bool[] areConnected, ulong[] userIds, string[] userNames) { //host only
@@ -578,16 +578,16 @@ public class Common : MonoBehaviour {
   protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) { //is this should be here?
     BeginSample("ProcessAcksForConnection");
     int ackCount = 0;
-    data.connection.GetPacketAcks(ref acks, ref ackCount);
+    data.acking.GetAckedPackets(ref ackedPackets, ref ackCount);
 
     for (int i = 0; i < ackCount; ++i) {
       int cubeCount;
-      int[] cubeIds;
+      int[] ids;
       CubeState[] states;
 
-      if (data.sendBuffer.GetPacketCubes(acks[i], context.resetId, out cubeCount, out cubeIds, out states)) {
+      if (data.sendBuffer.GetPacketCubes(ackedPackets[i], context.resetId, out cubeCount, out ids, out states)) {
         for (int j = 0; j < cubeCount; ++j)
-          context.UpdateCubeAck(data, cubeIds[j], acks[i], context.resetId, ref states[j]);
+          context.UpdateCubeAck(data, ids[j], ackedPackets[i], context.resetId, ref states[j]);
       }
     }
     EndSample();

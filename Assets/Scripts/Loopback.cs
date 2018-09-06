@@ -341,8 +341,12 @@ public class Loopback: Common
         context.UpdateCubePriorities();
 
         context.GetCubeUpdates( connectionData, ref numStateUpdates, ref cubeIds, ref cubes );
-
-        Network.PacketHeader writePacketHeader = connectionData.connection.GeneratePacketHeader();
+    var writePacketHeader = new Network.PacketHeader {
+      frame = (uint)frame,
+      resetId = context.resetId,
+      timeOffset = 0
+    };
+    connectionData.acking.AddUnackedPackets(ref writePacketHeader);
 
         writePacketHeader.timeOffset = avatarSampleTimeOffset;
 
@@ -487,7 +491,7 @@ public class Loopback: Common
 
             // process the packet header
 
-            connectionData.connection.ProcessPacketHeader( ref readPacketHeader );
+            connectionData.acking.AckPackets( ref readPacketHeader );
         }
 
         Profiler.EndSample();

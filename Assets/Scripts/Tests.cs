@@ -253,14 +253,24 @@ public static class Tests {
     const int NumIterations = 256;
 
     for (int i = 0; i < NumIterations; ++i) {
-      var senderHeader = sender.GeneratePacketHeader();
-      var receiverHeader = receiver.GeneratePacketHeader();
+      var senderHeader = new PacketHeader {
+        frame = 0,
+        resetId = 0,
+        timeOffset = 0
+      };
+      var receiverHeader = new PacketHeader {
+        frame = 0,
+        resetId = 0,
+        timeOffset = 0
+      };
+      sender.AddUnackedPackets(ref senderHeader);
+      receiver.AddUnackedPackets(ref receiverHeader);
 
       if ((i % 11) != 0)
-        sender.ProcessPacketHeader(ref receiverHeader);
+        sender.AckPackets(ref receiverHeader);
 
       if ((i % 13) != 0)
-        receiver.ProcessPacketHeader(ref senderHeader);
+        receiver.AckPackets(ref senderHeader);
     }
 
     var senderAcks = new ushort[Constants.MaximumAcks];
@@ -268,8 +278,8 @@ public static class Tests {
     int numSenderAcks = 0;
     int numReceiverAcks = 0;
 
-    sender.GetPacketAcks(ref senderAcks, ref numSenderAcks);
-    receiver.GetPacketAcks(ref receiverAcks, ref numReceiverAcks);
+    sender.GetAckedPackets(ref senderAcks, ref numSenderAcks);
+    receiver.GetAckedPackets(ref receiverAcks, ref numReceiverAcks);
     IsTrue(numSenderAcks > NumIterations / 2);
     IsTrue(numReceiverAcks > NumIterations / 2);
 

@@ -25,12 +25,12 @@ using static AuthoritySystem;
 /// Captures and applies snapshot.
 /// </summary>
 public class Context : MonoBehaviour {
-  public struct Priority {
+  public struct CubePriority {
     public int cubeId;
     public float value;
   };
 
-  public struct Ack {
+  public struct CubeAck {
     public CubeState state;
 
     public ushort 
@@ -47,15 +47,15 @@ public class Context : MonoBehaviour {
   };
 
   public class ConnectionData {
-    public PacketAcking connection = new PacketAcking();
+    public PacketAcking acking = new PacketAcking();
 
     public DeltaBuffer 
       sendBuffer = new DeltaBuffer(DeltaBufferSize),
       receiveBuffer = new DeltaBuffer(DeltaBufferSize);
 
     public JitterBuffer jitterBuffer = new JitterBuffer();
-    public Priority[] priorities = new Priority[MaxCubes];
-    public Ack[] cubeAcks = new Ack[MaxCubes];
+    public CubePriority[] priorities = new CubePriority[MaxCubes];
+    public CubeAck[] cubeAcks = new CubeAck[MaxCubes];
     public bool isFirstPacket = true;
     public long frame = -1;
 
@@ -65,7 +65,7 @@ public class Context : MonoBehaviour {
 
     public void Reset() {
       BeginSample("ConnectionData.Reset");
-      connection.Reset();
+      acking.Reset();
       sendBuffer.Reset();
       receiveBuffer.Reset();
 
@@ -526,12 +526,12 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public void GetCubeUpdates(ConnectionData data, ref int count, ref int[] ids, ref CubeState[] states) {
+  public void GetCubeUpdates(ConnectionData data, ref int count, ref int[] ids, ref CubeState[] cubes) {
     IsTrue(count >= 0);
     IsTrue(count <= MaxCubes);
     if (count == 0) return;
 
-    var priorities = new Priority[MaxCubes];
+    var priorities = new CubePriority[MaxCubes];
 
     for (int i = 0; i < MaxCubes; ++i)
       priorities[i] = data.priorities[i];
@@ -546,7 +546,7 @@ public class Context : MonoBehaviour {
 
       int id = priorities[i].cubeId;
       ids[count] = id;
-      states[count] = snapshot.states[id];
+      cubes[count] = snapshot.states[id];
       ++count;
     }
   }

@@ -384,8 +384,12 @@ public class Guest : Common {
     context.UpdateCubePriorities();
     context.GetCubeUpdates(data, ref cubeCount, ref cubeIds, ref cubes);
 
-    var header = data.connection.GeneratePacketHeader((uint)frame, context.resetId, timeOffset);
-
+    var header = new PacketHeader {
+      frame = (uint)frame,
+      resetId = context.resetId,
+      timeOffset = timeOffset
+    };
+    data.acking.AddUnackedPackets(ref header);
     DetermineNotChangedAndDeltas(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
     DeterminePrediction(context, data, header.id, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubePredictions);
 
@@ -487,7 +491,7 @@ public class Guest : Common {
       int toClientId = clientId;
       context.ApplyCubeUpdates(cubeCount, ref readCubeIds, ref readCubes, fromClientId, toClientId, isJitterBufferEnabled && renderTime > timeConnected + 0.25);
       context.ApplyAvatarUpdates(avatarCount, ref readAvatars, fromClientId, toClientId); //apply avatar state updates      
-      data.connection.ProcessPacketHeader(ref header); //process the packet header
+      data.acking.AckPackets(ref header); //process the packet header
     }
     Profiler.EndSample();
   }

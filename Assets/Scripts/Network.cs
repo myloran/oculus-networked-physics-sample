@@ -681,22 +681,17 @@ namespace Network {
   public struct Received { }
 
   /// <summary>
-  /// Keeps track of acked packets
+  /// Adds unacked packets on send. Acks packets on receive. Returns acked packets
   /// </summary>
   public class PacketAcking {
     ushort id = 0;
     int ackCount = 0;
-    ushort[] packetAcks = new ushort[MaximumAcks];
+    ushort[] acks = new ushort[MaximumAcks];
     SequenceBuffer<Sent> sentPackets = new SequenceBuffer<Sent>(SentPacketsSize);
     SequenceBuffer<Received> receivedPackets = new SequenceBuffer<Received>(ReceivedPacketsSize);
 
-    public PacketHeader GeneratePacketHeader(uint frame = 0, ushort resetId = 0, float timeOffset = 0.0f) {
-      var header = new PacketHeader {
-        id = id,
-        frame = frame,
-        resetId = resetId,
-        timeOffset = timeOffset
-      };
+    public PacketHeader AddUnackedPackets(ref PacketHeader header) {
+      header.id = id;
       GenerateAckBits(receivedPackets, out header.ack, out header.ackBits);
 
       int entryId = sentPackets.Insert(id);
@@ -707,7 +702,7 @@ namespace Network {
       return header;
     }
 
-    public void ProcessPacketHeader(ref PacketHeader h) {
+    public void AckPackets(ref PacketHeader h) {
       receivedPackets.Insert(h.id);
 
       for (int i = 0; i < 32; ++i) {
@@ -716,20 +711,20 @@ namespace Network {
           continue;
         }
 
-        var ackId = (ushort)(h.ack - i);
-        int id = sentPackets.Get(ackId);
+        var packetId = (ushort)(h.ack - i);
+        int id = sentPackets.Get(packetId);
 
         if (id != -1 && !sentPackets.entries[id].isAcked) {
-          Ack(ackId);
+          Ack(packetId);
           sentPackets.entries[id].isAcked = true;
         }
         h.ackBits >>= 1;
       }
     }
 
-    public void GetPacketAcks(ref ushort[] acks, ref int count) {
+    public void GetAckedPackets(ref ushort[] acks, ref int count) {
       for (int i = 0; i < Math.Min(ackCount, acks.Length); ++i)
-        acks[i] = packetAcks[i];
+        acks[i] = this.acks[i];
 
       ackCount = 0;
     }
@@ -744,7 +739,7 @@ namespace Network {
     void Ack(ushort id) {
       if (ackCount == MaximumAcks-1) return;
 
-      packetAcks[ackCount++] = id;
+      acks[ackCount++] = id;
     }
   }
 

@@ -21,7 +21,7 @@ public class DeltaBuffer {
 
     public int count;
     public ushort resetId;
-  };
+  }
 
   SequenceBuffer<PriorityCubes> buffer;
 
