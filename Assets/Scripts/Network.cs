@@ -8,20 +8,12 @@
  */
 using System;
 using static UnityEngine.Assertions.Assert;
-using static Network.Constants;
 using static Network.Util;
 using static System.BitConverter;
 using static System.Buffer;
+using static Constants;
 
 namespace Network {
-  public static class Constants {
-    public const int MaxStringLength = 255;
-    public const int STREAM_ERROR_NONE = 0;
-    public const int STREAM_ERROR_OVERFLOW = 1;
-    public const int STREAM_ERROR_ALIGNMENT = 2;
-    public const int STREAM_ERROR_VALUE_OUT_OF_RANGE = 3;
-  };
-
   public static class Util {
     public static uint SignedToUnsigned(int n) => (uint)((n << 1) ^ (n >> 31));
     public static int UnsignedToSigned(uint n) => (int)((n >> 1) ^ (-(n & 1)));
@@ -572,7 +564,7 @@ namespace Network {
     public bool Available(ushort id) => entryIds[id % size] == 0xFFFFFFFF;
     public bool Exists(ushort id) => entryIds[id % size] == id;
 
-    public int Find(ushort id) {
+    public int Get(ushort id) {
       int entryId = id % size;
 
       if (entryIds[entryId] == id)
@@ -649,7 +641,7 @@ namespace Network {
       return entryIds[id % size] == id;
     }
 
-    public int Find(uint id) {
+    public int Get(uint id) {
       IsTrue(id != 0xFFFFFFFF);
       int entryId = (int)(id % size);
 
@@ -682,22 +674,21 @@ namespace Network {
     public float timeOffset;                    //offset between the current physics frame time of this packet and the time where the avatar state was sampled
   }
 
-  public struct SentPacketData {
+  public struct Sent {
     public bool isAcked;
   }
 
-  public struct ReceivedPacketData { }
+  public struct Received { }
 
-  public class Connection {
-    public const int MaximumAcks = 1024;
-    public const int SentPacketsSize = 1024;
-    public const int ReceivedPacketsSize = 1024;
-
+  /// <summary>
+  /// Keeps track of acked packets
+  /// </summary>
+  public class PacketAcking {
     ushort id = 0;
     int ackCount = 0;
-    ushort[] acks = new ushort[MaximumAcks];
-    SequenceBuffer<SentPacketData> sentPackets = new SequenceBuffer<SentPacketData>(SentPacketsSize);
-    SequenceBuffer<ReceivedPacketData> receivedPackets = new SequenceBuffer<ReceivedPacketData>(ReceivedPacketsSize);
+    ushort[] packetAcks = new ushort[MaximumAcks];
+    SequenceBuffer<Sent> sentPackets = new SequenceBuffer<Sent>(SentPacketsSize);
+    SequenceBuffer<Received> receivedPackets = new SequenceBuffer<Received>(ReceivedPacketsSize);
 
     public PacketHeader GeneratePacketHeader(uint frame = 0, ushort resetId = 0, float timeOffset = 0.0f) {
       var header = new PacketHeader {
@@ -726,7 +717,7 @@ namespace Network {
         }
 
         var ackId = (ushort)(h.ack - i);
-        int id = sentPackets.Find(ackId);
+        int id = sentPackets.Get(ackId);
 
         if (id != -1 && !sentPackets.entries[id].isAcked) {
           Ack(ackId);
@@ -736,9 +727,9 @@ namespace Network {
       }
     }
 
-    public void GetAcks(ref ushort[] acks, ref int count) {
+    public void GetPacketAcks(ref ushort[] acks, ref int count) {
       for (int i = 0; i < Math.Min(ackCount, acks.Length); ++i)
-        acks[i] = this.acks[i];
+        acks[i] = packetAcks[i];
 
       ackCount = 0;
     }
@@ -753,7 +744,7 @@ namespace Network {
     void Ack(ushort id) {
       if (ackCount == MaximumAcks-1) return;
 
-      acks[ackCount++] = id;
+      packetAcks[ackCount++] = id;
     }
   }
 

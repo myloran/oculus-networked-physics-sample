@@ -75,4 +75,14 @@ public static class Constants {
   public const int CollisionWithFloor = -1;
   public const int Nobody = -1;
   public const float DontSend = -1f;
+  //Packet acking
+  public const int MaximumAcks = 1024;
+  public const int SentPacketsSize = 1024;
+  public const int ReceivedPacketsSize = 1024;
+  //Network
+  public const int MaxStringLength = 255;
+  public const int STREAM_ERROR_NONE = 0;
+  public const int STREAM_ERROR_OVERFLOW = 1;
+  public const int STREAM_ERROR_ALIGNMENT = 2;
+  public const int STREAM_ERROR_VALUE_OUT_OF_RANGE = 3;
 }

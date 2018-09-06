@@ -135,7 +135,7 @@ public static class Tests {
       entry.sequence = 0;
       IsTrue(buffer.Exists((ushort)i) == false);
       IsTrue(buffer.Available((ushort)i) == true);
-      IsTrue(buffer.Find((ushort)i) == -1);
+      IsTrue(buffer.Get((ushort)i) == -1);
     }
 
     for (int i = 0; i <= Size * 4; ++i) {
@@ -152,7 +152,7 @@ public static class Tests {
 
     ushort sequence = Size * 4;
     for (int i = 0; i < Size; ++i) {
-      int index = buffer.Find(sequence);
+      int index = buffer.Get(sequence);
       IsTrue(index >= 0);
       IsTrue(index < Size);
       IsTrue(buffer.entries[index].sequence == sequence);
@@ -165,7 +165,7 @@ public static class Tests {
     for (int i = 0; i < Size; ++i) {
       IsTrue(buffer.Exists((ushort)i) == false);
       IsTrue(buffer.Available((ushort)i) == true);
-      IsTrue(buffer.Find((ushort)i) == -1);
+      IsTrue(buffer.Get((ushort)i) == -1);
     }
   }
 
@@ -183,7 +183,7 @@ public static class Tests {
       entry.sequence = 0;
       IsTrue(buffer.Exists((uint)i) == false);
       IsTrue(buffer.Available((uint)i) == true);
-      IsTrue(buffer.Find((uint)i) == -1);
+      IsTrue(buffer.Get((uint)i) == -1);
     }
 
     for (int i = 0; i <= Size * 4; ++i) {
@@ -200,7 +200,7 @@ public static class Tests {
 
     uint sequence = Size * 4;
     for (int i = 0; i < Size; ++i) {
-      int index = buffer.Find(sequence);
+      int index = buffer.Get(sequence);
       IsTrue(index >= 0);
       IsTrue(index < Size);
       IsTrue(buffer.entries[index].sequence == sequence);
@@ -213,7 +213,7 @@ public static class Tests {
     for (int i = 0; i < Size; ++i) {
       IsTrue(buffer.Exists((uint)i) == false);
       IsTrue(buffer.Available((uint)i) == true);
-      IsTrue(buffer.Find((uint)i) == -1);
+      IsTrue(buffer.Get((uint)i) == -1);
     }
   }
 
@@ -248,8 +248,8 @@ public static class Tests {
 
   static void test_connection() {
     Log("test_connection");
-    var sender = new Connection();
-    var receiver = new Connection();
+    var sender = new PacketAcking();
+    var receiver = new PacketAcking();
     const int NumIterations = 256;
 
     for (int i = 0; i < NumIterations; ++i) {
@@ -263,13 +263,13 @@ public static class Tests {
         receiver.ProcessPacketHeader(ref senderHeader);
     }
 
-    var senderAcks = new ushort[Connection.MaximumAcks];
-    var receiverAcks = new ushort[Connection.MaximumAcks];
+    var senderAcks = new ushort[Constants.MaximumAcks];
+    var receiverAcks = new ushort[Constants.MaximumAcks];
     int numSenderAcks = 0;
     int numReceiverAcks = 0;
 
-    sender.GetAcks(ref senderAcks, ref numSenderAcks);
-    receiver.GetAcks(ref receiverAcks, ref numReceiverAcks);
+    sender.GetPacketAcks(ref senderAcks, ref numSenderAcks);
+    receiver.GetPacketAcks(ref receiverAcks, ref numReceiverAcks);
     IsTrue(numSenderAcks > NumIterations / 2);
     IsTrue(numReceiverAcks > NumIterations / 2);
 
@@ -338,7 +338,7 @@ public static class Tests {
     int packetNumCubes; //grab the packet data for the sequence and make sure it matches what we expect
     int[] packetCubeIds;
     CubeState[] packetCubeState;
-    result = buffer.GetPacket(Sequence, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState);
+    result = buffer.GetPacketCubes(Sequence, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState);
     IsTrue(result == true);
     IsTrue(packetNumCubes == NumCubeStates);
 
@@ -347,10 +347,10 @@ public static class Tests {
       IsTrue(packetCubeState[i].positionX == cubeStates[i].positionX);
     }    
 
-    result = buffer.GetPacket(Sequence + 1, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for an invalid sequence number and make sure it returns false
+    result = buffer.GetPacketCubes(Sequence + 1, ResetSequence, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for an invalid sequence number and make sure it returns false
     IsTrue(result == false);
     
-    result = buffer.GetPacket(Sequence, ResetSequence + 1, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for a different reset sequence number and make sure it returns false
+    result = buffer.GetPacketCubes(Sequence, ResetSequence + 1, out packetNumCubes, out packetCubeIds, out packetCubeState); //try to grab packet data for a different reset sequence number and make sure it returns false
     IsTrue(result == false);
 #endif // #if !DEBUG_AUTHORITY
   }

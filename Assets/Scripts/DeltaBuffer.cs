@@ -6,33 +6,32 @@
  * LICENSE file in the Scripts directory of this source tree. An additional grant 
  * of patent rights can be found in the PATENTS file in the same directory.
  */
-
 using Network;
 using UnityEngine.Assertions;
 using UnityEngine.Profiling;
 using static Constants;
 
 public class DeltaBuffer {
-  struct Entry {
+  struct PriorityCubes {
     public CubeState[] states;
 
     public int[] 
-      entryIds,
+      priorityIds,
       cubeIds;
 
     public int count;
     public ushort resetId;
   };
 
-  SequenceBuffer<Entry> buffer;
+  SequenceBuffer<PriorityCubes> buffer;
 
   public DeltaBuffer(int size) {
-    buffer = new SequenceBuffer<Entry>(size);
+    buffer = new SequenceBuffer<PriorityCubes>(size);
 
     for (int i = 0; i < buffer.size; ++i) {
       buffer.entries[i].resetId = 0;
       buffer.entries[i].count = 0;
-      buffer.entries[i].entryIds = new int[MaxCubes];
+      buffer.entries[i].priorityIds = new int[MaxCubes];
       buffer.entries[i].cubeIds = new int[MaxCubes];
       buffer.entries[i].states = new CubeState[MaxCubes];
     }
@@ -58,40 +57,40 @@ public class DeltaBuffer {
     buffer.entries[id].count = 0;
 
     for (int i = 0; i < MaxCubes; ++i)
-      buffer.entries[id].entryIds[i] = -1;
+      buffer.entries[id].priorityIds[i] = -1;
 
     return true;
   }
 
   public bool AddCube(ushort packetId, int cubeId, ref CubeState state) {
-    int id = buffer.Find(packetId);
+    int id = buffer.Get(packetId);
     if (id == -1) return false;
 
-    int entryId = buffer.entries[id].count;
-    Assert.IsTrue(entryId < MaxCubes);
-    buffer.entries[id].entryIds[cubeId] = entryId;
-    buffer.entries[id].cubeIds[entryId] = cubeId;
-    buffer.entries[id].states[entryId] = state;
+    int priorityId = buffer.entries[id].count;
+    Assert.IsTrue(priorityId < MaxCubes);
+    buffer.entries[id].priorityIds[cubeId] = priorityId;
+    buffer.entries[id].cubeIds[priorityId] = cubeId;
+    buffer.entries[id].states[priorityId] = state;
     buffer.entries[id].count++;
 
     return true;
   }
 
   public bool GetCube(ushort packetId, ushort resetId, int cubeId, ref CubeState state) {
-    int id = buffer.Find(packetId);
+    int id = buffer.Get(packetId);
     if (id == -1) return false;
     if (buffer.entries[id].resetId != resetId) return false;
     if (buffer.entries[id].count == 0) return false;
 
-    int entryId = buffer.entries[id].entryIds[cubeId];
-    if (entryId == -1) return false;
+    int priorityId = buffer.entries[id].priorityIds[cubeId];
+    if (priorityId == -1) return false;
 
-    state = buffer.entries[id].states[entryId];
+    state = buffer.entries[id].states[priorityId];
     return true;
   }
 
-  public bool GetPacket(ushort packetId, ushort resetId, out int count, out int[] cubeIds, out CubeState[] states) {
-    int id = buffer.Find(packetId);
+  public bool GetPacketCubes(ushort packetId, ushort resetId, out int count, out int[] cubeIds, out CubeState[] states) {
+    int id = buffer.Get(packetId);
 
     if (id == -1 || buffer.entries[id].resetId != resetId) {
       count = 0;

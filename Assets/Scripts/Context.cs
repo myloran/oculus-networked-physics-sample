@@ -30,25 +30,32 @@ public class Context : MonoBehaviour {
     public float value;
   };
 
-  public struct Acks {
+  public struct Ack {
     public CubeState state;
-    public ushort id;
-    public ushort resetId;
+
+    public ushort 
+      id,
+      resetId;
+
     public bool isAcked;
   };
 
   struct RingBuffer {
-    public Vector3 position;
-    public Vector3 axis;
+    public Vector3 
+      position,
+      axis;
   };
 
   public class ConnectionData {
-    public Connection connection = new Connection();
-    public DeltaBuffer sendBuffer = new DeltaBuffer(DeltaBufferSize);
-    public DeltaBuffer receiveBuffer = new DeltaBuffer(DeltaBufferSize);
+    public PacketAcking connection = new PacketAcking();
+
+    public DeltaBuffer 
+      sendBuffer = new DeltaBuffer(DeltaBufferSize),
+      receiveBuffer = new DeltaBuffer(DeltaBufferSize);
+
     public JitterBuffer jitterBuffer = new JitterBuffer();
     public Priority[] priorities = new Priority[MaxCubes];
-    public Acks[] cubeAcks = new Acks[MaxCubes];
+    public Ack[] cubeAcks = new Ack[MaxCubes];
     public bool isFirstPacket = true;
     public long frame = -1;
 

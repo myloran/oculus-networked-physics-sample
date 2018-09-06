@@ -95,7 +95,7 @@ public class JitterBuffer {
   }
 
   public JitterBufferEntry GetEntry(uint frame) {
-    int id = buffer.Find(frame);
+    int id = buffer.Get(frame);
     if (id == -1) return null;
 
     return buffer.entries[id];

@@ -115,7 +115,7 @@ public class Common : MonoBehaviour {
   protected long frame = 0;
   protected bool isJitterBufferEnabled = true;
 
-  ushort[] acks = new ushort[Connection.MaximumAcks];
+  ushort[] acks = new ushort[MaximumAcks];
   uint[] packetBuffer = new uint[MaxPacketSize / 4];
   bool wantsToShutdown = false;
 
@@ -578,14 +578,14 @@ public class Common : MonoBehaviour {
   protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) { //is this should be here?
     BeginSample("ProcessAcksForConnection");
     int ackCount = 0;
-    data.connection.GetAcks(ref acks, ref ackCount);
+    data.connection.GetPacketAcks(ref acks, ref ackCount);
 
     for (int i = 0; i < ackCount; ++i) {
       int cubeCount;
       int[] cubeIds;
       CubeState[] states;
 
-      if (data.sendBuffer.GetPacket(acks[i], context.resetId, out cubeCount, out cubeIds, out states)) {
+      if (data.sendBuffer.GetPacketCubes(acks[i], context.resetId, out cubeCount, out cubeIds, out states)) {
         for (int j = 0; j < cubeCount; ++j)
           context.UpdateCubeAck(data, cubeIds[j], acks[i], context.resetId, ref states[j]);
       }
