@@ -14,6 +14,9 @@ using static System.Math;
 using static Constants;
 using UnityEngine.Serialization;
 
+/// <summary>
+/// Contains cube data. Handles grip, release and smoothing.
+/// </summary>
 public class NetworkCube : UnityEngine.MonoBehaviour {
   public GameObject smoothed;
   public GameObject touching;

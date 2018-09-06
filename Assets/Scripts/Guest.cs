@@ -20,7 +20,7 @@ using static Constants;
 public class Guest : Common {
   public enum GuestState {
     LoggingIn,                                                  // logging in to oculus platform SDK.
-    InMatchmaking,                                                // searching for a match
+    InMatchmaking,                                              // searching for a match
     Connecting,                                                 // connecting to the server
     Connected,                                                  // connected to server. we can send and receive packets.
     Disconnected,                                               // not connected (terminal state).
@@ -28,28 +28,28 @@ public class Guest : Common {
   };
 
   public Context context;
-  public double timeMatchmakingStarted;                           // time matchmaking started
-  public double timeConnectionStarted;                            // time the client connection started (used to timeout due to NAT)
-  public double timeConnected;                                    // time the client connected to the server
-  public double timeLastPacketSent;                               // time the last packet was sent to the server
-  public double timeLastPacketReceived;                           // time the last packet was received from the server (used for post-connect timeouts)
-  public double timeRetryStarted;                                 // time the retry state started. used to delay in waiting for retry state before retrying matchmaking from scratch.
-  HashSet<ulong> connections = new HashSet<ulong>();       // set of connection request ids we have received. used to fix race condition between connection request and room join.
+  public double timeMatchmakingStarted;                         // time matchmaking started
+  public double timeConnectionStarted;                          // time the client connection started (used to timeout due to NAT)
+  public double timeConnected;                                  // time the client connected to the server
+  public double timeLastPacketSent;                             // time the last packet was sent to the server
+  public double timeLastPacketReceived;                         // time the last packet was received from the server (used for post-connect timeouts)
+  public double timeRetryStarted;                               // time the retry state started. used to delay in waiting for retry state before retrying matchmaking from scratch.
+  HashSet<ulong> connections = new HashSet<ulong>();            // set of connection request ids we have received. used to fix race condition between connection request and room join.
   GuestState state = LoggingIn;
-  const double RetryTime = 0.0;//5.0;                                   // time between retry attempts.
-  byte[] readBuffer = new byte[MaxPacketSize];
-  string oculusId;                                                // this is our user name.
+  const double RetryTime = 0.0;//5.0;                           // time between retry attempts.
+  byte[] buffer = new byte[MaxPacketSize];
+  string oculusId;                                              // this is our user name.
 
-  ulong 
-    userId,                                                   // user id that is signed in
-    hostUserId,                                               // the user id of the room owner (host).
-    roomId;                                                   // the id of the room that we have joined.
+  ulong
+    userId,                                                     // user id that is signed in
+    hostUserId,                                                 // the user id of the room owner (host).
+    roomId;                                                     // the id of the room that we have joined.
 
-  int clientId = -1;                                           // while connected to server in [1,Constants.MaxClients-1]. -1 if not connected.
+  int clientId = -1;                                            // while connected to server in [1,Constants.MaxClients-1]. -1 if not connected.
 
-  bool 
-    isConnectionAccepted,                                 // true if we have accepted the connection request from the host.
-    isConnected,                                     // true if we have ever successfully connected to a server.
+  bool
+    isConnectionAccepted,                                       // true if we have accepted the connection request from the host.
+    isConnected,                                                // true if we have ever successfully connected to a server.
     isReadyToShutdown = false;
 
 
@@ -349,19 +349,19 @@ public class Guest : Common {
     while ((packet = Net.ReadPacket()) != null) {
       if (packet.SenderID != hostUserId) continue;
 
-      packet.ReadBytes(readBuffer);
-      var packetType = readBuffer[0];
+      packet.ReadBytes(buffer);
+      var packetType = buffer[0];
 
       if ((state == Connecting || state == Connected) && packetType == (byte)PacketSerializer.PacketType.ClientsInfo)
-        ProcessServerInfoPacket(readBuffer);
+        ProcessServerInfoPacket(buffer);
 
       if (!IsConnectedToServer()) continue;
 
       if (packetType == (byte)PacketSerializer.PacketType.StateUpdate) {
         if (isJitterBufferEnabled)
-          AddUpdatePacket(context, context.GetClientData(), readBuffer);
+          AddUpdatePacketToJitterBuffer(context, context.GetClientData(), buffer);
         else
-          ProcessStateUpdatePacket(context.GetClientData(), readBuffer);
+          ProcessStateUpdatePacket(context.GetClientData(), buffer);
       }
       timeLastPacketReceived = renderTime;
     }    

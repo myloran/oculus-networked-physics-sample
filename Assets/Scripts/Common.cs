@@ -8,6 +8,7 @@
  */
 
 using System;
+using System.IO;
 using UnityEngine;
 using Oculus.Platform;
 using Oculus.Platform.Models;
@@ -16,12 +17,11 @@ using static UnityEngine.Profiling.Profiler;
 using static UnityEngine.Assertions.Assert;
 using static UnityEngine.Debug;
 using static Constants;
-using System.IO;
 
 /// <summary>
 /// Holds message info of clients, avatars and cubes. Tracks render and physics time.
 /// Process packets in jitter buffer. Calculates prediction and delta compression. Process acks.
-/// Handles exeptions during packet read and write. Joins and leaves occulus rooms.
+/// Handles exceptions during packet read and write. Joins and leaves occulus rooms.
 /// </summary>
 public class Common : MonoBehaviour {
   protected class ClientsInfo {
@@ -153,7 +153,7 @@ public class Common : MonoBehaviour {
     frame++;
   }
 
-  protected void AddUpdatePacket(Context context, Context.ConnectionData d, byte[] packet) {
+  protected void AddUpdatePacketToJitterBuffer(Context context, Context.ConnectionData d, byte[] packet) {
     long frame;
     if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.resetId, out frame) || !d.isFirstPacket)
       return;
@@ -186,7 +186,7 @@ public class Common : MonoBehaviour {
     data.connection.ProcessPacketHeader(ref entry.header); //process the packet header (handles acks)
   }
 
-  protected bool WriteClientsPacket(bool[] areConnected, ulong[] userIds, string[] userNames) {
+  protected bool WriteClientsPacket(bool[] areConnected, ulong[] userIds, string[] userNames) { //host only
     BeginSample("WriteServerInfoPacket");
     writeStream.Start(packetBuffer);
     var result = true;
@@ -203,7 +203,7 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected bool ReadClientsPacket(byte[] packet, bool[] areConnected, ulong[] userIds, string[] userNames) {
+  protected bool ReadClientsPacket(byte[] packet, bool[] areConnected, ulong[] userIds, string[] userNames) { //host only
     BeginSample("ReadServerInfoPacket");
     readStream.Start(packet);
     var result = true;
@@ -314,7 +314,7 @@ public class Common : MonoBehaviour {
   protected bool DecodeNotChangedAndDeltas(DeltaBuffer buffer, ushort resetId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineId, ref CubeState[] cubes, ref CubeDelta[] deltas
   ) {
     BeginSample("DecodeNotChangedAndDeltas");
-    bool result = true;
+    var result = true;
 #if !DISABLE_DELTA_COMPRESSION
     var baseline = CubeState.defaults;
 

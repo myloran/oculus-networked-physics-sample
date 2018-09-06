@@ -18,6 +18,9 @@ using static Constants;
 using static Host.ClientState;
 using static AvatarState;
 
+/// <summary>
+/// Connects and disconnects clients.
+/// </summary>
 public class Host : Common {
   public enum ClientState {
     Disconnected,                                   //client is not connected
@@ -350,7 +353,7 @@ public class Host : Common {
 
       if (buffer[0] == (byte)PacketSerializer.PacketType.StateUpdate) {
         if (isJitterBufferEnabled)
-          AddUpdatePacket(context, context.GetServerData(id), buffer);
+          AddUpdatePacketToJitterBuffer(context, context.GetServerData(id), buffer);
         else
           ProcessUpdatePacket(buffer, id);
       }

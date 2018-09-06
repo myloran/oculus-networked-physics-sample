@@ -95,6 +95,9 @@ namespace Network {
     public static int BitsRequired(uint min, uint max) => (min == max) ? 1 : Log2(max - min) + 1;
   }
 
+  /// <summary>
+  /// Writes bits to buffer. Allows to align and write byte array at once
+  /// </summary>
   public class BitWriter {
     uint[] words;
     ulong scratch;
@@ -174,6 +177,9 @@ namespace Network {
     public int GetTotalBytes() => wordCount * 4;
   }
 
+  /// <summary>
+  /// Reads bits from buffer. Allows to align and read byte array at once
+  /// </summary>
   public class BitReader {
     uint[] words;
     ulong scratch;
@@ -244,6 +250,9 @@ namespace Network {
     public int GetBytesRemaining() => GetBitsRemaining() / 8;
   }
 
+  /// <summary>
+  /// Writing bits of common types to buffer
+  /// </summary>
   public class WriteStream {
     BitWriter w = new BitWriter();
     int error = STREAM_ERROR_NONE;
@@ -326,6 +335,9 @@ namespace Network {
     public byte[] GetData() => w.GetData();
   }
 
+  /// <summary>
+  /// Reading bits of common types from buffer
+  /// </summary>
   public class ReadStream {
     BitReader r = new BitReader();
     byte[] floatBytes = new byte[4];

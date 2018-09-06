@@ -218,7 +218,7 @@ public class Loopback: Common
 
                 if ( isJitterBufferEnabled )
                 {
-                    AddUpdatePacket( context, context.GetServerData( from ), packetData );
+                    AddUpdatePacketToJitterBuffer( context, context.GetServerData( from ), packetData );
                 }
                 else
                 {
@@ -231,7 +231,7 @@ public class Loopback: Common
 
                 if ( isJitterBufferEnabled )
                 {
-                    AddUpdatePacket( context, context.GetClientData(), packetData );
+                    AddUpdatePacketToJitterBuffer( context, context.GetClientData(), packetData );
                 }
                 else
                 {

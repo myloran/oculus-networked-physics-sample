@@ -21,7 +21,7 @@ using static Snapshot;
 using static AuthoritySystem;
 
 /// <summary>
-/// Inits avatars and cubes. Spreads cube authority. Smoothes cubes.
+/// Inits avatars and cubes. Spreads cube authority. Returns cubes to neutral priority if they come to rest. Smoothes cubes.
 /// Captures and applies snapshot.
 /// </summary>
 public class Context : MonoBehaviour {
@@ -135,7 +135,7 @@ public class Context : MonoBehaviour {
     CaptureSnapshot(snapshot);
     ApplySnapshot(snapshot, true, true);
     AddStateToBuffer();
-    UpdateAvatars();
+    UpdateAvatars(); //is this needed?
     UpdateCubesAuthority();
     simulationFrame++;
   }

@@ -81,25 +81,25 @@ public class RemoteAvatar : OvrAvatarDriver {
 
     Destroy(h.point);
     h.point = null;
-    var rigidBody = h.grip.GetComponent<Rigidbody>();
-    rigidBody.isKinematic = false;
-    rigidBody.detectCollisions = true;
+    var body = h.grip.GetComponent<Rigidbody>();
+    body.isKinematic = false;
+    body.detectCollisions = true;
     h.grip.transform.SetParent(null);
     h.grip = null;
   }
 
   public void Update() {
-    UpdateHand(ref leftHand);
-    UpdateHand(ref rightHand);
+    UpdateHeldFrame(ref leftHand);
+    UpdateHeldFrame(ref rightHand);
     UpdatePoint(ref leftHand);
     UpdatePoint(ref rightHand);
   }
 
-  public void UpdateHand(ref Hand h) {
+  public void UpdateHeldFrame(ref Hand h) {
     if (!h.grip) return;
 
-    var network = h.grip.GetComponent<NetworkCube>(); //while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
-    network.heldFrame = (long)context.simulationFrame;
+    var cube = h.grip.GetComponent<NetworkCube>(); //while an object is held, set its last interaction frame to the current sim frame. this is used to boost priority for the object when it is thrown.
+    cube.heldFrame = (long)context.simulationFrame;
   }
 
   public bool GetAvatarState(out AvatarState s) {
@@ -120,5 +120,4 @@ public class RemoteAvatar : OvrAvatarDriver {
     p = pose;
     return true;
   }
-
 }
