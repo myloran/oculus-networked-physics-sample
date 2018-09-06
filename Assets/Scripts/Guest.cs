@@ -378,7 +378,7 @@ public class Guest : Common {
     }
   }
 
-  public byte[] GenerateUpdatePacket(Context.ConnectionData data, float timeOffset) {
+  public byte[] GenerateUpdatePacket(Context.NetworkData data, float timeOffset) {
     Profiler.BeginSample("GenerateStateUpdatePacket");
     int cubeCount = Math.Min(MaxCubes, MaxStateUpdates);
     context.UpdateCubePriorities();
@@ -465,7 +465,7 @@ public class Guest : Common {
     context.HideAvatar(clientId);
   }
 
-  public void ProcessStateUpdatePacket(Context.ConnectionData data, byte[] packet) {
+  public void ProcessStateUpdatePacket(Context.NetworkData data, byte[] packet) {
     Profiler.BeginSample("ProcessStateUpdatePacket");
     int avatarCount = 0;
     int cubeCount = 0;

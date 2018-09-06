@@ -153,7 +153,7 @@ public class Common : MonoBehaviour {
     frame++;
   }
 
-  protected void AddUpdatePacketToJitterBuffer(Context context, Context.ConnectionData d, byte[] packet) {
+  protected void AddUpdatePacketToJitterBuffer(Context context, Context.NetworkData d, byte[] packet) {
     long frame;
     if (!d.jitterBuffer.AddUpdatePacket(packet, d.receiveBuffer, context.resetId, out frame) || !d.isFirstPacket)
       return;
@@ -163,7 +163,7 @@ public class Common : MonoBehaviour {
     d.jitterBuffer.Start(d.frame);
   }
 
-  protected void ProcessUpdateFromJitterBuffer(Context context, Context.ConnectionData data, int fromClientId, int toClientId, bool isSmooth = true) {
+  protected void ProcessUpdateFromJitterBuffer(Context context, Context.NetworkData data, int fromClientId, int toClientId, bool isSmooth = true) {
     if (data.frame < 0) return;
 
     var entry = data.jitterBuffer.GetEntry((uint)data.frame);
@@ -274,7 +274,7 @@ public class Common : MonoBehaviour {
     EndSample();
   }
 
-  protected void DetermineNotChangedAndDeltas(Context context, Context.ConnectionData data, ushort currentId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineIds, ref CubeState[] cubes, ref CubeDelta[] deltas
+  protected void DetermineNotChangedAndDeltas(Context context, Context.NetworkData data, ushort currentId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref ushort[] baselineIds, ref CubeState[] cubes, ref CubeDelta[] deltas
   ) {
     BeginSample("DeterminedNotChangedAndDeltas");
 #if !DISABLE_DELTA_COMPRESSION
@@ -363,7 +363,7 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void DeterminePrediction(Context context, Context.ConnectionData data, ushort currentId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] hasPerfectPrediction, ref bool[] hasPrediction, ref ushort[] baselineIds, ref CubeState[] cubes, ref CubeDelta[] predictions
+  protected void DeterminePrediction(Context context, Context.NetworkData data, ushort currentId, int cubeCount, ref int[] cubeIds, ref bool[] notChanged, ref bool[] hasDelta, ref bool[] hasPerfectPrediction, ref bool[] hasPrediction, ref ushort[] baselineIds, ref CubeState[] cubes, ref CubeDelta[] predictions
   ) {
     BeginSample("DeterminePrediction");
     var baseline = CubeState.defaults;
@@ -575,7 +575,7 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void ProcessAcksForConnection(Context context, Context.ConnectionData data) { //is this should be here?
+  protected void ProcessAcksForConnection(Context context, Context.NetworkData data) { //is this should be here?
     BeginSample("ProcessAcksForConnection");
     int ackCount = 0;
     data.acking.GetAckedPackets(ref ackedPackets, ref ackCount);

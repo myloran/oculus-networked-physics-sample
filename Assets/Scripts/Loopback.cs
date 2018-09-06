@@ -117,7 +117,7 @@ public class Loopback: Common
         {
             Context context = hostContext;
 
-            Context.ConnectionData connectionData = context.GetServerData( i );
+            Context.NetworkData connectionData = context.GetServerData( i );
 
             int fromClientIndex = i;
             int toClientIndex = 0;
@@ -138,7 +138,7 @@ public class Loopback: Common
         {
             Context context = guestContext;
 
-            Context.ConnectionData connectionData = context.GetClientData();
+            Context.NetworkData connectionData = context.GetClientData();
 
             int fromClientIndex = 0;
             int toClientIndex = 1;
@@ -269,7 +269,7 @@ public class Loopback: Common
         {
             Context context = GetContext( 0 );
 
-            Context.ConnectionData connectionData = context.GetServerData( i );
+            Context.NetworkData connectionData = context.GetServerData( i );
 
             if ( !connectionData.isFirstPacket )
                 connectionData.frame++;
@@ -279,7 +279,7 @@ public class Loopback: Common
         {
             Context context = GetContext( 1 );
 
-            Context.ConnectionData connectionData = context.GetClientData();
+            Context.NetworkData connectionData = context.GetClientData();
 
             if ( !connectionData.isFirstPacket )
                 connectionData.frame++;
@@ -305,7 +305,7 @@ public class Loopback: Common
                 {
                     for ( int i = 1; i < Constants.MaxClients; ++i )
                     {
-                        Context.ConnectionData connectionData = context.GetServerData( i );
+                        Context.NetworkData connectionData = context.GetServerData( i );
 
                         ProcessAcksForConnection( context, connectionData );
                     }
@@ -321,7 +321,7 @@ public class Loopback: Common
                 if ( !context )
                     continue;
 
-                Context.ConnectionData connectionData = context.GetClientData();
+                Context.NetworkData connectionData = context.GetClientData();
 
                 ProcessAcksForConnection( context, connectionData );
             }
@@ -330,7 +330,7 @@ public class Loopback: Common
         Profiler.EndSample();
     }
 
-    public byte[] GenerateStateUpdatePacket( Context context, Context.ConnectionData connectionData, int fromClientIndex, int toClientIndex, float avatarSampleTimeOffset = 0.0f )
+    public byte[] GenerateStateUpdatePacket( Context context, Context.NetworkData connectionData, int fromClientIndex, int toClientIndex, float avatarSampleTimeOffset = 0.0f )
     {
         Profiler.BeginSample( "GenerateStateUpdatePacket" );
 
@@ -427,7 +427,7 @@ public class Loopback: Common
         return packetData;
     }
 
-    public void ProcessStateUpdatePacket( Context context, Context.ConnectionData connectionData, byte[] packetData, int fromClientIndex, int toClientIndex )
+    public void ProcessStateUpdatePacket( Context context, Context.NetworkData connectionData, byte[] packetData, int fromClientIndex, int toClientIndex )
     {
         Profiler.BeginSample( "ProcessStateUpdatePacket" );
 

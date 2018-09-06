@@ -414,7 +414,7 @@ public class Host : Common {
     return writeStream.GetData();
   }
 
-  public byte[] GenerateUpdatePacket(Context.ConnectionData data, int toClientId, float timeOffset) {
+  public byte[] GenerateUpdatePacket(Context.NetworkData data, int toClientId, float timeOffset) {
     int count = Math.Min(MaxCubes, MaxStateUpdates);
     context.UpdateCubePriorities();
     context.GetCubeUpdates(data, ref count, ref cubeIds, ref cubes);

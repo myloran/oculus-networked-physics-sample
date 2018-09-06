@@ -46,7 +46,7 @@ public class Context : MonoBehaviour {
       axis;
   };
 
-  public class ConnectionData {
+  public class NetworkData {
     public PacketAcking acking = new PacketAcking();
 
     public DeltaBuffer 
@@ -55,11 +55,11 @@ public class Context : MonoBehaviour {
 
     public JitterBuffer jitterBuffer = new JitterBuffer();
     public CubePriority[] priorities = new CubePriority[MaxCubes];
-    public CubeAck[] cubeAcks = new CubeAck[MaxCubes];
+    public CubeAck[] acks = new CubeAck[MaxCubes];
     public bool isFirstPacket = true;
     public long frame = -1;
 
-    public ConnectionData() {
+    public NetworkData() {
       Reset();
     }
 
@@ -74,10 +74,10 @@ public class Context : MonoBehaviour {
         priorities[i].value = 0.0f;
       }
 
-      for (int i = 0; i < cubeAcks.Length; ++i) {
-        cubeAcks[i].isAcked = false;
-        cubeAcks[i].id = 0;
-        cubeAcks[i].resetId = 0;
+      for (int i = 0; i < acks.Length; ++i) {
+        acks[i].isAcked = false;
+        acks[i].id = 0;
+        acks[i].resetId = 0;
       }
 
       isFirstPacket = true;
@@ -93,10 +93,10 @@ public class Context : MonoBehaviour {
 
   public Material[] authorityMaterials = new Material[MaxAuthority];
   public GameObject cubePrefab;
-  ConnectionData[] server;
+  NetworkData[] server;
   public GameObject[] cubes = new GameObject[MaxCubes];
   HashSet<int> visited = new HashSet<int>();
-  ConnectionData client;
+  NetworkData client;
   Interactions Interactions = new Interactions();
   Snapshot snapshot = new Snapshot();
   Vector3[] cubePositions = new Vector3[MaxCubes];
@@ -166,13 +166,13 @@ public class Context : MonoBehaviour {
     EndSample();
   }
 
-  public ConnectionData GetClientData() {
+  public NetworkData GetClientData() {
     IsTrue(IsClient());
 
     return client;
   }
 
-  public ConnectionData GetServerData(int id) {
+  public NetworkData GetServerData(int id) {
     IsTrue(IsServer());
     IsTrue(id >= 1);
     IsTrue(id <= MaxClients);
@@ -188,14 +188,14 @@ public class Context : MonoBehaviour {
 
     if (id == 0) {
       client = null; //initialize as server
-      server = new ConnectionData[MaxClients - 1];
+      server = new NetworkData[MaxClients - 1];
 
       for (int i = 0; i < server.Length; ++i) {
-        server[i] = new ConnectionData();
+        server[i] = new NetworkData();
         InitPriorities(server[i]);
       }
     } else {
-      client = new ConnectionData(); //initialize as client
+      client = new NetworkData(); //initialize as client
       server = null;
       InitPriorities(client);
     }
@@ -261,25 +261,25 @@ public class Context : MonoBehaviour {
 
   public GameObject GetAvatarHead(int id) => GetAvatar(id)?.GetHead();
 
-  public bool GetAckedCube(ConnectionData d, int cubeId, ref ushort packetId, ushort resetId, ref CubeState state) {
-    if (!d.cubeAcks[cubeId].isAcked) return false;
-    if (d.cubeAcks[cubeId].resetId != resetId) return false;
+  public bool GetAckedCube(NetworkData d, int cubeId, ref ushort packetId, ushort resetId, ref CubeState state) {
+    if (!d.acks[cubeId].isAcked) return false;
+    if (d.acks[cubeId].resetId != resetId) return false;
 
-    packetId = d.cubeAcks[cubeId].id;
-    state = d.cubeAcks[cubeId].state;
+    packetId = d.acks[cubeId].id;
+    state = d.acks[cubeId].state;
 
     return true;
   }
 
-  public bool UpdateCubeAck(ConnectionData d, int cubeId, ushort packetId, ushort resetId, ref CubeState state) {
-    if (d.cubeAcks[cubeId].isAcked
-      && (Util.IdGreaterThan(d.cubeAcks[cubeId].resetId, resetId) || Util.IdGreaterThan(d.cubeAcks[cubeId].id, packetId))
+  public bool UpdateCubeAck(NetworkData d, int cubeId, ushort packetId, ushort resetId, ref CubeState state) {
+    if (d.acks[cubeId].isAcked
+      && (Util.IdGreaterThan(d.acks[cubeId].resetId, resetId) || Util.IdGreaterThan(d.acks[cubeId].id, packetId))
     ) return false;
 
-    d.cubeAcks[cubeId].isAcked = true;
-    d.cubeAcks[cubeId].id = packetId;
-    d.cubeAcks[cubeId].resetId = resetId;
-    d.cubeAcks[cubeId].state = state;
+    d.acks[cubeId].isAcked = true;
+    d.acks[cubeId].id = packetId;
+    d.acks[cubeId].resetId = resetId;
+    d.acks[cubeId].state = state;
 
     return true;
   }
@@ -500,7 +500,7 @@ public class Context : MonoBehaviour {
       cubes[i].GetComponent<NetworkCube>().Smooth();
   }
 
-  void UpdateCubePriorities(ConnectionData data) {
+  void UpdateCubePriorities(NetworkData data) {
     IsTrue(snapshot != null);
 
     for (int i = 0; i < MaxCubes; ++i) {
@@ -526,7 +526,7 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public void GetCubeUpdates(ConnectionData data, ref int count, ref int[] ids, ref CubeState[] cubes) {
+  public void GetCubeUpdates(NetworkData data, ref int count, ref int[] ids, ref CubeState[] cubes) {
     IsTrue(count >= 0);
     IsTrue(count <= MaxCubes);
     if (count == 0) return;
@@ -604,7 +604,7 @@ public class Context : MonoBehaviour {
     }
   }
 
-  public void ResetCubePriority(ConnectionData data, int count, int[] cubeIds) {
+  public void ResetCubePriority(NetworkData data, int count, int[] cubeIds) {
     for (int i = 0; i < count; ++i)
       data.priorities[cubeIds[i]].value = 0.0f;
   }
@@ -712,7 +712,7 @@ public class Context : MonoBehaviour {
     }
   }
 
-  void InitPriorities(ConnectionData data) {
+  void InitPriorities(NetworkData data) {
     for (int i = 0; i < MaxCubes; ++i)
       data.priorities[i].cubeId = i;
   }
