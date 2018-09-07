@@ -181,7 +181,7 @@ public class Common : MonoBehaviour {
       if (context.resetId != entry.header.resetId) return; //Ignore any updates from the client with a different reset sequence #
     }
 
-    AddPacket(ref data.receiveBuffer, entry.header.id, context.resetId, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
+    AddPacketToDeltaBuffer(ref data.receiveBuffer, entry.header.id, context.resetId, entry.cubeCount, ref entry.cubeIds, ref entry.cubes); //add the cube states to the receive delta buffer    
     context.ApplyCubeUpdates(entry.cubeCount, ref entry.cubeIds, ref entry.cubes, fromClientId, toClientId, isSmooth); //apply the state updates to cubes    
     data.acking.AckPackets(ref entry.header); //process the packet header (handles acks)
   }
@@ -264,7 +264,7 @@ public class Common : MonoBehaviour {
     return result;
   }
 
-  protected void AddPacket(ref DeltaBuffer buffer, ushort packetId, ushort resetId, int count, ref int[] cubeIds, ref CubeState[] states) {
+  protected void AddPacketToDeltaBuffer(ref DeltaBuffer buffer, ushort packetId, ushort resetId, int count, ref int[] cubeIds, ref CubeState[] states) {
     BeginSample("AddPacketToDeltaBuffer");
     buffer.AddPacket(packetId, resetId);
 

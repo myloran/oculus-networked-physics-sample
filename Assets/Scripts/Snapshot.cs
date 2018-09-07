@@ -17,8 +17,8 @@ public struct CubeState {
   public bool isActive;
 
   public ushort 
-    authoritySequence,
-    ownershipSequence;
+    authorityPacketId,
+    ownershipId;
 
   public int
     authorityId,
@@ -229,8 +229,8 @@ public class Snapshot {
   public static void GetState(Rigidbody body, NetworkCube cube, ref CubeState s, ref Vector3 origin) {
     s.isActive = !body.IsSleeping();
     s.authorityId = cube.authorityId;
-    s.authoritySequence = cube.authorityPacketId;
-    s.ownershipSequence = cube.ownershipId;
+    s.authorityPacketId = cube.authorityPacketId;
+    s.ownershipId = cube.ownershipId;
 
     var position = body.position - origin;
     s.positionX = (int)Math.Floor(position.x * UnitsPerMeter + 0.5f);
@@ -250,7 +250,7 @@ public class Snapshot {
     ClampAngularVelocity(ref s.angularVelocityX, ref s.angularVelocityY, ref s.angularVelocityZ);
   }
 
-  public static void ApplyState(Rigidbody body, NetworkCube cube, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
+  public static void ApplyCubeState(Rigidbody body, NetworkCube cube, ref CubeState s, ref Vector3 origin, bool isSmooth = false) {
     cube.Release();
 
     if (s.isActive && body.IsSleeping())
@@ -260,8 +260,8 @@ public class Snapshot {
         body.Sleep();
 
     cube.authorityId = s.authorityId;
-    cube.authorityPacketId = s.authoritySequence;
-    cube.ownershipId = s.ownershipSequence;
+    cube.authorityPacketId = s.authorityPacketId;
+    cube.ownershipId = s.ownershipId;
 
     var position = new Vector3(s.positionX, s.positionY, s.positionZ) * 1.0f / UnitsPerMeter + origin;
     var rotation = SmallestThreeToQuaternion(s.rotationLargest, s.rotationX, s.rotationY, s.rotationZ);

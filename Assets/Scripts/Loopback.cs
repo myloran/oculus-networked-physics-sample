@@ -416,7 +416,7 @@ public class Loopback: Common
 
         // add the sent cube states to the send delta buffer
 
-        AddPacket( ref connectionData.sendBuffer, writePacketHeader.id, context.resetId, numStateUpdates, ref cubeIds, ref cubes );
+        AddPacketToDeltaBuffer( ref connectionData.sendBuffer, writePacketHeader.id, context.resetId, numStateUpdates, ref cubeIds, ref cubes );
 
         // reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
 
@@ -479,7 +479,7 @@ public class Loopback: Common
 
             // add the cube states to the receive delta buffer
 
-            AddPacket( ref connectionData.receiveBuffer, readPacketHeader.id, context.resetId, readNumStateUpdates, ref readCubeIds, ref readCubes );
+            AddPacketToDeltaBuffer( ref connectionData.receiveBuffer, readPacketHeader.id, context.resetId, readNumStateUpdates, ref readCubeIds, ref readCubes );
 
             // apply the state updates to cubes
 

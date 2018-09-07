@@ -399,7 +399,7 @@ public class Guest : Common {
     WriteUpdatePacket(ref header, avatarCount, ref avatarsQuantized, cubeCount, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref cubePredictions);
 
     var packet = writeStream.GetData();
-    AddPacket(ref data.sendBuffer, header.id, context.resetId, cubeCount, ref cubeIds, ref cubes);
+    AddPacketToDeltaBuffer(ref data.sendBuffer, header.id, context.resetId, cubeCount, ref cubeIds, ref cubes);
     context.ResetCubePriority(data, cubeCount, cubeIds);
     Profiler.EndSample();
 
@@ -485,7 +485,7 @@ public class Guest : Common {
 
       DecodePrediction(data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines      
       DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetId, cubeCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
-      AddPacket(ref data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer      
+      AddPacketToDeltaBuffer(ref data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer      
 
       int fromClientId = 0; //apply the state updates to cubes
       int toClientId = clientId;

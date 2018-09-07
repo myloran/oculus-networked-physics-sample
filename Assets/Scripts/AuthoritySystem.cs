@@ -21,38 +21,38 @@ public struct AuthoritySystem {
    *  own the same cube, or have interacted with the same cube. The first player to interact, 
    *  from the point of view of the server (client 0), wins.
    */
-  public static bool ShouldApplyUpdate(Context context, int cubeId, ushort ownershipSequence, ushort authoritySequence, int authorityId, bool fromAvatar, int fromClientId, int toClientId) {
-    var cube = context.cubes[cubeId];
-    var network = cube.GetComponent<NetworkCube>();
-    var localOwnershipSequence = network.ownershipId;
-    var localAuthoritySequence = network.authorityPacketId;
-    int localAuthorityId = network.authorityId;
+  public static bool ShouldApplyUpdate(Context context, int cubeId, ushort ownershipId, ushort authorityPacketId, int authorityId, bool fromAvatar, int fromClientId, int toClientId) {
+    var obj = context.cubes[cubeId];
+    var cube = obj.GetComponent<NetworkCube>();
+    var localOwnershipId = cube.ownershipId;
+    var localAuthorityPacketId = cube.authorityPacketId;
+    int localAuthorityId = cube.authorityId;
     // *** OWNERSHIP SEQUENCE ***    
-    if (IdGreaterThan(ownershipSequence, localOwnershipSequence)) { //Must accept if ownership sequence is newer
+    if (IdGreaterThan(ownershipId, localOwnershipId)) { //Must accept if ownership id is newer
 #if DEBUG_AUTHORITY
             Debug.Log( "client " + toClientIndex + " sees new ownership sequence (" + localOwnershipSequence + "->" + ownershipSequence + ") for cube " + cubeId + " and accepts update" );
 #endif // #if DEBUG_AUTHORITY
       return true;
     }
-    if (IdLessThan(ownershipSequence, localOwnershipSequence)) return false; //Must reject if ownership sequence is older
+    if (IdLessThan(ownershipId, localOwnershipId)) return false; //Must reject if ownership id is older
     //*** AUTHORITY SEQUENCE ***    
-    if (IdGreaterThan(authoritySequence, localAuthoritySequence)) { //accept if the authority sequence is newer
+    if (IdGreaterThan(authorityPacketId, localAuthorityPacketId)) { //accept if the packet id is newer
 #if DEBUG_AUTHORITY
             Debug.Log( "client " + toClientIndex + " sees new authority sequence (" + localAuthoritySequence + "->" + authoritySequence + ") for cube " + cubeId + " and accepts update" );
 #endif // #if DEBUG_AUTHORITY
       return true;
     }
-    if (IdLessThan(authoritySequence, localAuthoritySequence)) return false; //reject if the authority sequence is older
+    if (IdLessThan(authorityPacketId, localAuthorityPacketId)) return false; //reject if the packet id is older
     if (fromClientId == 0) { //Both sequence numbers are the same. Resolve authority conflicts!
       // =============================
       //       server -> client
       // =============================      
       if (authorityId == toClientId + 1) { //ignore if the server says the cube is under authority of this client. the server is just confirming we have authority
-        if (!network.isConfirmed) {
+        if (!cube.isConfirmed) {
 #if DEBUG_AUTHORITY
                     Debug.Log( "client " + fromClientIndex + " confirms client " + toClientIndex + " has authority over cube " + cubeId + " (" + ownershipSequence + "," + authoritySequence + ")" );
 #endif // #if DEBUG_AUTHORITY
-          network.isConfirmed = true;
+          cube.isConfirmed = true;
         }
         return false;
       }

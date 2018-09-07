@@ -448,7 +448,7 @@ public class Host : Common {
     WriteUpdatePacket(ref header, id, ref avatarsQuantized, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref cubePredictions);
 
     var packet = writeStream.GetData();
-    AddPacket(ref data.sendBuffer, header.id, context.resetId, count, ref cubeIds, ref cubes); //add the sent cube states to the send delta buffer
+    AddPacketToDeltaBuffer(ref data.sendBuffer, header.id, context.resetId, count, ref cubeIds, ref cubes); //add the sent cube states to the send delta buffer
     context.ResetCubePriority(data, count, cubeIds); //reset cube priority for the cubes that were included in the packet (so other cubes have a chance to be sent...)
 
     return packet;
@@ -470,7 +470,7 @@ public class Host : Common {
 
     DecodePrediction(data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readPerfectPrediction, ref readHasPredictionDelta, ref readBaselineIds, ref readCubes, ref readPredictionDeltas); //decode the predicted cube states from baselines
     DecodeNotChangedAndDeltas(data.receiveBuffer, context.resetId, cubeCount, ref readCubeIds, ref readNotChanged, ref readHasDelta, ref readBaselineIds, ref readCubes, ref readCubeDeltas); //decode the not changed and delta cube states from baselines
-    AddPacket(ref data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer
+    AddPacketToDeltaBuffer(ref data.receiveBuffer, header.id, context.resetId, cubeCount, ref readCubeIds, ref readCubes); //add the cube states to the receive delta buffer
     context.ApplyCubeUpdates(cubeCount, ref readCubeIds, ref readCubes, fromClientId, 0, isJitterBufferEnabled); //apply the state updates to cubes
     context.ApplyAvatarUpdates(avatarCount, ref readAvatars, fromClientId, 0); //apply avatar state updates
     data.acking.AckPackets(ref header); //process the packet header

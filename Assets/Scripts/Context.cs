@@ -564,7 +564,7 @@ public class Context : MonoBehaviour {
     var origin = gameObject.transform.position;
 
     for (int i = 0; i < count; ++i) {
-      if (!ShouldApplyUpdate(this, cubeIds[i], states[i].ownershipSequence, states[i].authoritySequence, states[i].authorityId, false, fromClientId, toClientId))
+      if (!ShouldApplyUpdate(this, cubeIds[i], states[i].ownershipId, states[i].authorityPacketId, states[i].authorityId, false, fromClientId, toClientId))
         continue;
 
       var obj = cubes[cubeIds[i]];
@@ -572,7 +572,7 @@ public class Context : MonoBehaviour {
       var body = obj.GetComponent<Rigidbody>();
 
       UpdatePendingCommit(cube, states[i].authorityId, fromClientId, toClientId);
-      ApplyState(body, cube, ref states[i], ref origin, isSmooth);
+      ApplyCubeState(body, cube, ref states[i], ref origin, isSmooth);
     }
   }
 
@@ -582,7 +582,7 @@ public class Context : MonoBehaviour {
 
       var avatar = GetAvatar(s[i].clientId);
 
-      if (s[i].isLeftHandHoldingCube && ShouldApplyUpdate(this, s[i].leftHandCubeId, s[i].leftHandOwnershipSequence, s[i].leftHandAuthoritySequence, s[i].clientId + 1, true, fromClientId, toClientId)
+      if (s[i].isLeftHandHoldingCube && ShouldApplyUpdate(this, s[i].leftHandCubeId, s[i].leftHandOwnershipId, s[i].leftHandAuthorityId, s[i].clientId + 1, true, fromClientId, toClientId)
       ) {
         var obj = cubes[s[i].leftHandCubeId];
         var cube = obj.GetComponent<NetworkCube>();
@@ -591,7 +591,7 @@ public class Context : MonoBehaviour {
         avatar.ApplyLeftHandUpdate(ref s[i]);
       }
 
-      if (s[i].isRightHandHoldingCube && ShouldApplyUpdate(this, s[i].rightHandCubeId, s[i].rightHandOwnershipSequence, s[i].rightHandAuthoritySequence, s[i].clientId + 1, true, fromClientId, toClientId)
+      if (s[i].isRightHandHoldingCube && ShouldApplyUpdate(this, s[i].rightHandCubeId, s[i].rightHandOwnershipId, s[i].rightHandAuthorityId, s[i].clientId + 1, true, fromClientId, toClientId)
       ) {
         var obj = cubes[s[i].rightHandCubeId];
         var cube = obj.GetComponent<NetworkCube>();
@@ -695,7 +695,7 @@ public class Context : MonoBehaviour {
       var body = cubes[i].GetComponent<Rigidbody>();
       if (skipSleepers && !snapshot.states[i].isActive && body.IsSleeping()) continue;
 
-      ApplyState(body, cube, ref snapshot.states[i], ref origin);
+      ApplyCubeState(body, cube, ref snapshot.states[i], ref origin);
     }
     EndSample();
   }

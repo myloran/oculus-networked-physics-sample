@@ -72,8 +72,8 @@ public class PacketSerializer {
       write_int( stream, cubeDelta[i].absolute_position_z, PositionMinimumXZ, PositionMaximumXZ );
 #endif // #if DEBUG_DELTA_COMPRESSION
       w.Int(cubes[i].authorityId, 0, MaxAuthority - 1);
-      w.Bits(cubes[i].authoritySequence, 16);
-      w.Bits(cubes[i].ownershipSequence, 16);
+      w.Bits(cubes[i].authorityPacketId, 16);
+      w.Bits(cubes[i].ownershipId, 16);
       w.Bool(notChanged[i]);
 
       if (notChanged[i]) {
@@ -183,8 +183,8 @@ public class PacketSerializer {
       read_int( stream, out cubeDelta[i].absolute_position_z, PositionMinimumXZ, PositionMaximumXZ );
 #endif // #if DEBUG_DELTA_COMPRESSION
       r.Int(out cubes[i].authorityId, 0, MaxAuthority - 1);
-      r.Bits(out cubes[i].authoritySequence, 16);
-      r.Bits(out cubes[i].ownershipSequence, 16);
+      r.Bits(out cubes[i].authorityPacketId, 16);
+      r.Bits(out cubes[i].ownershipId, 16);
       r.Bool(out notChanged[i]);
 
       if (notChanged[i]) {

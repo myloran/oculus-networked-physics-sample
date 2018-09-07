@@ -17,7 +17,7 @@ using UnityEngine.Serialization;
 /// <summary>
 /// Contains cube data. Handles grip, release and smoothing.
 /// </summary>
-public class NetworkCube : UnityEngine.MonoBehaviour {
+public class NetworkCube : MonoBehaviour {
   public GameObject smoothed;
   public GameObject touching;
   public Context context;                                           // the context that this cube exists in. eg. blue context, red context, for loopback testing.

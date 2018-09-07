@@ -114,10 +114,10 @@ public struct AvatarState {
     voiceAmplitude;
 
   public ushort 
-    leftHandAuthoritySequence,
-    leftHandOwnershipSequence,
-    rightHandAuthoritySequence,
-    rightHandOwnershipSequence;
+    leftHandAuthorityId,
+    leftHandOwnershipId,
+    rightHandAuthorityId,
+    rightHandOwnershipId;
 
   public bool 
     isLeftHandPointing,
@@ -142,15 +142,15 @@ public struct AvatarState {
       s.isLeftHandHoldingCube = true;
       var network = leftHandHeldObj.GetComponent<NetworkCube>();
       s.leftHandCubeId = network.cubeId;
-      s.leftHandAuthoritySequence = network.authorityPacketId;
-      s.leftHandOwnershipSequence = network.ownershipId;
+      s.leftHandAuthorityId = network.authorityPacketId;
+      s.leftHandOwnershipId = network.ownershipId;
       s.leftHandCubeLocalPosition = leftHandHeldObj.transform.localPosition;
       s.leftHandCubeLocalRotation = leftHandHeldObj.transform.localRotation;
     } else {
       s.isLeftHandHoldingCube = false;
       s.leftHandCubeId = -1;
-      s.leftHandAuthoritySequence = 0;
-      s.leftHandOwnershipSequence = 0;
+      s.leftHandAuthorityId = 0;
+      s.leftHandOwnershipId = 0;
       s.leftHandCubeLocalPosition = zero;
       s.leftHandCubeLocalRotation = identity;
     }
@@ -166,15 +166,15 @@ public struct AvatarState {
       s.isRightHandHoldingCube = true;
       var network = rightHandHeldObj.GetComponent<NetworkCube>();
       s.rightHandCubeId = network.cubeId;
-      s.rightHandAuthoritySequence = network.authorityPacketId;
-      s.rightHandOwnershipSequence = network.ownershipId;
+      s.rightHandAuthorityId = network.authorityPacketId;
+      s.rightHandOwnershipId = network.ownershipId;
       s.rightHandCubeLocalPosition = rightHandHeldObj.transform.localPosition;
       s.rightHandCubeLocalRotation = rightHandHeldObj.transform.localRotation;
     } else {
       s.isRightHandHoldingCube = false;
       s.rightHandCubeId = -1;
-      s.rightHandAuthoritySequence = 0;
-      s.rightHandOwnershipSequence = 0;
+      s.rightHandAuthorityId = 0;
+      s.rightHandOwnershipId = 0;
       s.rightHandCubeLocalPosition = zero;
       s.rightHandCubeLocalRotation = identity;
     }
@@ -208,8 +208,8 @@ public struct AvatarState {
     if (!cube.HeldBy(avatar, avatar.GetLeftHand()))
       cube.RemoteGrip(avatar, avatar.GetLeftHand(), s.clientId);
 
-    cube.authorityPacketId = s.leftHandAuthoritySequence;
-    cube.ownershipId = s.leftHandOwnershipSequence;
+    cube.authorityPacketId = s.leftHandAuthorityId;
+    cube.ownershipId = s.leftHandOwnershipId;
     cube.LocalSmoothMove(s.leftHandCubeLocalPosition, s.leftHandCubeLocalRotation);
   }
 
@@ -222,8 +222,8 @@ public struct AvatarState {
     if (!cube.HeldBy(avatar, avatar.GetRightHand()))
       cube.RemoteGrip(avatar, avatar.GetRightHand(), s.clientId);
 
-    cube.authorityPacketId = s.rightHandAuthoritySequence;
-    cube.ownershipId = s.rightHandOwnershipSequence;
+    cube.authorityPacketId = s.rightHandAuthorityId;
+    cube.ownershipId = s.rightHandOwnershipId;
     cube.LocalSmoothMove(s.rightHandCubeLocalPosition, s.rightHandCubeLocalRotation);
   }
 
@@ -247,8 +247,8 @@ public struct AvatarState {
     if (s.isLeftHandHoldingCube) {
       q.isLeftHandHoldingCube = true;
       q.leftHandCubeId = s.leftHandCubeId;
-      q.leftHandAuthoritySequence = s.leftHandAuthoritySequence;
-      q.leftHandOwnershipSequence = s.leftHandOwnershipSequence;
+      q.leftHandAuthoritySequence = s.leftHandAuthorityId;
+      q.leftHandOwnershipSequence = s.leftHandOwnershipId;
       q.leftHandCubeLocalPositionX = (int)Floor(s.leftHandCubeLocalPosition.x * UnitsPerMeter + 0.5f);
       q.leftHandCubeLocalPositionY = (int)Floor(s.leftHandCubeLocalPosition.y * UnitsPerMeter + 0.5f);
       q.leftHandCubeLocalPositionZ = (int)Floor(s.leftHandCubeLocalPosition.z * UnitsPerMeter + 0.5f);
@@ -280,8 +280,8 @@ public struct AvatarState {
     if (s.isRightHandHoldingCube) {
       q.isRightHandHoldingCube = true;
       q.rightHandCubeId = s.rightHandCubeId;
-      q.rightHandAuthoritySequence = s.rightHandAuthoritySequence;
-      q.rightHandOwnershipSequence = s.rightHandOwnershipSequence;
+      q.rightHandAuthoritySequence = s.rightHandAuthorityId;
+      q.rightHandOwnershipSequence = s.rightHandOwnershipId;
       q.rightHandCubeLocalPositionX = (int)Floor(s.rightHandCubeLocalPosition.x * UnitsPerMeter + 0.5f);
       q.rightHandCubeLocalPositionY = (int)Floor(s.rightHandCubeLocalPosition.y * UnitsPerMeter + 0.5f);
       q.rightHandCubeLocalPositionZ = (int)Floor(s.rightHandCubeLocalPosition.z * UnitsPerMeter + 0.5f);
@@ -324,8 +324,8 @@ public struct AvatarState {
     s.areLeftHandThumbsUp = q.areLeftHandThumbsUp;
     s.isLeftHandHoldingCube = q.isLeftHandHoldingCube;
     s.leftHandCubeId = q.leftHandCubeId;
-    s.leftHandOwnershipSequence = q.leftHandOwnershipSequence;
-    s.leftHandAuthoritySequence = q.leftHandAuthoritySequence;
+    s.leftHandOwnershipId = q.leftHandOwnershipSequence;
+    s.leftHandAuthorityId = q.leftHandAuthoritySequence;
     s.leftHandCubeLocalPosition = new Vector3(q.leftHandCubeLocalPositionX, q.leftHandCubeLocalPositionY, q.leftHandCubeLocalPositionZ) * 1.0f / UnitsPerMeter;
     s.leftHandCubeLocalRotation = SmallestThreeToQuaternion(q.leftHandCubeLocalRotationLargest, q.leftHandCubeLocalRotationX, q.leftHandCubeLocalRotationY, q.leftHandCubeLocalRotationZ);
     s.rightHandPosition = new Vector3(q.rightHandPositionX, q.rightHandPositionY, q.rightHandPositionZ) * 1.0f / UnitsPerMeter;
@@ -336,8 +336,8 @@ public struct AvatarState {
     s.areRightHandThumbsUp = q.areRightHandThumbsUp;
     s.isRightHandHoldingCube = q.isRightHandHoldingCube;
     s.rightHandCubeId = q.rightHandCubeId;
-    s.rightHandOwnershipSequence = q.rightHandOwnershipSequence;
-    s.rightHandAuthoritySequence = q.rightHandAuthoritySequence;
+    s.rightHandOwnershipId = q.rightHandOwnershipSequence;
+    s.rightHandAuthorityId = q.rightHandAuthoritySequence;
     s.rightHandCubeLocalPosition = new Vector3(q.rightHandCubeLocalPositionX, q.rightHandCubeLocalPositionY, q.rightHandCubeLocalPositionZ) * 1.0f / UnitsPerMeter;
     s.rightHandCubeLocalRotation = SmallestThreeToQuaternion(q.rightHandCubeLocalRotationLargest, q.rightHandCubeLocalRotationX, q.rightHandCubeLocalRotationY, q.rightHandCubeLocalRotationZ);
     s.voiceAmplitude = q.voiceAmplitude * 1.0f / MaxVoice;
@@ -355,8 +355,8 @@ public struct AvatarState {
     s.areLeftHandThumbsUp = from.areLeftHandThumbsUp;
     s.isLeftHandHoldingCube = from.isLeftHandHoldingCube;
     s.leftHandCubeId = from.leftHandCubeId;
-    s.leftHandAuthoritySequence = from.leftHandAuthoritySequence;
-    s.leftHandOwnershipSequence = from.leftHandOwnershipSequence;
+    s.leftHandAuthorityId = from.leftHandAuthorityId;
+    s.leftHandOwnershipId = from.leftHandOwnershipId;
 
     if (from.isLeftHandHoldingCube == to.isLeftHandHoldingCube && from.leftHandCubeId == to.leftHandCubeId) {
       s.leftHandCubeLocalPosition = from.leftHandCubeLocalPosition * (1-time) + to.leftHandCubeLocalPosition * time;
@@ -374,8 +374,8 @@ public struct AvatarState {
     s.areRightHandThumbsUp = from.areRightHandThumbsUp;
     s.isRightHandHoldingCube = from.isRightHandHoldingCube;
     s.rightHandCubeId = from.rightHandCubeId;
-    s.rightHandAuthoritySequence = from.rightHandAuthoritySequence;
-    s.rightHandOwnershipSequence = from.rightHandOwnershipSequence;
+    s.rightHandAuthorityId = from.rightHandAuthorityId;
+    s.rightHandOwnershipId = from.rightHandOwnershipId;
 
     if (from.isRightHandHoldingCube == to.isRightHandHoldingCube && from.rightHandCubeId == to.rightHandCubeId) {
       s.rightHandCubeLocalPosition = from.rightHandCubeLocalPosition * (1-time) + to.rightHandCubeLocalPosition * time;
