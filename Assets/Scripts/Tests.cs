@@ -306,7 +306,7 @@ public static class Tests {
     const ushort ResetSequence = 1000;
     var buffer = new DeltaBuffer(DeltaBufferSize);
     var state = CubeState.defaults;    
-    var result = buffer.GetCube(Sequence, ResetSequence, 0, ref state);
+    var result = buffer.GetPacketCube(Sequence, ResetSequence, 0, ref state);
 
     IsTrue(result == false);    
     result = buffer.AddPacket(Sequence, ResetSequence); //now add an entry for the sequence number
@@ -326,7 +326,7 @@ public static class Tests {
 
     for (int i = 0; i < NumCubeStates; ++i) { //verify that we can find the cube state we added by cube id and sequence
       int cubeId = 10 + i * 10;
-      result = buffer.GetCube(Sequence, ResetSequence, cubeId, ref state);
+      result = buffer.GetPacketCube(Sequence, ResetSequence, cubeId, ref state);
       IsTrue(result);
       IsTrue(state.positionX == cubeStates[i].positionX);
     }    
@@ -341,7 +341,7 @@ public static class Tests {
 
       if (validCubeId) continue;
 
-      result = buffer.GetCube(Sequence, ResetSequence, i, ref state);
+      result = buffer.GetPacketCube(Sequence, ResetSequence, i, ref state);
       IsTrue(result == false);
     }    
 

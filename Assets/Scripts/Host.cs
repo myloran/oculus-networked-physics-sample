@@ -427,25 +427,25 @@ public class Host : Common {
     data.acking.AddUnackedPackets(ref header);
     DetermineNotChangedAndDeltas(context, data, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref baselineIds, ref cubes, ref cubeDeltas);
     DeterminePrediction(context, data, header.id, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubePredictions);
-    int id = 0;
+    int avatarCount = 0;
 
     for (int i = 0; i < MaxClients; ++i) {
       if (i == toClientId) continue;
 
       if (i == 0) {
-        localAvatar.GetComponent<Hands>().GetState(out avatars[id]); //grab state from the local avatar.
-        Quantize(ref avatars[id], out avatarsQuantized[id]);
-        id++;
+        localAvatar.GetComponent<Hands>().GetState(out avatars[avatarCount]); //grab state from the local avatar.
+        Quantize(ref avatars[avatarCount], out avatarsQuantized[avatarCount]);
+        avatarCount++;
       } else {
         var avatar = context.GetAvatar(i); //grab state from a remote avatar.
         if (!avatar) continue;
 
-        avatar.GetAvatarState(out avatars[id]);
-        Quantize(ref avatars[id], out avatarsQuantized[id]);
-        id++;
+        avatar.GetState(out avatars[avatarCount]);
+        Quantize(ref avatars[avatarCount], out avatarsQuantized[avatarCount]);
+        avatarCount++;
       }
     }
-    WriteUpdatePacket(ref header, id, ref avatarsQuantized, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref cubePredictions);
+    WriteUpdatePacket(ref header, avatarCount, ref avatarsQuantized, count, ref cubeIds, ref notChanged, ref hasDelta, ref perfectPrediction, ref hasPredictionDelta, ref baselineIds, ref cubes, ref cubeDeltas, ref cubePredictions);
 
     var packet = writeStream.GetData();
     AddPacketToDeltaBuffer(ref data.sendBuffer, header.id, context.resetId, count, ref cubeIds, ref cubes); //add the sent cube states to the send delta buffer

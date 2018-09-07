@@ -41,7 +41,7 @@ namespace Network {
       if (current > baseline)
         return current - baseline;
 
-      return (ushort)(((uint)current) + 65536 - baseline);
+      return (ushort)(((uint)current) + 65536 - baseline); //why we need to add 65536?
     }
 
     public static uint SwapBytes(uint value) 

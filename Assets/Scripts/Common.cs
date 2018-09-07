@@ -320,7 +320,12 @@ public class Common : MonoBehaviour {
 
     for (int i = 0; i < cubeCount; ++i) {
       if (notChanged[i]) {
-        if (buffer.GetCube(baselineId[i], resetId, cubeIds[i], ref baseline)) {
+        if (!buffer.GetPacketCube(baselineId[i], resetId, cubeIds[i], ref baseline)) {
+          Log("error: missing baseline for cube " + cubeIds[i] + " at packet " + baselineId[i] + " (not changed)");
+          result = false;
+          break;
+        }
+
 #if DEBUG_DELTA_COMPRESSION
           if ( baselineCubeState.position_x != cubeDelta[i].absolute_position_x )
           {
@@ -330,33 +335,29 @@ public class Common : MonoBehaviour {
           Assert.IsTrue( baselineCubeState.position_y == cubeDelta[i].absolute_position_y );
           Assert.IsTrue( baselineCubeState.position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
-          cubes[i] = baseline;
-        } else {
-          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineId[i] + " (not changed)");
+        cubes[i] = baseline;
+
+      } else if (hasDelta[i]) {
+        if (!buffer.GetPacketCube(baselineId[i], resetId, cubeIds[i], ref baseline)) {
+          Log("error: missing baseline for cube " + cubeIds[i] + " at packet " + baselineId[i] + " (delta)");
           result = false;
           break;
         }
-      } else if (hasDelta[i]) {
-        if (buffer.GetCube(baselineId[i], resetId, cubeIds[i], ref baseline)) {
-          cubes[i].positionX = baseline.positionX + deltas[i].positionX;
-          cubes[i].positionY = baseline.positionY + deltas[i].positionY;
-          cubes[i].positionZ = baseline.positionZ + deltas[i].positionZ;
+
+        cubes[i].positionX = baseline.positionX + deltas[i].positionX;
+        cubes[i].positionY = baseline.positionY + deltas[i].positionY;
+        cubes[i].positionZ = baseline.positionZ + deltas[i].positionZ;
 #if DEBUG_DELTA_COMPRESSION
           Assert.IsTrue( cubeState[i].position_x == cubeDelta[i].absolute_position_x );
           Assert.IsTrue( cubeState[i].position_y == cubeDelta[i].absolute_position_y );
           Assert.IsTrue( cubeState[i].position_z == cubeDelta[i].absolute_position_z );
 #endif // #if DEBUG_DELTA_COMPRESSION
-          cubes[i].linearVelocityX = baseline.linearVelocityX + deltas[i].linearVelocityX;
-          cubes[i].linearVelocityY = baseline.linearVelocityY + deltas[i].linearVelocityY;
-          cubes[i].linearVelocityZ = baseline.linearVelocityZ + deltas[i].linearVelocityZ;
-          cubes[i].angularVelocityX = baseline.angularVelocityX + deltas[i].angularVelocityX;
-          cubes[i].angularVelocityY = baseline.angularVelocityY + deltas[i].angularVelocityY;
-          cubes[i].angularVelocityZ = baseline.angularVelocityZ + deltas[i].angularVelocityZ;
-        } else {
-          Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineId[i] + " (delta)");
-          result = false;
-          break;
-        }
+        cubes[i].linearVelocityX = baseline.linearVelocityX + deltas[i].linearVelocityX;
+        cubes[i].linearVelocityY = baseline.linearVelocityY + deltas[i].linearVelocityY;
+        cubes[i].linearVelocityZ = baseline.linearVelocityZ + deltas[i].linearVelocityZ;
+        cubes[i].angularVelocityX = baseline.angularVelocityX + deltas[i].angularVelocityX;
+        cubes[i].angularVelocityY = baseline.angularVelocityY + deltas[i].angularVelocityY;
+        cubes[i].angularVelocityZ = baseline.angularVelocityZ + deltas[i].angularVelocityZ;
       }
     }
 #endif // #if !DISABLE_DELTA_COMPRESSION
@@ -504,7 +505,7 @@ public class Common : MonoBehaviour {
     for (int i = 0; i < cubeCount; ++i) {
       if (!hasPerfectPrediction[i] && !hasPrediction[i]) continue;
 
-      if (!buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
+      if (!buffer.GetPacketCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
         Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineIds[i] + " (perfect prediction and prediction delta)");
         result = false;
         break;
@@ -602,7 +603,7 @@ public class Common : MonoBehaviour {
     for (int i = 0; i < cubeCount; ++i) {
       if (!hasDelta[i]) continue;
 
-        var result = buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baseline);
+        var result = buffer.GetPacketCube(baselineIds[i], resetId, cubeIds[i], ref baseline);
         IsTrue(result);
 
       if (result) {

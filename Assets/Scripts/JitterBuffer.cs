@@ -128,7 +128,7 @@ public class JitterBuffer {
     count = 0;
     resetId = 0;    
     var frame = (long)Math.Floor(initialFrame + time * PhysicsFrameRate);
-    if (frame < 0.0) return false; //if interpolation frame is negative, it's too early to display anything
+    if (frame < 0.0) return false; //if interpolation frame is negative, it's too early to display anything(reset)
 
     const int n = 16;
 
@@ -145,8 +145,7 @@ public class JitterBuffer {
         if (entry == null) continue;
 
         var sampleTime = (i - initialFrame) * (1.0 / PhysicsFrameRate) + entry.header.timeOffset;
-        if (time < sampleTime || time > sampleTime + (1.0f / PhysicsFrameRate))
-          continue;
+        if (time < sampleTime || time > sampleTime + (1.0f / PhysicsFrameRate)) continue;
 
         startFrame = i;
         endFrame = i;
@@ -255,7 +254,7 @@ public class JitterBuffer {
     for (int i = 0; i < cubeCount; ++i) {
       if (!hasPerfectPrediction[i] && !hasPrediction[i]) continue;
 
-      if (!buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
+      if (!buffer.GetPacketCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
         Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineIds[i] + " (perfect prediction and prediction delta)");
         result = false;
         break;
@@ -334,7 +333,7 @@ public class JitterBuffer {
 
     for (int i = 0; i < cubeCount; ++i) {
       if (notChanged[i]) {
-        if (buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
+        if (buffer.GetPacketCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
           Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineIds[i] + " (not changed)");
           result = false;
           break;
@@ -351,7 +350,7 @@ public class JitterBuffer {
         cubes[i] = baseline;
 
       } else if (hasDelta[i]) {
-        if (buffer.GetCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
+        if (buffer.GetPacketCube(baselineIds[i], resetId, cubeIds[i], ref baseline)) {
           Debug.Log("error: missing baseline for cube " + cubeIds[i] + " at sequence " + baselineIds[i] + " (delta)");
           result = false;
           break;

@@ -102,7 +102,7 @@ public class RemoteAvatar : OvrAvatarDriver {
     cube.heldFrame = (long)context.simulationFrame;
   }
 
-  public bool GetAvatarState(out AvatarState s) {
+  public bool GetState(out AvatarState s) {
     Initialize(out s, clientId, pose, leftHand.grip, rightHand.grip);
     return true;
   }

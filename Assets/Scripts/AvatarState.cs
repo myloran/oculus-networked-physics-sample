@@ -140,10 +140,10 @@ public struct AvatarState {
 
     if (leftHandHeldObj) {
       s.isLeftHandHoldingCube = true;
-      var network = leftHandHeldObj.GetComponent<NetworkCube>();
-      s.leftHandCubeId = network.cubeId;
-      s.leftHandAuthorityId = network.authorityPacketId;
-      s.leftHandOwnershipId = network.ownershipId;
+      var cube = leftHandHeldObj.GetComponent<NetworkCube>();
+      s.leftHandCubeId = cube.cubeId;
+      s.leftHandAuthorityId = cube.authorityPacketId;
+      s.leftHandOwnershipId = cube.ownershipId;
       s.leftHandCubeLocalPosition = leftHandHeldObj.transform.localPosition;
       s.leftHandCubeLocalRotation = leftHandHeldObj.transform.localRotation;
     } else {

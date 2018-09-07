@@ -76,7 +76,7 @@ public class DeltaBuffer {
     return true;
   }
 
-  public bool GetCube(ushort packetId, ushort resetId, int cubeId, ref CubeState state) {
+  public bool GetPacketCube(ushort packetId, ushort resetId, int cubeId, ref CubeState state) {
     int id = buffer.Get(packetId);
     if (id == -1) return false;
     if (buffer.entries[id].resetId != resetId) return false;

@@ -385,7 +385,7 @@ public class Loopback: Common
                     var remoteAvatar = context.GetAvatar( i );
                     if ( remoteAvatar )
                     {
-                        remoteAvatar.GetAvatarState( out avatars[numAvatarStates] );
+                        remoteAvatar.GetState( out avatars[numAvatarStates] );
                         numAvatarStates++;
                     }
                 }
@@ -403,7 +403,7 @@ public class Loopback: Common
             }
             else
             {
-                GetContext( fromClientIndex ).GetAvatar( fromClientIndex ).GetAvatarState( out avatars[0] );
+                GetContext( fromClientIndex ).GetAvatar( fromClientIndex ).GetState( out avatars[0] );
             }
         }
 
