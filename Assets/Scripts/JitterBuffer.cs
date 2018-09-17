@@ -48,7 +48,7 @@ public class JitterBuffer {
     endTime;
 
   long 
-    initialFrame,
+    packetFrame,
     startFrame,
     endFrame;
 
@@ -58,7 +58,7 @@ public class JitterBuffer {
 
   public void Reset() {
     time = -1.0;
-    initialFrame = 0;
+    packetFrame = 0;
     isInterpolating = false;
     startFrame = 0;
     startTime = 0.0;
@@ -103,7 +103,7 @@ public class JitterBuffer {
 
   public void Start(long initialFrame) {
     time = 0.0;
-    this.initialFrame = initialFrame;
+    packetFrame = initialFrame;
     isInterpolating = false;
   }
 
@@ -126,8 +126,8 @@ public class JitterBuffer {
 
   public bool GetInterpolatedAvatars(ref AvatarState[] avatar, out int count, out ushort resetId) {
     count = 0;
-    resetId = 0;    
-    var frame = (long)Math.Floor(initialFrame + time * PhysicsFrameRate);
+    resetId = 0;
+    var frame = (long)Math.Floor(packetFrame + time * PhysicsFrameRate);
     if (frame < 0.0) return false; //if interpolation frame is negative, it's too early to display anything(reset)
 
     const int n = 16;
@@ -144,7 +144,7 @@ public class JitterBuffer {
         var entry = GetEntry((uint)i);
         if (entry == null) continue;
 
-        var sampleTime = (i - initialFrame) * (1.0 / PhysicsFrameRate) + entry.header.timeOffset;
+        var sampleTime = (i - packetFrame) / PhysicsFrameRate + entry.header.timeOffset;
         if (time < sampleTime || time > sampleTime + (1.0f / PhysicsFrameRate)) continue;
 
         startFrame = i;
@@ -167,7 +167,7 @@ public class JitterBuffer {
         var entry = GetEntry((uint)(startFrame + 1 + i));
         if (entry == null) continue;
 
-        var sampleTime = (startFrame + 1 + i - initialFrame) * (1.0 / PhysicsFrameRate) + entry.header.timeOffset;
+        var sampleTime = (startFrame + 1 + i - packetFrame) / PhysicsFrameRate + entry.header.timeOffset;
         if (sampleTime < time) continue;
 
         endFrame = startFrame + 1 + i;
