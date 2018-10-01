@@ -389,23 +389,13 @@ public class Common : MonoBehaviour {
       if (id < baselineIds[i])
         id += 65536;
 
-      int positionX;
-      int positionY;
-      int positionZ;
-      int linearVelocityX;
-      int linearVelocityY;
-      int linearVelocityZ;
-      int angularVelocityX;
-      int angularVelocityY;
-      int angularVelocityZ;
-
       Prediction.PredictBallistic(id - baselineIds[i],
         baseline.positionX, baseline.positionY, baseline.positionZ,
         baseline.linearVelocityX, baseline.linearVelocityY, baseline.linearVelocityZ,
         baseline.angularVelocityX, baseline.angularVelocityY, baseline.angularVelocityZ,
-        out positionX, out positionY, out positionZ,
-        out linearVelocityX, out linearVelocityY, out linearVelocityZ,
-        out angularVelocityX, out angularVelocityY, out angularVelocityZ);
+        out int positionX, out int positionY, out int positionZ,
+        out int linearVelocityX, out int linearVelocityY, out int linearVelocityZ,
+        out int angularVelocityX, out int angularVelocityY, out int angularVelocityZ);
 
       int positionLagX = cubes[i].positionX - positionX;
       int positionLagY = cubes[i].positionY - positionY;
@@ -519,23 +509,13 @@ public class Common : MonoBehaviour {
       if (id < baselineIds[i])
         id += 65536;
 
-      int positionX;
-      int positionY;
-      int positionZ;
-      int linearVelocityX;
-      int linearVelocityY;
-      int linearVelocityZ;
-      int angularVelocityX;
-      int angularVelocityY;
-      int angularVelocityZ;
-
       Prediction.PredictBallistic(id - baselineIds[i],
         baseline.positionX, baseline.positionY, baseline.positionZ,
         baseline.linearVelocityX, baseline.linearVelocityY, baseline.linearVelocityZ,
         baseline.angularVelocityX, baseline.angularVelocityY, baseline.angularVelocityZ,
-        out positionX, out positionY, out positionZ,
-        out linearVelocityX, out linearVelocityY, out linearVelocityZ,
-        out angularVelocityX, out angularVelocityY, out angularVelocityZ);
+        out int positionX, out int positionY, out int positionZ,
+        out int linearVelocityX, out int linearVelocityY, out int linearVelocityZ,
+        out int angularVelocityX, out int angularVelocityY, out int angularVelocityZ);
 
       if (hasPerfectPrediction[i]) {
 #if DEBUG_DELTA_COMPRESSION
